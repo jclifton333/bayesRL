@@ -1,5 +1,46 @@
+from scipy.stats import norm
 import numpy as np
 import copy
+
+
+def normal_ts_policy_probabilities(action, mu_0, sigma_sq_0, mu_1, sigma_sq_1):
+  """
+  Get probability of actions 0 and 1 at given context under truncated TS policy for 2-armed normal CB.
+
+  :param action: 0 or 1.
+  :param mu_0: context . beta_hat_0
+  :param sigma_sq_0: context. sample_cov_0 .context * truncation_function
+  :param mu_1:
+  :param sigma_sq_1:
+  :return:
+  """
+  action_0_prob = 1 - norm.cdf((mu_1 - mu_0) / (sigma_sq_0 + sigma_sq_1))
+  return (1 - action)*action_0_prob + action*(1 - action_0_prob)
+
+
+def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1, beta_hat_1,
+                              truncation_function, truncation_function_derivative, T, t, zeta):
+  """
+  Policy gradient for a two-armed normal contextual bandit where policy is (soft) truncated TS.
+  :return:
+  """
+  truncation_function_value = truncation_function(T - t, zeta)
+
+  # Policy prob is prob one normal dbn is bigger than another
+  mu_0 = np.dot(context, beta_hat_0)
+  mu_1 = np.dot(context, beta_hat_1)
+  sigma_sq_0 = truncation_function_value * np.dot(context, np.dot(sample_cov_hat_0, context))
+  sigma_sq_1 = truncation_function_value * np.dot(context, np.dot(sample_cov_hat_1, context))
+
+  # Chain rule on 1 - Phi(diff)
+  diff = (mu_1 - mu_0) / (sigma_sq_0 + sigma_sq_1)
+  phi_diff = norm.pdf(diff)
+  sigma_sq_sum_grad = np.power(sigma_sq_1 + sigma_sq_0, -1) * (sigma_sq_0 + sigma_sq_1) * \
+                      truncation_function_derivative(T-t, zeta) / truncation_function_value
+  gradient = phi_diff * sigma_sq_sum_grad
+
+  return gradient
+
 
 
 def sherman_woodbury(A_inv, u, v):
