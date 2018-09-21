@@ -3,6 +3,7 @@ Policies in which exploration/exploitation tradeoff is parameterized and tuned (
 """
 
 from scipy.stats import norm
+from scipy.special import expit
 import numpy as np
 import copy
 
@@ -23,7 +24,8 @@ def normal_ts_policy_probabilities(action, mu_0, sigma_sq_0, mu_1, sigma_sq_1):
 
 
 def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1, beta_hat_1,
-                              truncation_function, truncation_function_derivative, T, t, zeta):
+                              true_beta_0, true_beta_1, truncation_function, truncation_function_derivative, T, t,
+                              zeta):
   """
 
   Policy gradient for a two-armed normal contextual bandit where policy is (soft) truncated TS.
@@ -46,7 +48,9 @@ def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sam
   phi_diff = norm.pdf(diff)
   sigma_sq_sum_grad = np.power(sigma_sq_1 + sigma_sq_0, -1) * (sigma_sq_0 + sigma_sq_1) * \
                                truncation_function_derivative(T-t, zeta) / truncation_function_value
-  gradient = phi_diff * sigma_sq_sum_grad * (action*mu_1 + (1 - action)*mu_0)
+  true_expected_reward_0 = np.dot(context, true_beta_0)
+  true_expected_reward_1 = np.dot(context, true_beta_1)
+  gradient = phi_diff * sigma_sq_sum_grad * (action*true_expected_reward_1 + (1 - action)*true_expected_reward_0)
 
   return gradient
 
@@ -104,12 +108,11 @@ def update_linear_model_at_action(a, linear_model_results, x_new, y_new):
   return linear_model_results
 
 
-def truncated_thompson_sampling(env, linear_model_results, time_horizon, current_time, estimated_context_mean,
-                                estimated_context_variance, truncation_function, truncation_function_gradient,
-                                initial_zeta):
+def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current_time, estimated_context_mean,
+                                     estimated_context_variance, truncation_function, truncation_function_gradient,
+                                     initial_zeta):
   """
 
-  :param env:
   :param linear_model_results: dictionary of lists of quantities related to estimated linear models for each action.
   :param time_horizon: 
   :param current_time:
@@ -131,9 +134,15 @@ def truncated_thompson_sampling(env, linear_model_results, time_horizon, current
   policy_gradient = np.zeros(zeta_dimension)
 
   while it < MAX_ITER:
+    # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
     working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
-    rollout_linear_model_results = copy.copy(linear_model_results)
+    beta_hat = linear_model_results['beta_hat_list'].flatten()
+    estimated_beta_hat_variance = np.vstack(linear_model_results['sample_cov_list'])
+    working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
+    working_beta = working_beta.reshape((number_of_actions, context_dimension))
+    working_sigma_hats = linear_model_results['sigma_hat_list']
 
+    rollout_linear_model_results = copy.copy(linear_model_results)
     for time in range(current_time + 1, time_horizon):
       # Draw beta
       shrinkage = truncation_function(time_horizon - time, zeta)
@@ -147,10 +156,12 @@ def truncated_thompson_sampling(env, linear_model_results, time_horizon, current
       # Draw context
       context = np.random.multivariate_normal(working_context_mean, cov=np.eye(context_dimension))
 
-      # Get action from predicted_rewards
+      # Get action from predicted_rewards and get resulting reward
       predicted_rewards = np.dot(beta, context)
       action = np.argmax(predicted_rewards)
-      reward = env.step(action)
+      working_beta_at_action = working_beta[action, :]
+      working_sigma_hat_at_action = working_sigma_hats[action]
+      reward = np.dot(working_beta_at_action, context) + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
 
       # Update policy gradient
       sample_cov_hat_0 = rollout_linear_model_results['sample_cov_list'][0]
@@ -162,8 +173,8 @@ def truncated_thompson_sampling(env, linear_model_results, time_horizon, current
                                                    beta_hat_1, truncation_function, truncation_function_gradient, T,
                                                    t, zeta)
       policy_gradient += normal_ts_policy_gradient(1, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1,
-                                                   beta_hat_1, truncation_function, truncation_function_gradient, T,
-                                                   t, zeta)
+                                                   beta_hat_1, working_beta[0, :], working_beta[1, :],
+                                                   truncation_function, truncation_function_gradient, T, t, zeta)
 
       # Update linear model
       rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
@@ -176,4 +187,12 @@ def truncated_thompson_sampling(env, linear_model_results, time_horizon, current
   return zeta
 
 
+# For truncation functions
+def expit_truncate(T, t, zeta):
+  return expit(zeta[0] + zeta[1] * (T - t))
 
+
+def expit_truncate_gradient(T, t, zeta):
+  exp_argument = zeta[0] + zeta[1] * (T - t)
+  exp_ = np.exp(exp_argument)
+  return exp_ / np.power(1 + exp_, 2) * zeta

@@ -1,6 +1,7 @@
 from src.environments.Bandit import NormalCB
-from src.policies.tuned_bandit_policies import truncated_thompson_sampling
+from src.policies import tuned_bandit_policies as tuned_bandit
 import numpy as np
+from scipy.linalg import block_diag
 
 
 def main():
@@ -9,10 +10,16 @@ def main():
 
   :return:
   """
+
   # Simulation settings
   replicates = 50
   T = 25
+  truncation_function = tuned_bandit.expit_truncate
+  truncation_function_gradient = tuned_bandit.expit_truncate_gradient
+  zeta = np.array([-5, 0.3])  # Initial truncation function parameters
   env = NormalCB()
+
+  rewards = np.zeros((replicates, T))
 
   # Run sims
   for replicate in range(replicates):
@@ -52,10 +59,24 @@ def main():
     estimated_context_variance = np.cov(X)
 
     for t in range(T):
-      zeta = truncated_thompson_sampling(env, linear_model_results, T, t, estimated_context_mean,
-                                         estimated_context_variance, truncation_function, truncation_function_gradient,
-                                         zeta)
+      # Get exploration parameter
+      zeta = tuned_bandit.tune_truncated_thompson_sampling(linear_model_results, T, t, estimated_context_mean,
+                                                           estimated_context_variance, truncation_function,
+                                                           truncation_function_gradient, zeta)
+      shrinkage = truncation_function(T-t, zeta)
 
+      # Sample beta
+      beta_hat = linear_model_results['beta_hat_list'].flatten()
+      sample_cov_hat = block_diag(linear_model_results['sample_cov_list'])
+      beta_tilde = np.random.multivariate_normal(beta_hat, sample_cov_hat * shrinkage)
 
+      # Get reward
+      beta_tilde = beta_tilde.reshape((env.number_of_actions, env.context_dimension))
+      estimated_rewards = np.dot(env.current_context, beta_tilde)
+      a = np.argmax(estimated_rewards)
+      u = env.step(a)
+      rewards[replicate, t] = u
+
+  return rewards
 
 
