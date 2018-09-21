@@ -74,9 +74,9 @@ def main():
       estimated_rewards = np.dot(beta_hat, env.curr_context)
       eps = np.random.rand()
       epsilon = epsilon_fix
-#      if epsilon_decay == True:
-#        if t > T/3.0:
-#          epsilon = epsilon_fix**(t/(T/3.0))
+      if epsilon_decay == True:
+        if t > T/3.0:
+          epsilon = epsilon_fix**(t/(T/3.0))
               
       if eps < epsilon:
         a = np.random.choice(env.number_of_actions)
@@ -84,7 +84,7 @@ def main():
         a = np.argmax(estimated_rewards)
       step_results = env.step(a)
       reward = step_results['Utility']
-      rewards[replicate, t] = reward
+#      rewards[replicate, t] = reward
       
       # Get regret
 #      beta_true = env.list_of_reward_betas
@@ -111,6 +111,7 @@ ax.plot(np.mean(rewards,axis=0))
 ax.fill_between(range(T), np.mean(rewards,axis=0)- np.std(rewards,axis=0),  
                 np.mean(rewards,axis=0)+ np.std(rewards,axis=0), 
                 facecolor='m', alpha=0.5)
+mean_cum = np.mean(np.sum(rewards, axis=1))
 cum_regret = np.sum(rewards, axis=1)
 plt.hist(cum_regret)
 print(sum(rewards.T))
