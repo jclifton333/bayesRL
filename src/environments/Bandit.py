@@ -55,7 +55,7 @@ class BernoulliMAB(Bandit):
    
      
 class NormalCB(Bandit):
-  def __init__ (self, list_of_reward_betas=[[1,1],[2,2]], list_of_reward_vars=[[0],[1]], 
+  def __init__ (self, list_of_reward_betas=[[1,1],[2,2]], list_of_reward_vars=[[1],[1]], 
                 context_mean=[0,0], context_var=np.array([[1., 0.1],[0.1, 1.]]) ):
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
