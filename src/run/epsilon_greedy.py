@@ -21,11 +21,12 @@ def main():
   """
 
   # Simulation settings
-  replicates = 100
+  replicates = 100 
   T = 25
-  env = NormalCB()
+  env = NormalCB(list_of_reward_betas=[[1,1],[2,2]], list_of_reward_vars=[[1],[1]])
 
   rewards = np.zeros((replicates, T))
+  regrets = np.zeros((replicates, T))
   epsilon_decay = False
   epsilon_fix = 0.05
   # Run sims
@@ -84,6 +85,15 @@ def main():
       step_results = env.step(a)
       reward = step_results['Utility']
       rewards[replicate, t] = reward
+      
+      # Get regret
+#      beta_true = env.list_of_reward_betas
+#      regret = np.dot(beta_true, x)-reward
+#      regrets[replicate, t] = regret      
+           
+      oracle_expected_reward = np.max((np.dot(x, env.list_of_reward_betas[0]), np.dot(x, env.list_of_reward_betas[1])))
+      regret = oracle_expected_reward - np.dot(x, env.list_of_reward_betas[a])
+      rewards[replicate, t] = regret
 
       # Update linear model
       linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
@@ -101,8 +111,11 @@ ax.plot(np.mean(rewards,axis=0))
 ax.fill_between(range(T), np.mean(rewards,axis=0)- np.std(rewards,axis=0),  
                 np.mean(rewards,axis=0)+ np.std(rewards,axis=0), 
                 facecolor='m', alpha=0.5)
+cum_regret = np.sum(rewards, axis=1)
+plt.hist(cum_regret)
 print(sum(rewards.T))
-print(np.mean(rewards))
+print(np.std(sum(rewards[:,:25].T)))
+print(np.mean(rewards[:,:25]))
 
 
 ax.set_title('Linear VS Loc_Linear'.format('seaborn'), color='C0')
