@@ -24,12 +24,12 @@ def main():
   # Simulation settings
   replicates = 100
   T = 25
-  truncate = False
+  truncate = True
   if truncate:
     truncation_function = tuned_bandit.expit_truncate
     truncation_function_gradient = tuned_bandit.expit_truncate_gradient
     zeta = np.array([-5, 0.3])  # Initial truncation function parameters
-  env = NormalCB()
+  env = NormalCB(list_of_reward_betas=[np.array([1.0, 1.0]), np.array([1.2, 1.2])])
 
   rewards = np.zeros((replicates, T))
 
@@ -65,6 +65,7 @@ def main():
       linear_model_results['X_dot_y_list'].append(X_dot_y_a)
       linear_model_results['sample_cov_list'].append(sample_cov_a)
       linear_model_results['sigma_hat_list'].append(sigma_hat_a)
+
     # Estimate context mean and variance
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
@@ -93,7 +94,6 @@ def main():
       a = np.argmax(estimated_rewards)
       step_results = env.step(a)
       reward = step_results['Utility']
-
 
       # Compute regret
       oracle_expected_reward = np.max((np.dot(x, env.list_of_reward_betas[0]), np.dot(x, env.list_of_reward_betas[1])))

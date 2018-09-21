@@ -27,8 +27,8 @@ def main():
 
   rewards = np.zeros((replicates, T))
   regrets = np.zeros((replicates, T))
-  epsilon_decay = False
-  epsilon_fix = 0.05
+  epsilon_decay = True
+  epsilon_fix = 0.50
   # Run sims
   for replicate in range(replicates):
     env.reset()
@@ -74,7 +74,7 @@ def main():
       estimated_rewards = np.dot(beta_hat, env.curr_context)
       eps = np.random.rand()
       epsilon = epsilon_fix
-      if epsilon_decay == True:
+      if epsilon_decay == False:
         if t > T/3.0:
           epsilon = epsilon_fix**(t/(T/3.0))
               
@@ -98,6 +98,8 @@ def main():
       # Update linear model
       linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
 
+  regret = np.sum(rewards, axis=1)
+  print('mean regret {} std regret {}'.format(np.mean(regret), np.std(regret)))
   return rewards
 
 
@@ -105,24 +107,24 @@ if __name__ == '__main__':
   main()
 
 
-mpl.style.use('seaborn')
-fig, ax = plt.subplots(figsize=(5, 5))
-ax.plot(np.mean(rewards,axis=0))
-ax.fill_between(range(T), np.mean(rewards,axis=0)- np.std(rewards,axis=0),  
-                np.mean(rewards,axis=0)+ np.std(rewards,axis=0), 
-                facecolor='m', alpha=0.5)
-mean_cum = np.mean(np.sum(rewards, axis=1))
-cum_regret = np.sum(rewards, axis=1)
-plt.hist(cum_regret)
-print(sum(rewards.T))
-print(np.std(sum(rewards[:,:25].T)))
-print(np.mean(rewards[:,:25]))
-
-
-ax.set_title('Linear VS Loc_Linear'.format('seaborn'), color='C0')
-ax.set_ylabel('Timesteps')
-ax.set_xlabel('Episodes')
-ax.plot(num_steps_Loc, 'C'+str(1), label='Linear')
-ax.plot(range(100), 'C2', label='Local linear')
-ax.legend()
-plt.savefig('Linear_Loc.png')
+# mpl.style.use('seaborn')
+# fig, ax = plt.subplots(figsize=(5, 5))
+# ax.plot(np.mean(rewards,axis=0))
+# ax.fill_between(range(T), np.mean(rewards,axis=0)- np.std(rewards,axis=0),
+#                 np.mean(rewards,axis=0)+ np.std(rewards,axis=0),
+#                 facecolor='m', alpha=0.5)
+# mean_cum = np.mean(np.sum(rewards, axis=1))
+# cum_regret = np.sum(rewards, axis=1)
+# plt.hist(cum_regret)
+# print(sum(rewards.T))
+# print(np.std(sum(rewards[:,:25].T)))
+# print(np.mean(rewards[:,:25]))
+#
+#
+# ax.set_title('Linear VS Loc_Linear'.format('seaborn'), color='C0')
+# ax.set_ylabel('Timesteps')
+# ax.set_xlabel('Episodes')
+# ax.plot(num_steps_Loc, 'C'+str(1), label='Linear')
+# ax.plot(range(100), 'C2', label='Local linear')
+# ax.legend()
+# plt.savefig('Linear_Loc.png')

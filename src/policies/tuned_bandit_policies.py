@@ -143,11 +143,11 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
     # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
     working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
     beta_hat = np.hstack(linear_model_results['beta_hat_list'])
-    # estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
-    #                                          linear_model_results['sample_cov_list'][1])
-    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
-    # working_beta = working_beta.reshape((number_of_actions, context_dimension))
-    working_beta = beta_hat.reshape((number_of_actions, context_dimension))
+    estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
+                                             linear_model_results['sample_cov_list'][1])
+    working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
+    working_beta = working_beta.reshape((number_of_actions, context_dimension))
+    # working_beta = beta_hat.reshape((number_of_actions, context_dimension))
     working_sigma_hats = linear_model_results['sigma_hat_list']
     rollout_linear_model_results = copy.copy(linear_model_results)
     for time in range(current_time + 1, time_horizon):
