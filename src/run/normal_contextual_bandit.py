@@ -50,12 +50,11 @@ def main():
       U_a = U[indices_for_a]
 
       Xprime_X_inv_a = np.linalg.inv(np.dot(X_a.T, X_a))
-      X_dot_y_a = np.dot(X_a, U_a)
+      X_dot_y_a = np.dot(X_a.T, U_a)
       beta_hat_a = np.dot(Xprime_X_inv_a, X_dot_y_a)
-      yhat_a = np.dot(X_dot_y_a, beta_hat_a)
+      yhat_a = np.dot(X_a, beta_hat_a)
       sigma_hat_a = np.sum((U_a - yhat_a)**2)
       sample_cov_a = sigma_hat_a * Xprime_X_inv_a
-
       # Add to linear model results
       linear_model_results['beta_hat_list'].append(beta_hat_a)
       linear_model_results['Xprime_X_inv_list'].append(Xprime_X_inv_a)
@@ -63,7 +62,6 @@ def main():
       linear_model_results['X_dot_y_list'].append(X_dot_y_a)
       linear_model_results['sample_cov_list'].append(sample_cov_a)
       linear_model_results['sigma_hat_list'].append(sigma_hat_a)
-
     # Estimate context mean and variance
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
@@ -92,7 +90,7 @@ def main():
 
       # Update linear model
       linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
-
+    print('cumulative rewards: {}'.format(np.sum(rewards[replicate, :])))
   return rewards
 
 

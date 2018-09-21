@@ -53,7 +53,6 @@ def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sam
   true_expected_reward_0 = np.dot(context, true_beta_0)
   true_expected_reward_1 = np.dot(context, true_beta_1)
   gradient = phi_diff * sigma_sq_sum_grad * (action*true_expected_reward_1 + (1 - action)*true_expected_reward_0)
-
   return gradient
 
 
@@ -100,7 +99,7 @@ def update_linear_model_at_action(a, linear_model_results, x_new, y_new):
   :param linear_model_results:
   :param x_new
   :param y_new:
-  :return:
+  :returnpdb.set_trace()
   """
   X_a = linear_model_results['X_list'][a]
   Xprime_X_inv_a = linear_model_results['Xprime_X_inv_list'][a]
@@ -128,15 +127,19 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
   :return: 
   """
   MAX_ITER = 100
+  TOL = 0.01
   it = 0
 
-  zeta = initial_zeta
+  new_zeta = initial_zeta
   number_of_actions = len(estimated_context_mean)
   context_dimension = len(estimated_context_mean)
-  zeta_dimension = len(zeta)
+  zeta_dimension = len(new_zeta)
   policy_gradient = np.zeros(zeta_dimension)
+  diff = float('inf')
 
-  while it < MAX_ITER:
+  while it < MAX_ITER and diff > TOL:
+    zeta = new_zeta
+
     # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
     working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
     beta_hat = np.hstack(linear_model_results['beta_hat_list'])
@@ -145,7 +148,6 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
     working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
     working_beta = working_beta.reshape((number_of_actions, context_dimension))
     working_sigma_hats = linear_model_results['sigma_hat_list']
-
     rollout_linear_model_results = copy.copy(linear_model_results)
     for time in range(current_time + 1, time_horizon):
       # Draw beta
@@ -186,11 +188,12 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
       rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
                                                                    reward)
     # Update zeta
-    step_size = 1.0 / (it + 1)
-    pdb.set_trace()
-    zeta += step_size * policy_gradient
-    print("zeta: {}".format(zeta))
-    if not (0.01 < truncation_function(time_horizon, time, zeta) < 0.99):  # For stability
+    step_size = 1e-3 / (it + 1)
+    new_zeta = zeta + step_size * policy_gradient
+    diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
+    # print("zeta: {}".format(zeta))
+    if not (0.01 < truncation_function(time_horizon, current_time, zeta) < 0.99):  # For stability
+      zeta = new_zeta
       break
     it += 1
 
