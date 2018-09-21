@@ -1,3 +1,7 @@
+"""
+Policies in which exploration/exploitation tradeoff is parameterized and tuned (TS, UCB, ..?).
+"""
+
 from scipy.stats import norm
 import numpy as np
 import copy
