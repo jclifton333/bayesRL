@@ -78,7 +78,7 @@ def update_linear_model(X, Xprime_X_inv, x_new, X_dot_y, y_new):
   sample_cov = sigma_hat * np.dot(X_new, np.dot(Xprime_X_inv_new, X_new.T))
 
   return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'X_dot_y': X_dot_y_new,
-          'sample_cov': sample_cov}
+          'sample_cov': sample_cov, 'sigma_hat': sigma_hat}
 
 
 def add_linear_model_results_at_action_to_dictionary(a, linear_model_results, linear_model_results_for_action):
@@ -87,6 +87,7 @@ def add_linear_model_results_at_action_to_dictionary(a, linear_model_results, li
   linear_model_results['X_list'][a] = linear_model_results_for_action['X']
   linear_model_results['X_dot_y_list'][a] = linear_model_results_for_action['X_dot_y']
   linear_model_results['sample_cov_list'][a] = linear_model_results_for_action['sample_cov']
+  linear_model_results['sigma_hat_list'][a] = linear_model_results_for_action['sigma_hat']
   return linear_model_results
 
 
@@ -138,8 +139,9 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
   while it < MAX_ITER:
     # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
     working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
-    beta_hat = linear_model_results['beta_hat_list'].flatten()
-    estimated_beta_hat_variance = np.vstack(linear_model_results['sample_cov_list'])
+    beta_hat = np.hstack(linear_model_results['beta_hat_list'])
+    estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
+                                             linear_model_results['sample_cov_list'][1])
     working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
     working_beta = working_beta.reshape((number_of_actions, context_dimension))
     working_sigma_hats = linear_model_results['sigma_hat_list']
@@ -147,10 +149,11 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
     rollout_linear_model_results = copy.copy(linear_model_results)
     for time in range(current_time + 1, time_horizon):
       # Draw beta
-      shrinkage = truncation_function(time_horizon - time, zeta)
+      shrinkage = truncation_function(time_horizon, time, zeta)
 
-      beta_hat = rollout_linear_model_results['beta_hat_list'].flatten()
-      estimated_beta_hat_variance = block_diag(rollout_linear_model_results['sample_cov_list'])
+      beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list'])
+      estimated_beta_hat_variance = block_diag(rollout_linear_model_results['sample_cov_list'][0],
+                                               rollout_linear_model_results['sample_cov_list'][1])
 
       beta = np.random.multivariate_normal(beta_hat, shrinkage * estimated_beta_hat_variance)
       beta = beta.reshape((number_of_actions, context_dimension))
