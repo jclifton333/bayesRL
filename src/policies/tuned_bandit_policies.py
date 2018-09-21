@@ -1,5 +1,54 @@
+"""
+Policies in which exploration/exploitation tradeoff is parameterized and tuned (TS, UCB, ..?).
+"""
+
+from scipy.stats import norm
 import numpy as np
 import copy
+
+
+def normal_ts_policy_probabilities(action, mu_0, sigma_sq_0, mu_1, sigma_sq_1):
+  """
+  Get probability of actions 0 and 1 at given context under truncated TS policy for 2-armed normal CB.
+
+  :param action: 0 or 1.
+  :param mu_0: context . beta_hat_0
+  :param sigma_sq_0: context. sample_cov_0 .context * truncation_function
+  :param mu_1:
+  :param sigma_sq_1:
+  :return:
+  """
+  action_0_prob = 1 - norm.cdf((mu_1 - mu_0) / (sigma_sq_0 + sigma_sq_1))
+  return (1 - action)*action_0_prob + action*(1 - action_0_prob)
+
+
+def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1, beta_hat_1,
+                              truncation_function, truncation_function_derivative, T, t, zeta):
+  """
+
+  Policy gradient for a two-armed normal contextual bandit where policy is (soft) truncated TS.
+  :return:
+  """
+  truncation_function_value = truncation_function(T - t, zeta)
+
+  # Policy prob is prob one normal dbn is bigger than another
+  mu_0 = np.dot(context, beta_hat_0)
+  mu_1 = np.dot(context, beta_hat_1)
+  sigma_sq_0 = truncation_function_value * np.dot(context, np.dot(sample_cov_hat_0, context))
+  sigma_sq_1 = truncation_function_value * np.dot(context, np.dot(sample_cov_hat_1, context))
+
+  if action:
+    diff = (mu_0 - mu_1) / (sigma_sq_0 + sigma_sq_1)
+  else:
+    diff = (mu_1 - mu_0) / (sigma_sq_0 + sigma_sq_1)
+
+  # Chain rule on 1 - Phi(diff)
+  phi_diff = norm.pdf(diff)
+  sigma_sq_sum_grad = np.power(sigma_sq_1 + sigma_sq_0, -1) * (sigma_sq_0 + sigma_sq_1) * \
+                               truncation_function_derivative(T-t, zeta) / truncation_function_value
+  gradient = phi_diff * sigma_sq_sum_grad * (action*mu_1 + (1 - action)*mu_0)
+
+  return gradient
 
 
 def sherman_woodbury(A_inv, u, v):
@@ -74,9 +123,12 @@ def truncated_thompson_sampling(env, linear_model_results, time_horizon, current
   """
   MAX_ITER = 100
   it = 0
+
   zeta = initial_zeta
   number_of_actions = len(estimated_context_mean)
   context_dimension = len(estimated_context_mean)
+  zeta_dimension = len(zeta)
+  policy_gradient = np.zeros(zeta_dimension)
 
   while it < MAX_ITER:
     working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
@@ -100,11 +152,28 @@ def truncated_thompson_sampling(env, linear_model_results, time_horizon, current
       action = np.argmax(predicted_rewards)
       reward = env.step(action)
 
+      # Update policy gradient
+      sample_cov_hat_0 = rollout_linear_model_results['sample_cov_list'][0]
+      sample_cov_hat_1 = rollout_linear_model_results['sample_cov_list'][1]
+      beta_hat_0 = rollout_linear_model_results['beta_hat_list'][0]
+      beta_hat_1 = rollout_linear_model_results['beta_hat_list'][1]
+
+      policy_gradient += normal_ts_policy_gradient(0, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1,
+                                                   beta_hat_1, truncation_function, truncation_function_gradient, T,
+                                                   t, zeta)
+      policy_gradient += normal_ts_policy_gradient(1, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1,
+                                                   beta_hat_1, truncation_function, truncation_function_gradient, T,
+                                                   t, zeta)
+
       # Update linear model
       rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
                                                                    reward)
+    # Update zeta
+    step_size = 1.0 / (it + 1)
+    zeta += step_size * policy_gradient
+    it += 1
 
-  return
+  return zeta
 
 
 
