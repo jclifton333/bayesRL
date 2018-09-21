@@ -33,7 +33,7 @@ def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sam
   Policy gradient for a two-armed normal contextual bandit where policy is (soft) truncated TS.
   :return:
   """
-  truncation_function_value = truncation_function(T - t, zeta)
+  truncation_function_value = truncation_function(T, t, zeta)
 
   # Policy prob is prob one normal dbn is bigger than another
   mu_0 = np.dot(context, beta_hat_0)
@@ -42,14 +42,14 @@ def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sam
   sigma_sq_1 = truncation_function_value * np.dot(context, np.dot(sample_cov_hat_1, context))
 
   if action:
-    diff = (mu_0 - mu_1) / (sigma_sq_0 + sigma_sq_1)
+    diff = (mu_0 - mu_1) / np.max((sigma_sq_0 + sigma_sq_1, 0.01))  # For stability
   else:
-    diff = (mu_1 - mu_0) / (sigma_sq_0 + sigma_sq_1)
+    diff = (mu_1 - mu_0) / np.max((sigma_sq_0 + sigma_sq_1, 0.01))
 
   # Chain rule on 1 - Phi(diff)
   phi_diff = norm.pdf(diff)
   sigma_sq_sum_grad = np.power(sigma_sq_1 + sigma_sq_0, -1) * (sigma_sq_0 + sigma_sq_1) * \
-                               truncation_function_derivative(T-t, zeta) / truncation_function_value
+                               truncation_function_derivative(T, t, zeta) / truncation_function_value
   true_expected_reward_0 = np.dot(context, true_beta_0)
   true_expected_reward_1 = np.dot(context, true_beta_1)
   gradient = phi_diff * sigma_sq_sum_grad * (action*true_expected_reward_1 + (1 - action)*true_expected_reward_0)
@@ -67,7 +67,7 @@ def sherman_woodbury(A_inv, u, v):
 def update_linear_model(X, Xprime_X_inv, x_new, X_dot_y, y_new):
   # Compute new beta hat and associated matrices
   Xprime_X_inv_new = sherman_woodbury(Xprime_X_inv, x_new, x_new)
-  X_new = np.vstack((X, x))
+  X_new = np.vstack((X, x_new))
   X_dot_y_new = X_dot_y + y_new * x_new
   beta_hat_new = np.dot(Xprime_X_inv_new, X_dot_y_new)
 
@@ -75,7 +75,7 @@ def update_linear_model(X, Xprime_X_inv, x_new, X_dot_y, y_new):
   n, p = X_new.shape
   yhat = np.dot(X_new, beta_hat_new)
   sigma_hat = np.sum((yhat - y_new)**2) / (n - p)
-  sample_cov = sigma_hat * np.dot(X_new, np.dot(Xprime_X_inv_new, X_new.T))
+  sample_cov = sigma_hat * Xprime_X_inv_new
 
   return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'X_dot_y': X_dot_y_new,
           'sample_cov': sample_cov, 'sigma_hat': sigma_hat}
@@ -102,9 +102,9 @@ def update_linear_model_at_action(a, linear_model_results, x_new, y_new):
   :param y_new:
   :return:
   """
-  X_a = X_list[a]
-  Xprime_X_inv_a = Xprime_X_inv_list[a]
-  X_dot_y_a = X_dot_y_list[a]
+  X_a = linear_model_results['X_list'][a]
+  Xprime_X_inv_a = linear_model_results['Xprime_X_inv_list'][a]
+  X_dot_y_a = linear_model_results['X_dot_y_list'][a]
   updated_linear_model_results_for_action = update_linear_model(X_a, Xprime_X_inv_a, x_new, X_dot_y_a, y_new)
   linear_model_results = add_linear_model_results_at_action_to_dictionary(a, linear_model_results,
                                                                           updated_linear_model_results_for_action)
@@ -150,7 +150,6 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
     for time in range(current_time + 1, time_horizon):
       # Draw beta
       shrinkage = truncation_function(time_horizon, time, zeta)
-
       beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list'])
       estimated_beta_hat_variance = block_diag(rollout_linear_model_results['sample_cov_list'][0],
                                                rollout_linear_model_results['sample_cov_list'][1])
@@ -175,18 +174,24 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
       beta_hat_1 = rollout_linear_model_results['beta_hat_list'][1]
 
       policy_gradient += normal_ts_policy_gradient(0, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1,
-                                                   beta_hat_1, truncation_function, truncation_function_gradient, T,
-                                                   t, zeta)
+                                                   beta_hat_1, working_beta[0, :], working_beta[1, :],
+                                                   truncation_function, truncation_function_gradient, time_horizon, time,
+                                                   zeta)
       policy_gradient += normal_ts_policy_gradient(1, context, sample_cov_hat_0, beta_hat_0, sample_cov_hat_1,
                                                    beta_hat_1, working_beta[0, :], working_beta[1, :],
-                                                   truncation_function, truncation_function_gradient, T, t, zeta)
+                                                   truncation_function, truncation_function_gradient, time_horizon,
+                                                   time, zeta)
 
       # Update linear model
       rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
                                                                    reward)
     # Update zeta
     step_size = 1.0 / (it + 1)
+    pdb.set_trace()
     zeta += step_size * policy_gradient
+    print("zeta: {}".format(zeta))
+    if not (0.01 < truncation_function(time_horizon, time, zeta) < 0.99):  # For stability
+      break
     it += 1
 
   return zeta
@@ -194,7 +199,8 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
 
 # For truncation functions
 def expit_truncate(T, t, zeta):
-  return expit(zeta[0] + zeta[1] * (T - t))
+  shrinkage = expit(zeta[0] + zeta[1] * (T - t))
+  return shrinkage
 
 
 def expit_truncate_gradient(T, t, zeta):

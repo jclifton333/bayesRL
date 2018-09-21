@@ -54,7 +54,7 @@ def main():
       beta_hat_a = np.dot(Xprime_X_inv_a, X_dot_y_a)
       yhat_a = np.dot(X_dot_y_a, beta_hat_a)
       sigma_hat_a = np.sum((U_a - yhat_a)**2)
-      sample_cov_a = sigma_hat_a * np.dot(X_a.T, np.dot(Xprime_X_inv_a, X_a))
+      sample_cov_a = sigma_hat_a * Xprime_X_inv_a
 
       # Add to linear model results
       linear_model_results['beta_hat_list'].append(beta_hat_a)
@@ -83,10 +83,11 @@ def main():
 
       # Get reward
       beta_tilde = beta_tilde.reshape((env.number_of_actions, env.context_dimension))
-      x = copy.copy(env.current_context)
+      x = copy.copy(env.curr_context)
       estimated_rewards = np.dot(x, beta_tilde)
       a = np.argmax(estimated_rewards)
-      reward = env.step(a)
+      step_results = env.step(a)
+      reward = step_results['Utility']
       rewards[replicate, t] = reward
 
       # Update linear model
