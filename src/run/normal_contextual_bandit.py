@@ -6,6 +6,7 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 
+import matplotlib.pyplot as plt
 from src.environments.Bandit import NormalCB
 from src.policies import tuned_bandit_policies as tuned_bandit
 import copy
@@ -23,7 +24,7 @@ def main():
   # Simulation settings
   replicates = 100
   T = 25
-  truncate = True
+  truncate = False
   if truncate:
     truncation_function = tuned_bandit.expit_truncate
     truncation_function_gradient = tuned_bandit.expit_truncate_gradient
@@ -104,7 +105,9 @@ def main():
     print('cumulative rewards: {}'.format(np.sum(rewards[replicate, :])))
   cumulative_rewards = np.sum(rewards, axis=1)
   print('mean cumulative rewards: {} sd cumulative rewards {}'.format(np.mean(cumulative_rewards),
-                                                                       np.std(cumulative_rewards)))
+                                                                      np.std(cumulative_rewards)))
+  plt.hist(cumulative_rewards)
+  plt.show()
   return rewards
 
 
