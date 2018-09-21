@@ -21,11 +21,13 @@ def main():
   """
 
   # Simulation settings
-  replicates = 50
+  replicates = 100
   T = 25
-  truncation_function = tuned_bandit.expit_truncate
-  truncation_function_gradient = tuned_bandit.expit_truncate_gradient
-  zeta = np.array([-5, 0.3])  # Initial truncation function parameters
+  truncate = True
+  if truncate:
+    truncation_function = tuned_bandit.expit_truncate
+    truncation_function_gradient = tuned_bandit.expit_truncate_gradient
+    zeta = np.array([-5, 0.3])  # Initial truncation function parameters
   env = NormalCB()
 
   rewards = np.zeros((replicates, T))
@@ -67,11 +69,15 @@ def main():
     estimated_context_variance = np.cov(X, rowvar=False)
 
     for t in range(T):
-      # Get exploration parameter
-      zeta = tuned_bandit.tune_truncated_thompson_sampling(linear_model_results, T, t, estimated_context_mean,
-                                                           estimated_context_variance, truncation_function,
-                                                           truncation_function_gradient, zeta)
-      shrinkage = truncation_function(T, t, zeta)
+      if truncate:
+        # Get exploration parameter
+        zeta = tuned_bandit.tune_truncated_thompson_sampling(linear_model_results, T, t, estimated_context_mean,
+                                                             estimated_context_variance, truncation_function,
+                                                             truncation_function_gradient, zeta)
+        shrinkage = truncation_function(T, t, zeta)
+        # print('time {} shrinkage {}'.format(t, shrinkage))
+      else:
+        shrinkage = 1
 
       # Sample beta
       beta_hat = np.hstack(linear_model_results['beta_hat_list'])
@@ -86,11 +92,19 @@ def main():
       a = np.argmax(estimated_rewards)
       step_results = env.step(a)
       reward = step_results['Utility']
-      rewards[replicate, t] = reward
+
+
+      # Compute regret
+      oracle_expected_reward = np.max((np.dot(x, env.list_of_reward_betas[0]), np.dot(x, env.list_of_reward_betas[1])))
+      regret = oracle_expected_reward - np.dot(x, env.list_of_reward_betas[a])
+      rewards[replicate, t] = regret
 
       # Update linear model
       linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
     print('cumulative rewards: {}'.format(np.sum(rewards[replicate, :])))
+  cumulative_rewards = np.sum(rewards, axis=1)
+  print('mean cumulative rewards: {} sd cumulative rewards {}'.format(np.mean(cumulative_rewards),
+                                                                       np.std(cumulative_rewards)))
   return rewards
 
 
