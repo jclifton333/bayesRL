@@ -1,3 +1,11 @@
+import sys
+import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
+
+
 from src.environments.Bandit import NormalCB
 from src.policies import tuned_bandit_policies as tuned_bandit
 import numpy as np
@@ -23,6 +31,7 @@ def main():
 
   # Run sims
   for replicate in range(replicates):
+    env.reset()
 
     # Initial pulls (so we can fit the models)
     for a in range(env.number_of_actions):
@@ -36,10 +45,9 @@ def main():
     for a in range(env.number_of_actions):  # Fit linear model on data from each actions
       # Get observations where action == a
       indices_for_a = np.where(A == a)
-      X_a = X[indices_for_a, :]
+      X_a = X[indices_for_a]
       U_a = U[indices_for_a]
 
-      # Fit linear model
       Xprime_X_inv_a = np.linalg.inv(np.dot(X_a.T, X_a))
       X_dot_y_a = np.dot(X_a, U_a)
       beta_hat_a = np.dot(Xprime_X_inv_a, X_dot_y_a)
@@ -56,7 +64,7 @@ def main():
 
     # Estimate context mean and variance
     estimated_context_mean = np.mean(X, axis=0)
-    estimated_context_variance = np.cov(X)
+    estimated_context_variance = np.cov(X, rowvar=False)
 
     for t in range(T):
       # Get exploration parameter
@@ -78,5 +86,9 @@ def main():
       rewards[replicate, t] = u
 
   return rewards
+
+
+if __name__ == '__main__':
+  main()
 
 

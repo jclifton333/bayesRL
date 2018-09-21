@@ -3,7 +3,9 @@ Policies in which exploration/exploitation tradeoff is parameterized and tuned (
 """
 
 from scipy.stats import norm
+from scipy.linalg import block_diag
 from scipy.special import expit
+import pdb
 import numpy as np
 import copy
 
@@ -148,7 +150,7 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
       shrinkage = truncation_function(time_horizon - time, zeta)
 
       beta_hat = rollout_linear_model_results['beta_hat_list'].flatten()
-      estimated_beta_hat_variance = np.vstack(rollout_linear_model_results['sample_cov_list'])
+      estimated_beta_hat_variance = block_diag(rollout_linear_model_results['sample_cov_list'])
 
       beta = np.random.multivariate_normal(beta_hat, shrinkage * estimated_beta_hat_variance)
       beta = beta.reshape((number_of_actions, context_dimension))
