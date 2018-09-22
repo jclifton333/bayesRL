@@ -19,7 +19,9 @@ import scipy.stats
     
 beta1 = 1
 beta2_list = [-3, -2, 0.01, 0.1, 0.2, 0.5, 1, 2]
-alpha=0.05
+alpha_fix = 0.55
+zeta1 = 0.08
+alpha_tune = True
 
 def main():
   """
@@ -28,7 +30,7 @@ def main():
   """
 
   # Simulation settings
-  replicates = 10
+  replicates = 100
   T = 10
   for beta2 in beta2_list:
     env = NormalCB(list_of_reward_betas=[[1,1],[beta1+beta2, beta1+beta2]], 
@@ -36,7 +38,6 @@ def main():
     
   #  rewards = np.zeros((replicates, T))
     regrets = np.zeros((replicates, T))
-    alpha = 0.05
     zeta = np.array([0.2, -5, 1])
 
     # Run sims
@@ -76,6 +77,12 @@ def main():
       beta_hat_save = np.zeros((T, env.number_of_actions*env.context_dimension))
       beta_hat_save_mean = np.zeros((T, env.number_of_actions*env.context_dimension))
       for t in range(T):
+        if alpha_tune:          
+          alpha = 1/(1+np.exp(-zeta1*(T-t-1)))
+          print(alpha)
+        else:
+          alpha = alpha_fix
+          
         beta_hat = np.vstack(linear_model_results['beta_hat_list'])
         eachbeta_hat = np.hstack(linear_model_results['beta_hat_list'])
         beta_hat_save[t,] = eachbeta_hat
@@ -84,14 +91,15 @@ def main():
         x = copy.copy(env.curr_context)
         estimated_rewards = np.dot(beta_hat, env.curr_context) 
         
+        # Get UCB
         q_hat_0 = estimated_rewards[0]
         q_hat_1 = estimated_rewards[1]
         b = env.X[-1,]
         
         B_0 = env.X[np.where(env.A==0),][0]
         U_0 = env.U[np.where(env.A==0),][0]
-        omega_hat_0 = np.zeros([2,2])
-        Sigma_hat_0 = np.zeros([2,2])
+        omega_hat_0 = np.zeros([env.context_dimension, env.context_dimension])
+        Sigma_hat_0 = np.zeros([env.context_dimension, env.context_dimension])
         for i in range( int(len(env.A)-sum(env.A)) ):
           omega_hat_0 += np.outer(B_0[i],B_0[i].T) /(len(env.A)-sum(env.A))
           Sigma_hat_0 += np.outer(B_0[i],B_0[i].T)*(U_0[i]-np.dot(B_0[i],beta_hat[0]))**2/(len(env.A)-sum(env.A))
@@ -100,8 +108,8 @@ def main():
         
         B_1 = env.X[np.where(env.A==1),][0]
         U_1 = env.U[np.where(env.A==1),][0]
-        omega_hat_1 = np.zeros([2,2])
-        Sigma_hat_1 = np.zeros([2,2])
+        omega_hat_1 = np.zeros([env.context_dimension, env.context_dimension])
+        Sigma_hat_1 = np.zeros([env.context_dimension, env.context_dimension])
         for i in range( int(sum(env.A)) ):
           omega_hat_1 += np.outer(B_1[i],B_1[i].T) /sum(env.A)
           Sigma_hat_1 += np.outer(B_1[i],B_1[i].T)*(U_1[i]-np.dot(B_1[i],beta_hat[1]))**2/sum(env.A)
@@ -129,7 +137,7 @@ def main():
         linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
       
       beta_hat_save_mean += beta_hat_save
-      print('cum regret {}'.format(np.sum(regrets[replicate, :])))
+#      print('cum regret {}'.format(np.sum(regrets[replicate, :])))
     beta_hat_save_mean = beta_hat_save_mean/replicates
     
     # Save data
