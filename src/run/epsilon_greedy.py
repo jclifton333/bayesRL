@@ -26,8 +26,8 @@ def main():
   """
 
   # Simulation settings
-  replicates = 1000
-  T = 25
+  replicates = 1
+  T = 3
   for beta2 in beta2_list:
     env = NormalCB(list_of_reward_betas=[[1,1],[beta1+beta2, beta1+beta2]], 
                    list_of_reward_vars=[[1],[1]])
@@ -36,15 +36,15 @@ def main():
     regrets = np.zeros((replicates, T))
     epsilon_fix = 0.05
     epsilon_decay = True
-    zeta = np.array((0,1))
-    
+    zeta = np.array([0.2, -5, 1])
+
     # Run sims
     for replicate in range(replicates):
       env.reset()
   
       # Initial pulls (so we can fit the models)
       for a in range(env.number_of_actions):
-        for p in range(env.context_dimension):
+        for p in range(2*env.context_dimension):
           env.step(a)
   
       # Get initial linear model
@@ -71,12 +71,10 @@ def main():
         linear_model_results['X_dot_y_list'].append(X_dot_y_a)
         linear_model_results['sample_cov_list'].append(sample_cov_a)
         linear_model_results['sigma_hat_list'].append(sigma_hat_a)
-        
+
       beta_hat_save = np.zeros((T, env.number_of_actions*env.context_dimension))
       beta_hat_save_mean = np.zeros((T, env.number_of_actions*env.context_dimension))
       for t in range(T):
-#        print(t, epsilon)
-        # Sample beta
         beta_hat = np.vstack(linear_model_results['beta_hat_list'])
         eachbeta_hat = np.hstack(linear_model_results['beta_hat_list'])
         beta_hat_save[t,] = eachbeta_hat
@@ -87,7 +85,10 @@ def main():
         eps = np.random.rand()
         epsilon = epsilon_fix
         if epsilon_decay:
-          epsilon = 0.1*(1-1/(1+np.exp(-np.dot(np.array((1,t)), zeta))))
+          zeta = tuned_bandit.tune_epsilon_greedy(linear_model_results, T, t, np.mean(env.X, axis=0),
+                                                  np.cov(env.X, rowvar=False), None, None, zeta)
+          epsilon = tuned_bandit.expit_epsilon_decay(T, t, zeta)
+          print('epsilon {}'.format(epsilon))
 #          if t > T/5.0:
 #            epsilon = epsilon_fix**(t/(T/5.0))
                 
@@ -112,22 +113,20 @@ def main():
         linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
       
       beta_hat_save_mean += beta_hat_save
-      
-    beta_hat_save_mean =  beta_hat_save_mean/replicates
+      print('cum regret {}'.format(np.sum(regrets[replicate, :])))
+    beta_hat_save_mean = beta_hat_save_mean/replicates
     
     # Save data
     cum_regret = np.sum(regrets, axis=1)
     cum_regret_mean = np.mean(cum_regret)
     cum_regret_std = np.std(cum_regret)
-    print(cum_regret_mean, cum_regret_std )
+    print(cum_regret_mean, cum_regret_std)
     
     a = {'cum_regret_mean': cum_regret_mean, 'cum_regret_std':cum_regret_std,
          'beta_hat_save_mean':beta_hat_save_mean, 'beta2': beta2+beta1}
-    
-    with open('/Users/lili/Documents/labproject2017/aistat/plots_results/sigmoid0_05.pickle', 'wb') as handle:
-      pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-  return rewards
+    # with open('/Users/lili/Documents/labproject2017/aistat/plots_results/sigmoid0_05.pickle', 'wb') as handle:
+    #   pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
+  return cum_regret
 
 
 if __name__ == '__main__':
