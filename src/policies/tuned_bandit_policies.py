@@ -4,6 +4,7 @@ Policies in which exploration/exploitation tradeoff is parameterized and tuned (
 
 from bayes_opt import BayesianOptimization
 from scipy.stats import norm
+from scipy.optimize import basinhopping
 from scipy.linalg import block_diag
 from scipy.special import expit
 import pdb
@@ -233,6 +234,45 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, linear_model_
   return best_param
 
 
+def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
+                  estimated_context_mean, estimated_context_variance):
+  def objective(zeta):
+    return rollout_function(zeta, policy, linear_model_results, time_horizon, current_time,
+                            estimated_context_mean, tuning_function, estimated_context_variance)
+
+  # ToDo: Fix this shit!
+  if len(zeta_prev) == 3:
+    bounds = [(0.05, 0.3), (-2, -0.05), (1, 2)]
+  elif len(zeta_prev == 2):
+    bounds = [(-2, -0.05), (1, 2)]
+
+  best_val = objective(zeta_prev)
+  best_zeta = zeta_prev
+  for _ in range(10):
+    zeta_rand = np.array([np.random.uniform(low=low_, high=high_) for low_, high_ in bounds])
+    val = objective(zeta_rand)
+    if val > best_val:
+      best_val = val
+      best_zeta = zeta_rand
+  return best_zeta
+
+
+def basinhop(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
+             estimated_context_mean, estimated_context_variance):
+  def objective(zeta):
+    return rollout_function(zeta, policy, linear_model_results, time_horizon, current_time,
+                            estimated_context_mean, tuning_function, estimated_context_variance)
+
+  # ToDo: Fix this shit!
+  if len(zeta_prev) == 3:
+    bounds = [(0.05, 0.3), (-2, -0.05), (1, 2)]
+  elif len(zeta_prev == 2):
+    bounds = [(-2, -0.05), (1, 2)]
+  minimizer_kwargs = dict(method="L-BFGS-B", bounds=bounds)
+  res = basinhopping(objective, x0=zeta_prev, minimizer_kwargs=minimizer_kwargs)
+  return res.x
+
+
 def epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
                           T, t):
   epsilon = tuning_function(T, t, tuning_function_parameter)
@@ -264,7 +304,7 @@ def thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_functi
 def rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
             tuning_function, estimated_context_variance):
 
-  MAX_ITER = 50
+  MAX_ITER = 100
   it = 0
 
   number_of_actions = len(estimated_context_mean)
@@ -281,8 +321,8 @@ def rollout(tuning_function_parameter, policy, linear_model_results, time_horizo
                                              linear_model_results['sample_cov_list'][1])
     # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance) + \
     #   np.random.multivariate_normal(mean=np.zeros(len(beta_hat)), cov=100.0*np.eye(len(beta_hat)))
-    working_beta = beta_hat
-    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
+    # working_beta = beta_hat
+    working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
     working_beta = working_beta.reshape((number_of_actions, context_dimension))
     working_sigma_hats = linear_model_results['sigma_hat_list']
 
@@ -317,8 +357,7 @@ def rollout(tuning_function_parameter, policy, linear_model_results, time_horizo
       rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
                                                                    reward)
     it += 1
-    score = (episode_score - score) / it
-
+    score += (episode_score - score) / it
   return score
 
 
@@ -360,12 +399,14 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
     # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance) + \
     #   np.random.multivariate_normal(mean=np.zeros(len(beta_hat)), cov=100.0*np.eye(len(beta_hat)))
     # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
-    # working_beta = working_beta.reshape((number_of_actions, context_dimension))
-    working_beta = -beta_hat.reshape((number_of_actions, context_dimension))
+    working_beta = beta_hat
+    working_beta = working_beta.reshape((number_of_actions, context_dimension))
     working_sigma_hats = linear_model_results['sigma_hat_list']
-    policy_gradient = np.zeros(zeta_dimension)
     for _ in range(10):
       rollout_linear_model_results = copy.deepcopy(linear_model_results)
+      gradients = np.zeros((0, zeta_dimension))
+      episode_rewards = []
+      episode_policy_gradient = np.zeros(zeta_dimension)
       for time in range(current_time + 1, time_horizon):
 
         beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
@@ -392,28 +433,21 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
         reward = np.dot(working_beta_at_action, context) + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
 
         epsilon_gradient = expit_epsilon_decay_gradient(time_horizon, time, zeta)
-        if action == 0:
-          a0_step = np.dot(working_beta[0, :], context) * (-1/2) * epsilon_gradient
-          a1_step = np.dot(working_beta[1, :], context) * (1/2) * epsilon_gradient
-        else:
-          a0_step = np.dot(working_beta[0, :], context) * (1/2) * epsilon_gradient
-          a1_step = np.dot(working_beta[1, :], context) * (-1/2) * epsilon_gradient
-        policy_gradient_step = a0_step + a1_step
-        policy_gradient += policy_gradient_step
-        print('correct action {} sign of kappa gradient {}'.format(np.argmax(predicted_rewards) == np.argmax(true_rewards),
-                                                                   policy_gradient_step[0] > 0))
+        if action == greedy_action:
+          epsilon_gradient *= -1
+        gradients = np.vstack((gradients, epsilon_gradient))
+        episode_rewards.append(reward)
 
-        # Update linear model
-        rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
-                                                                     reward)
-    pdb.set_trace()
+      cumulative_rewards = np.cumsum(episode_rewards)
+      cumulative_rewards_times_gradients = np.multiply(gradients, cumulative_rewards.reshape(-1, 1))
+      episode_policy_gradient += np.sum(cumulative_rewards_times_gradients, axis=0)
+
     # Update zeta
-    # step_size = 1 / (it + 1)
-    step_size = 1
-    new_zeta = zeta + step_size * policy_gradient / 10.0
+    step_size = 0.001 / (it + 1)
+    new_zeta = zeta + step_size * episode_policy_gradient / 10.0
     new_zeta[0] = np.min((1.0, np.max((0.0, new_zeta[0]))))
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
-    print("zeta: {}".format(new_zeta))
+    # print("zeta: {}".format(new_zeta))
 
     it += 1
 

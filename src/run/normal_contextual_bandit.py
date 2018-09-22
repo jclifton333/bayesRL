@@ -20,7 +20,7 @@ import multiprocessing as mp
 
 def episode(policy_name, label):
   np.random.seed(label)
-  T = 1
+  T = 25
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -84,12 +84,17 @@ def episode(policy_name, label):
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
     if tune:
-      tuning_function_parameter = tuned_bandit.bayesopt(tuned_bandit.rollout, policy, tuning_function,
-                                                        tuning_function_parameter,
-                                                        linear_model_results, T, t, estimated_context_mean,
-                                                        estimated_context_variance)
+      tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.rollout, policy, tuning_function,
+                                                             tuning_function_parameter,
+                                                             linear_model_results, T, t, estimated_context_mean,
+                                                             estimated_context_variance)
+      # tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
+      #                                                                         estimated_context_mean,
+      #                                                                         estimated_context_variance,
+      #                                                                         None, None, tuning_function_parameter)
 
     x = copy.copy(env.curr_context)
+    print('epsilon {}'.format(tuning_function(T,t,tuning_function_parameter)))
     beta_hat = np.array(linear_model_results['beta_hat_list'])
     action = policy(beta_hat, linear_model_results['sample_cov_list'], x, tuning_function,
                     tuning_function_parameter, T, t)
@@ -107,14 +112,14 @@ def episode(policy_name, label):
   return cumulative_regret
 
 
-def run(policy_name):
+def run(policy_name, save=True):
   """
 
   :return:
   """
 
-  replicates = 4
-  num_cpus = mp.cpu_count()
+  replicates = 80
+  num_cpus = int(mp.cpu_count() / 2)
   results = []
   pool = mp.Pool(processes=num_cpus)
 
@@ -126,15 +131,16 @@ def run(policy_name):
     results += results_for_batch
 
   # Save results
-  results = {'T': float(25), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
-              'beta': [[1.0, 1.0], [2.0, -2.0]], 'regret list': [float(r) for r in results]}
+  if save:
+    results = {'T': float(25), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
+                'beta': [[1.0, 1.0], [2.0, -2.0]], 'regret list': [float(r) for r in results]}
 
-  base_name = 'normalcb-25-{}'.format(policy_name)
-  prefix = os.path.join(project_dir, 'src', 'run', base_name)
-  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-  filename = '{}_{}.yml'.format(prefix, suffix)
-  with open(filename, 'w') as outfile:
-    yaml.dump(results, outfile)
+    base_name = 'normalcb-25-{}'.format(policy_name)
+    prefix = os.path.join(project_dir, 'src', 'run', base_name)
+    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = '{}_{}.yml'.format(prefix, suffix)
+    with open(filename, 'w') as outfile:
+      yaml.dump(results, outfile)
 
   return
 
