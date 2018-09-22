@@ -371,66 +371,65 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
   zeta_dimension = len(new_zeta)
   diff = float('inf')
 
+  # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
+  working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
+  beta_hat = np.hstack(linear_model_results['beta_hat_list'])
+  estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
+                                           linear_model_results['sample_cov_list'][1])
+  # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance) + \
+  #   np.random.multivariate_normal(mean=np.zeros(len(beta_hat)), cov=100.0*np.eye(len(beta_hat)))
+  working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
+  # working_beta = beta_hat
+  working_beta = working_beta.reshape((number_of_actions, context_dimension))
+  working_sigma_hats = linear_model_results['sigma_hat_list']
+
   while it < MAX_ITER and diff > TOL:
     zeta = new_zeta
+    rollout_linear_model_results = copy.deepcopy(linear_model_results)
+    gradients = np.zeros((0, zeta_dimension))
+    episode_rewards = []
+    episode_policy_gradient = np.zeros(zeta_dimension)
+    for time in range(current_time + 1, time_horizon):
 
-    # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
-    working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
-    beta_hat = np.hstack(linear_model_results['beta_hat_list'])
-    estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
-                                             linear_model_results['sample_cov_list'][1])
-    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance) + \
-    #   np.random.multivariate_normal(mean=np.zeros(len(beta_hat)), cov=100.0*np.eye(len(beta_hat)))
-    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
-    working_beta = beta_hat
-    working_beta = working_beta.reshape((number_of_actions, context_dimension))
-    working_sigma_hats = linear_model_results['sigma_hat_list']
-    for _ in range(10):
-      rollout_linear_model_results = copy.deepcopy(linear_model_results)
-      gradients = np.zeros((0, zeta_dimension))
-      episode_rewards = []
-      episode_policy_gradient = np.zeros(zeta_dimension)
-      for time in range(current_time + 1, time_horizon):
+      beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
+                                                                                   context_dimension))
 
-        beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
-                                                                                     context_dimension))
+     # Draw context
+      context = np.random.multivariate_normal(working_context_mean, cov=estimated_context_variance)
 
-       # Draw context
-        context = np.random.multivariate_normal(working_context_mean, cov=estimated_context_variance)
+      # Get epsilon-greedy action and get resulting reward
+      predicted_rewards = np.dot(beta_hat, context)
+      true_rewards = np.dot(working_beta, context)
+      # print('correct action {}'.format(np.argmax(predicted_rewards) == np.argmax(true_rewards)))
+      # print('pred {} true {}'.format(predicted_rewards, true_rewards))
+      # pdb.set_trace()
+      greedy_action = np.argmax(predicted_rewards)
+      epsilon = expit_epsilon_decay(time_horizon, time, zeta)
+      if np.random.random() < epsilon:
+        action = np.random.choice(2)
+      else:
+        action = greedy_action
 
-        # Get epsilon-greedy action and get resulting reward
-        predicted_rewards = np.dot(beta_hat, context)
-        true_rewards = np.dot(working_beta, context)
-        # print('correct action {}'.format(np.argmax(predicted_rewards) == np.argmax(true_rewards)))
-        # print('pred {} true {}'.format(predicted_rewards, true_rewards))
-        # pdb.set_trace()
-        greedy_action = np.argmax(predicted_rewards)
-        epsilon = expit_epsilon_decay(time_horizon, time, zeta)
-        if np.random.random() < epsilon:
-          action = np.random.choice(2)
-        else:
-          action = greedy_action
+      working_beta_at_action = working_beta[action, :]
+      working_sigma_hat_at_action = working_sigma_hats[action]
+      reward = np.dot(working_beta_at_action, context) + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
 
-        working_beta_at_action = working_beta[action, :]
-        working_sigma_hat_at_action = working_sigma_hats[action]
-        reward = np.dot(working_beta_at_action, context) + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
+      epsilon_gradient = expit_epsilon_decay_gradient(time_horizon, time, zeta)
+      if action == greedy_action:
+        epsilon_gradient *= -1
+      gradients = np.vstack((gradients, epsilon_gradient))
+      episode_rewards.append(reward)
 
-        epsilon_gradient = expit_epsilon_decay_gradient(time_horizon, time, zeta)
-        if action == greedy_action:
-          epsilon_gradient *= -1
-        gradients = np.vstack((gradients, epsilon_gradient))
-        episode_rewards.append(reward)
-
-      cumulative_rewards = np.cumsum(episode_rewards)
-      cumulative_rewards_times_gradients = np.multiply(gradients, cumulative_rewards.reshape(-1, 1))
-      episode_policy_gradient += np.sum(cumulative_rewards_times_gradients, axis=0)
+    cumulative_rewards = np.cumsum(episode_rewards)
+    cumulative_rewards_times_gradients = np.multiply(gradients, cumulative_rewards.reshape(-1, 1))
+    episode_policy_gradient += np.sum(cumulative_rewards_times_gradients, axis=0)
 
     # Update zeta
     step_size = 0.001 / (it + 1)
     new_zeta = zeta + step_size * episode_policy_gradient / 10.0
-    new_zeta[0] = np.min((1.0, np.max((0.0, new_zeta[0]))))
+    new_zeta[0] = np.min((1.0, np.max((0.01, new_zeta[0]))))
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
-    print("zeta: {}".format(new_zeta))
+    # print("zeta: {}".format(new_zeta))
 
     it += 1
 
@@ -452,14 +451,19 @@ def expit_epsilon_decay_gradient(T, t, zeta):
 
   # Pieces
   exp_ = np.exp(-zeta_0 - zeta_1 * (T - t))
-  one_plus_exp_power = np.power(1 + exp_, -2)
+  # one_plus_exp_power = np.power(1 + exp_, -2)
 
-  # Gradient
-  partial_kappa = 1.0 / (1.0 + exp_)
-  partial_zeta_0 = kappa * one_plus_exp_power * exp_
-  partial_zeta_1 = kappa * one_plus_exp_power * exp_ * (T - t)
+  # # Gradient
+  # partial_kappa = 1.0 / (1.0 + exp_)
+  # partial_zeta_0 = kappa * one_plus_exp_power * exp_
+  # partial_zeta_1 = kappa * one_plus_exp_power * exp_ * (T - t)
 
-  return np.array([partial_kappa, partial_zeta_0, partial_zeta_1])
+  # Gradient of log
+  partial_kappa = 1.0 / kappa
+  partial_zeta = 1 / (1 + exp_) * exp_ * np.array([1.0, T - t])
+  gradient = np.append(partial_kappa, partial_zeta)
+
+  return gradient
 
 
 def expit_truncate_gradient(T, t, zeta):
