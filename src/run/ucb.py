@@ -14,10 +14,12 @@ from scipy.linalg import block_diag
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pickle
+import scipy.stats
+
     
 beta1 = 1
 beta2_list = [-3, -2, 0.01, 0.1, 0.2, 0.5, 1, 2]
-
+alpha=0.05
 
 def main():
   """
@@ -26,16 +28,15 @@ def main():
   """
 
   # Simulation settings
-  replicates = 1
-  T = 3
+  replicates = 10
+  T = 10
   for beta2 in beta2_list:
     env = NormalCB(list_of_reward_betas=[[1,1],[beta1+beta2, beta1+beta2]], 
                    list_of_reward_vars=[[1],[1]])
     
   #  rewards = np.zeros((replicates, T))
     regrets = np.zeros((replicates, T))
-    epsilon_fix = 0.05
-    epsilon_decay = True
+    alpha = 0.05
     zeta = np.array([0.2, -5, 1])
 
     # Run sims
@@ -81,21 +82,36 @@ def main():
         
         # Get reward
         x = copy.copy(env.curr_context)
-        estimated_rewards = np.dot(beta_hat, env.curr_context)
-        eps = np.random.rand()
-        epsilon = epsilon_fix
-        if epsilon_decay:
-          zeta = tuned_bandit.tune_epsilon_greedy(linear_model_results, T, t, np.mean(env.X, axis=0),
-                                                  np.cov(env.X, rowvar=False), None, None, zeta)
-          epsilon = tuned_bandit.expit_epsilon_decay(T, t, zeta)
-          print('epsilon {}'.format(epsilon))
-#          if t > T/5.0:
-#            epsilon = epsilon_fix**(t/(T/5.0))
-                
-        if eps < epsilon:
-          a = np.random.choice(env.number_of_actions)
-        else:
-          a = np.argmax(estimated_rewards)
+        estimated_rewards = np.dot(beta_hat, env.curr_context) 
+        
+        q_hat_0 = estimated_rewards[0]
+        q_hat_1 = estimated_rewards[1]
+        b = env.X[-1,]
+        
+        B_0 = env.X[np.where(env.A==0),][0]
+        U_0 = env.U[np.where(env.A==0),][0]
+        omega_hat_0 = np.zeros([2,2])
+        Sigma_hat_0 = np.zeros([2,2])
+        for i in range( int(len(env.A)-sum(env.A)) ):
+          omega_hat_0 += np.outer(B_0[i],B_0[i].T) /(len(env.A)-sum(env.A))
+          Sigma_hat_0 += np.outer(B_0[i],B_0[i].T)*(U_0[i]-np.dot(B_0[i],beta_hat[0]))**2/(len(env.A)-sum(env.A))
+        sigma_hat_0 = np.dot(np.dot(b, np.matmul(np.matmul(np.linalg.inv(omega_hat_0), Sigma_hat_0),
+                              np.linalg.inv(omega_hat_0))), b)
+        
+        B_1 = env.X[np.where(env.A==1),][0]
+        U_1 = env.U[np.where(env.A==1),][0]
+        omega_hat_1 = np.zeros([2,2])
+        Sigma_hat_1 = np.zeros([2,2])
+        for i in range( int(sum(env.A)) ):
+          omega_hat_1 += np.outer(B_1[i],B_1[i].T) /sum(env.A)
+          Sigma_hat_1 += np.outer(B_1[i],B_1[i].T)*(U_1[i]-np.dot(B_1[i],beta_hat[1]))**2/sum(env.A)
+        sigma_hat_1 = np.dot(np.dot(b, np.matmul(np.matmul(np.linalg.inv(omega_hat_1), Sigma_hat_1),
+                              np.linalg.inv(omega_hat_1))), b)
+        
+        kexi_0 = q_hat_0 + scipy.stats.norm.ppf(1-alpha)*sigma_hat_0/np.sqrt(t+1)
+        kexi_1 = q_hat_1 + scipy.stats.norm.ppf(1-alpha)*sigma_hat_1/np.sqrt(t+1)        
+        
+        a = np.argmax([kexi_0, kexi_1])
         step_results = env.step(a)
         reward = step_results['Utility']
   #      rewards[replicate, t] = reward
