@@ -2,7 +2,7 @@
 Policies in which exploration/exploitation tradeoff is parameterized and tuned (TS, UCB, ..?).
 """
 
-from bayes_opt import BayesianOptimization
+# from bayes_opt import BayesianOptimization
 from scipy.stats import norm
 from scipy.optimize import basinhopping
 from scipy.linalg import block_diag
