@@ -15,7 +15,6 @@ import copy
 def normal_ts_policy_probabilities(action, mu_0, sigma_sq_0, mu_1, sigma_sq_1):
   """
   Get probability of actions 0 and 1 at given context under truncated TS policy for 2-armed normal CB.
-
   :param action: 0 or 1.
   :param mu_0: context . beta_hat_0
   :param sigma_sq_0: context. sample_cov_0 .context * truncation_function
@@ -31,7 +30,6 @@ def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sam
                               true_beta_0, true_beta_1, truncation_function, truncation_function_derivative, T, t,
                               zeta):
   """
-
   Policy gradient for a two-armed normal contextual bandit where policy is (soft) truncated TS.
   :return:
   """
@@ -96,7 +94,6 @@ def update_linear_model_at_action(a, linear_model_results, x_new, y_new):
   """
   Linear model results is a dictionary of lists.
   Each list is a list of corresponding matrices/arrays of observations, indexed by actions a=0,...,nA.
-
   :param a:
   :param linear_model_results:
   :param x_new
@@ -116,7 +113,6 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
                                      estimated_context_variance, truncation_function, truncation_function_gradient,
                                      initial_zeta):
   """
-
   :param linear_model_results: dictionary of lists of quantities related to estimated linear models for each action.
   :param time_horizon: 
   :param current_time:
@@ -200,17 +196,6 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
     it += 1
 
   return zeta
-
-
-def grid_search(rollout_function, param_grid, linear_model_results, time_horizon, current_time,
-                estimated_context_mean, estimated_context_variance):
-  def objective(zeta):
-    return rollout_function(zeta, linear_model_results, time_horizon, current_time, estimated_context_mean,
-                            estimated_context_variance)
-  objective_values = []
-  for param in param_grid:
-    objective_values.append(objective(param))
-  return objective_values
 
 
 def bayesopt(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
@@ -365,7 +350,6 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
                                    estimated_context_variance, truncation_function, truncation_function_gradient,
                                    initial_zeta):
   """
-
   :param linear_model_results: dictionary of lists of quantities related to estimated linear models for each action.
   :param time_horizon: 
   :param current_time:
@@ -385,7 +369,6 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
   number_of_actions = len(estimated_context_mean)
   context_dimension = len(estimated_context_mean)
   zeta_dimension = len(new_zeta)
-
   diff = float('inf')
 
   while it < MAX_ITER and diff > TOL:
@@ -447,7 +430,7 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
     new_zeta = zeta + step_size * episode_policy_gradient / 10.0
     new_zeta[0] = np.min((1.0, np.max((0.0, new_zeta[0]))))
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
-    # print("zeta: {}".format(new_zeta))
+    print("zeta: {}".format(new_zeta))
 
     it += 1
 
