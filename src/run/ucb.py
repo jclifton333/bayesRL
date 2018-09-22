@@ -19,8 +19,8 @@ import scipy.stats
     
 beta1 = 1
 beta2_list = [-3, -2, 0.01, 0.1, 0.2, 0.5, 1, 2]
-alpha_fix = 0.55
-zeta1 = 0.08
+alpha_fix = 0.5
+zeta1 = 0.05
 alpha_tune = True
 
 def main():
@@ -31,7 +31,7 @@ def main():
 
   # Simulation settings
   replicates = 100
-  T = 10
+  T = 25
   for beta2 in beta2_list:
     env = NormalCB(list_of_reward_betas=[[1,1],[beta1+beta2, beta1+beta2]], 
                    list_of_reward_vars=[[1],[1]])
