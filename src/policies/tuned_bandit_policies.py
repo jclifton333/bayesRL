@@ -217,10 +217,19 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, linear_model_
   def objective(kappa, zeta0, zeta1):
     return rollout_function(np.array([kappa, zeta0, zeta1]), policy, linear_model_results, time_horizon, current_time,
                             estimated_context_mean, tuning_function, estimated_context_variance)
-  bo = BayesianOptimization(objective, {'kappa': (0.05, 0.3), 'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
-  bo.explore({'kappa': [zeta_prev[0]], 'zeta0': [zeta_prev[1]], 'zeta1': [zeta_prev[2]]})
-  bo.maximize(init_points=5, n_iter=10)
-  best_param = np.array(bo.res['max']['max_params'])
+  # ToDo: Fix this shit!
+  if len(zeta_prev) == 3:
+    bo = BayesianOptimization(objective, {'kappa': (0.05, 0.3), 'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
+    bo.explore({'kappa': [zeta_prev[0]], 'zeta0': [zeta_prev[1]], 'zeta1': [zeta_prev[2]]})
+    bo.maximize(init_points=5, n_iter=10)
+    best_param = bo.res['max']['max_params']
+    best_param = np.array([best_param['kappa'], best_param['zeta0'], best_param['zeta1']])
+  elif len(zeta_prev == 2):
+    bo = BayesianOptimization(objective, {'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
+    bo.explore({'zeta0': [zeta_prev[0]], 'zeta1': [zeta_prev[1]]})
+    bo.maximize(init_points=5, n_iter=10)
+    best_param = bo.res['max']['max_params']
+    best_param = np.array([best_param['zeta0'], best_param['zeta1']])
   return best_param
 
 
