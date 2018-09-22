@@ -212,30 +212,49 @@ def grid_search(rollout_function, param_grid, linear_model_results, time_horizon
   return objective_values
 
 
-def bayesopt(rollout_function, zeta_prev, linear_model_results, time_horizon, current_time,
+def bayesopt(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
              estimated_context_mean, estimated_context_variance):
   def objective(kappa, zeta0, zeta1):
-    return rollout_function(np.array([kappa, zeta0, zeta1]), linear_model_results, time_horizon, current_time,
-                            estimated_context_mean, estimated_context_variance)
+    return rollout_function(np.array([kappa, zeta0, zeta1]), policy, linear_model_results, time_horizon, current_time,
+                            estimated_context_mean, tuning_function, estimated_context_variance)
   bo = BayesianOptimization(objective, {'kappa': (0.05, 0.3), 'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
   bo.explore({'kappa': [zeta_prev[0]], 'zeta0': [zeta_prev[1]], 'zeta1': [zeta_prev[2]]})
   bo.maximize(init_points=5, n_iter=10)
-  return bo
+  best_param = np.array(bo.res['max']['max_params'])
+  return best_param
 
 
-def epsilon_greedy_rollout(zeta, linear_model_results, time_horizon, current_time, estimated_context_mean,
-                           estimated_context_variance):
-  """
-  Evaluate epsilon decay policy under parameters zeta and current ''beliefs''.  For tuning epsilon greedy decay.
+def epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
+                          T, t):
+  epsilon = tuning_function(T, t, tuning_function_parameter)
+  predicted_rewards = np.dot(beta_hat, context)
+  greedy_action = np.argmax(predicted_rewards)
+  if np.random.random() < epsilon:
+    action = np.random.choice(2)
+  else:
+    action = greedy_action
+  return action
 
-  :param zeta:
-  :param linear_model_results:
-  :param time_horizon:
-  :param current_time:
-  :param estimated_context_mean:
-  :param estimated_context_variance:
-  :return:
-  """
+
+def thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
+                             T, t):
+  shrinkage = tuning_function(T, t, tuning_function_parameter)
+
+  # Sample from estimated sampling dbn
+  beta_hat_ = beta_hat.flatten()
+  sampling_cov_ = block_diag(sampling_cov_list[0], sampling_cov_list[1])
+  beta_tilde = np.random.multivariate_normal(beta_hat_, shrinkage * sampling_cov_)
+  beta_tilde = beta_tilde.reshape(beta_hat.shape)
+
+  # Estimate rewards and pull arm
+  estimated_rewards = np.dot(beta_tilde, context)
+  action = np.argmax(estimated_rewards)
+  return action
+
+
+def rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
+            tuning_function, estimated_context_variance):
+
   MAX_ITER = 50
   it = 0
 
@@ -265,23 +284,18 @@ def epsilon_greedy_rollout(zeta, linear_model_results, time_horizon, current_tim
 
       beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
                                                                                    context_dimension))
+      sampling_cov_list = linear_model_results['sample_cov_list']
 
-     # Draw context
+     # Draw context and take action
       context = np.random.multivariate_normal(working_context_mean, cov=estimated_context_variance)
+      action = policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter, time_horizon,
+                      time)
 
       # Get epsilon-greedy action and get resulting reward
-      predicted_rewards = np.dot(beta_hat, context)
-      true_rewards = np.dot(working_beta, context)
-      # print('correct action {}'.format(np.argmax(predicted_rewards) == np.argmax(true_rewards)))
-      # print('pred {} true {}'.format(predicted_rewards, true_rewards))
-      # pdb.set_trace()
-      greedy_action = np.argmax(predicted_rewards)
-      epsilon = expit_epsilon_decay(time_horizon, time, zeta)
-      if np.random.random() < epsilon:
-        action = np.random.choice(2)
-      else:
-        action = greedy_action
+      # predicted_rewards = np.dot(beta_hat, context)
+      # true_rewards = np.dot(working_beta, context)
 
+      # Get reward from pulled arm
       working_beta_at_action = working_beta[action, :]
       working_sigma_hat_at_action = working_sigma_hats[action]
       expected_reward = np.dot(working_beta_at_action, context)
@@ -297,9 +311,6 @@ def epsilon_greedy_rollout(zeta, linear_model_results, time_horizon, current_tim
     score = (episode_score - score) / it
 
   return score
-
-
-
 
 
 def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_time, estimated_context_mean,

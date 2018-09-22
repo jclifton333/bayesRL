@@ -14,9 +14,8 @@ import numpy as np
 from scipy.linalg import block_diag
 
 
-def main():
+def run(policy_name):
   """
-  For now this will just be for truncated thompson sampling policy.
 
   :return:
   """
@@ -24,11 +23,23 @@ def main():
   # Simulation settings
   replicates = 100
   T = 25
-  truncate = True
-  if truncate:
-    truncation_function = tuned_bandit.expit_truncate
-    truncation_function_gradient = tuned_bandit.expit_truncate_gradient
-    zeta = np.array([-5, 0.3])  # Initial truncation function parameters
+
+  if policy_name == 'eps':
+    tuning_function = lambda a, b, c: 0.05  # Constant epsilon
+    policy = tuned_bandit.epsilon_greedy_policy
+  elif policy_name == 'eps-decay':
+    tuning_function = tuned_bandit.expit_epsilon_decay
+    policy = tuned_bandit.epsilon_greedy_policy
+  elif policy_name == 'ts':
+    tuning_function = lambda a, b, c: 1.0  # No shrinkage
+    policy = tuned_bandit.thompson_sampling_policy
+  elif policy_name == 'ts-shrink':
+    tuning_function = tuned_bandit.expit_truncate
+    policy = tuned_bandit.thompson_sampling_policy
+  else:
+    raise ValueError('Incorrect policy name')
+
+  tuning_function_parameter = np.array([-5, 0.3])  # Initial truncation function parameters
   env = NormalCB(list_of_reward_betas=[np.array([1.0, 1.0]), np.array([1.2, 1.2])])
 
   rewards = np.zeros((replicates, T))
@@ -71,28 +82,14 @@ def main():
     estimated_context_variance = np.cov(X, rowvar=False)
 
     for t in range(T):
-      if truncate:
-        # Get exploration parameter
-        zeta = tuned_bandit.tune_truncated_thompson_sampling(linear_model_results, T, t, estimated_context_mean,
-                                                             estimated_context_variance, truncation_function,
-                                                             truncation_function_gradient, zeta)
-        shrinkage = truncation_function(T, t, zeta)
-        # print('time {} shrinkage {}'.format(t, shrinkage))
-      else:
-        shrinkage = 1
-
-      # Sample beta
-      beta_hat = np.hstack(linear_model_results['beta_hat_list'])
-      sample_cov_hat = block_diag(linear_model_results['sample_cov_list'][0],
-                                  linear_model_results['sample_cov_list'][1])
-      beta_tilde = np.random.multivariate_normal(beta_hat, sample_cov_hat * shrinkage)
-
-      # Get reward
-      beta_tilde = beta_tilde.reshape((env.number_of_actions, env.context_dimension))
+      X = env.X
+      tuning_function_parameter = tuned_bandit.bayesopt(tuned_bandit.rollout, policy, tuning_function, tuning_function_parameter,
+                                                        linear_model_results, T, t, np.mean(X, axis=0),
+                                                        np.cov(X, rowvar=False))
       x = copy.copy(env.curr_context)
-      estimated_rewards = np.dot(x, beta_tilde)
-      a = np.argmax(estimated_rewards)
-      step_results = env.step(a)
+      action = policy(beta_hat, linear_model_results['sample_cov_list'], x, tuning_function,
+                      tuning_function_parameter, T, t)
+      step_results = env.step(action)
       reward = step_results['Utility']
 
       # Compute regret
