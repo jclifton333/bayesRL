@@ -2,6 +2,7 @@
 Policies in which exploration/exploitation tradeoff is parameterized and tuned (TS, UCB, ..?).
 """
 
+from bayes_opt import BayesianOptimization
 from scipy.stats import norm
 from scipy.linalg import block_diag
 from scipy.special import expit
@@ -96,7 +97,7 @@ def update_linear_model_at_action(a, linear_model_results, x_new, y_new):
   :param linear_model_results:
   :param x_new
   :param y_new:
-  :returnpdb.set_trace()
+  :return:
   """
   X_a = linear_model_results['X_list'][a]
   Xprime_X_inv_a = linear_model_results['Xprime_X_inv_list'][a]
@@ -196,9 +197,136 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
   return zeta
 
 
+<<<<<<< HEAD
 def tune_epsilon_greedy(linear_model_results, time_horizon, current_time, estimated_context_mean,
                         estimated_context_variance, truncation_function, truncation_function_gradient,
                         initial_zeta):
+=======
+def grid_search(rollout_function, param_grid, linear_model_results, time_horizon, current_time,
+                estimated_context_mean, estimated_context_variance):
+  def objective(zeta):
+    return rollout_function(zeta, linear_model_results, time_horizon, current_time, estimated_context_mean,
+                            estimated_context_variance)
+  objective_values = []
+  for param in param_grid:
+    objective_values.append(objective(param))
+  return objective_values
+
+
+def bayesopt(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
+             estimated_context_mean, estimated_context_variance):
+  def objective(kappa, zeta0, zeta1):
+    return rollout_function(np.array([kappa, zeta0, zeta1]), policy, linear_model_results, time_horizon, current_time,
+                            estimated_context_mean, tuning_function, estimated_context_variance)
+  # ToDo: Fix this shit!
+  if len(zeta_prev) == 3:
+    bo = BayesianOptimization(objective, {'kappa': (0.05, 0.3), 'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
+    bo.explore({'kappa': [zeta_prev[0]], 'zeta0': [zeta_prev[1]], 'zeta1': [zeta_prev[2]]})
+    bo.maximize(init_points=5, n_iter=10)
+    best_param = bo.res['max']['max_params']
+    best_param = np.array([best_param['kappa'], best_param['zeta0'], best_param['zeta1']])
+  elif len(zeta_prev == 2):
+    bo = BayesianOptimization(objective, {'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
+    bo.explore({'zeta0': [zeta_prev[0]], 'zeta1': [zeta_prev[1]]})
+    bo.maximize(init_points=5, n_iter=10)
+    best_param = bo.res['max']['max_params']
+    best_param = np.array([best_param['zeta0'], best_param['zeta1']])
+  return best_param
+
+
+def epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
+                          T, t):
+  epsilon = tuning_function(T, t, tuning_function_parameter)
+  predicted_rewards = np.dot(beta_hat, context)
+  greedy_action = np.argmax(predicted_rewards)
+  if np.random.random() < epsilon:
+    action = np.random.choice(2)
+  else:
+    action = greedy_action
+  return action
+
+
+def thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
+                             T, t):
+  shrinkage = tuning_function(T, t, tuning_function_parameter)
+
+  # Sample from estimated sampling dbn
+  beta_hat_ = beta_hat.flatten()
+  sampling_cov_ = block_diag(sampling_cov_list[0], sampling_cov_list[1])
+  beta_tilde = np.random.multivariate_normal(beta_hat_, shrinkage * sampling_cov_)
+  beta_tilde = beta_tilde.reshape(beta_hat.shape)
+
+  # Estimate rewards and pull arm
+  estimated_rewards = np.dot(beta_tilde, context)
+  action = np.argmax(estimated_rewards)
+  return action
+
+
+def rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
+            tuning_function, estimated_context_variance):
+
+  MAX_ITER = 50
+  it = 0
+
+  number_of_actions = len(estimated_context_mean)
+  context_dimension = len(estimated_context_mean)
+
+  score = 0
+
+  while it < MAX_ITER:
+    # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
+    # working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
+    working_context_mean = estimated_context_mean
+    beta_hat = np.hstack(linear_model_results['beta_hat_list'])
+    estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
+                                             linear_model_results['sample_cov_list'][1])
+    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance) + \
+    #   np.random.multivariate_normal(mean=np.zeros(len(beta_hat)), cov=100.0*np.eye(len(beta_hat)))
+    working_beta = beta_hat
+    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
+    working_beta = working_beta.reshape((number_of_actions, context_dimension))
+    working_sigma_hats = linear_model_results['sigma_hat_list']
+
+    # Rollout under drawn working model
+    rollout_linear_model_results = copy.deepcopy(linear_model_results)
+    episode_score = 0
+    for time in range(current_time + 1, time_horizon):
+
+      beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
+                                                                                   context_dimension))
+      sampling_cov_list = linear_model_results['sample_cov_list']
+
+     # Draw context and take action
+      context = np.random.multivariate_normal(working_context_mean, cov=estimated_context_variance)
+      action = policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter, time_horizon,
+                      time)
+
+      # Get epsilon-greedy action and get resulting reward
+      # predicted_rewards = np.dot(beta_hat, context)
+      # true_rewards = np.dot(working_beta, context)
+
+      # Get reward from pulled arm
+      working_beta_at_action = working_beta[action, :]
+      working_sigma_hat_at_action = working_sigma_hats[action]
+      expected_reward = np.dot(working_beta_at_action, context)
+      reward = expected_reward + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
+
+      # Update score (sum of estimated rewards)
+      episode_score += expected_reward
+
+      # Update linear model
+      rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
+                                                                   reward)
+    it += 1
+    score = (episode_score - score) / it
+
+  return score
+
+
+def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_time, estimated_context_mean,
+                                   estimated_context_variance, truncation_function, truncation_function_gradient,
+                                   initial_zeta):
+>>>>>>> c4d50fbbb6d3eabf544e6d29a6fafa7278349d6c
   """
   :param linear_model_results: dictionary of lists of quantities related to estimated linear models for each action.
   :param time_horizon: 
@@ -219,7 +347,11 @@ def tune_epsilon_greedy(linear_model_results, time_horizon, current_time, estima
   number_of_actions = len(estimated_context_mean)
   context_dimension = len(estimated_context_mean)
   zeta_dimension = len(new_zeta)
+<<<<<<< HEAD
   policy_gradient = np.zeros(zeta_dimension)
+=======
+
+>>>>>>> c4d50fbbb6d3eabf544e6d29a6fafa7278349d6c
   diff = float('inf')
 
   while it < MAX_ITER and diff > TOL:
@@ -230,6 +362,7 @@ def tune_epsilon_greedy(linear_model_results, time_horizon, current_time, estima
     beta_hat = np.hstack(linear_model_results['beta_hat_list'])
     estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
                                              linear_model_results['sample_cov_list'][1])
+<<<<<<< HEAD
     working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
     working_beta = working_beta.reshape((number_of_actions, context_dimension))
     # working_beta = beta_hat.reshape((number_of_actions, context_dimension))
@@ -273,6 +406,65 @@ def tune_epsilon_greedy(linear_model_results, time_horizon, current_time, estima
     new_zeta[0] = np.min((1.0, np.max((0.0, new_zeta[0]))))
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
     print("zeta: {}".format(zeta))
+=======
+    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance) + \
+    #   np.random.multivariate_normal(mean=np.zeros(len(beta_hat)), cov=100.0*np.eye(len(beta_hat)))
+    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
+    # working_beta = working_beta.reshape((number_of_actions, context_dimension))
+    working_beta = -beta_hat.reshape((number_of_actions, context_dimension))
+    working_sigma_hats = linear_model_results['sigma_hat_list']
+    policy_gradient = np.zeros(zeta_dimension)
+    for _ in range(10):
+      rollout_linear_model_results = copy.deepcopy(linear_model_results)
+      for time in range(current_time + 1, time_horizon):
+
+        beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
+                                                                                     context_dimension))
+
+       # Draw context
+        context = np.random.multivariate_normal(working_context_mean, cov=estimated_context_variance)
+
+        # Get epsilon-greedy action and get resulting reward
+        predicted_rewards = np.dot(beta_hat, context)
+        true_rewards = np.dot(working_beta, context)
+        # print('correct action {}'.format(np.argmax(predicted_rewards) == np.argmax(true_rewards)))
+        # print('pred {} true {}'.format(predicted_rewards, true_rewards))
+        # pdb.set_trace()
+        greedy_action = np.argmax(predicted_rewards)
+        epsilon = expit_epsilon_decay(time_horizon, time, zeta)
+        if np.random.random() < epsilon:
+          action = np.random.choice(2)
+        else:
+          action = greedy_action
+
+        working_beta_at_action = working_beta[action, :]
+        working_sigma_hat_at_action = working_sigma_hats[action]
+        reward = np.dot(working_beta_at_action, context) + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
+
+        epsilon_gradient = expit_epsilon_decay_gradient(time_horizon, time, zeta)
+        if action == 0:
+          a0_step = np.dot(working_beta[0, :], context) * (-1/2) * epsilon_gradient
+          a1_step = np.dot(working_beta[1, :], context) * (1/2) * epsilon_gradient
+        else:
+          a0_step = np.dot(working_beta[0, :], context) * (1/2) * epsilon_gradient
+          a1_step = np.dot(working_beta[1, :], context) * (-1/2) * epsilon_gradient
+        policy_gradient_step = a0_step + a1_step
+        policy_gradient += policy_gradient_step
+        print('correct action {} sign of kappa gradient {}'.format(np.argmax(predicted_rewards) == np.argmax(true_rewards),
+                                                                   policy_gradient_step[0] > 0))
+
+        # Update linear model
+        rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
+                                                                     reward)
+    pdb.set_trace()
+    # Update zeta
+    # step_size = 1 / (it + 1)
+    step_size = 1
+    new_zeta = zeta + step_size * policy_gradient / 10.0
+    new_zeta[0] = np.min((1.0, np.max((0.0, new_zeta[0]))))
+    diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
+    print("zeta: {}".format(new_zeta))
+>>>>>>> c4d50fbbb6d3eabf544e6d29a6fafa7278349d6c
 
     it += 1
 

@@ -16,7 +16,8 @@ import matplotlib as mpl
 import pickle
     
 beta1 = 1
-beta2_list = [-3, -2, 0.01, 0.1, 0.2, 0.5, 1, 2]
+# beta2_list = [-3, -2, 0.01, 0.1, 0.2, 0.5, 1, 2]
+beta2_list = [1.0]
 
 
 def main():
@@ -26,17 +27,26 @@ def main():
   """
 
   # Simulation settings
+<<<<<<< HEAD
   replicates = 1
   T = 3
+=======
+  replicates = 100
+  T = 25
+>>>>>>> c4d50fbbb6d3eabf544e6d29a6fafa7278349d6c
   for beta2 in beta2_list:
-    env = NormalCB(list_of_reward_betas=[[1,1],[beta1+beta2, beta1+beta2]], 
+    env = NormalCB(list_of_reward_betas=[[1,1],[beta1+beta2, beta1-beta2]],
                    list_of_reward_vars=[[1],[1]])
     
   #  rewards = np.zeros((replicates, T))
     regrets = np.zeros((replicates, T))
     epsilon_fix = 0.05
     epsilon_decay = True
+<<<<<<< HEAD
     zeta = np.array([0.2, -5, 1])
+=======
+    zeta = np.array([0.2, -2, 1])
+>>>>>>> c4d50fbbb6d3eabf544e6d29a6fafa7278349d6c
 
     # Run sims
     for replicate in range(replicates):
@@ -85,8 +95,24 @@ def main():
         eps = np.random.rand()
         epsilon = epsilon_fix
         if epsilon_decay:
+<<<<<<< HEAD
           zeta = tuned_bandit.tune_epsilon_greedy(linear_model_results, T, t, np.mean(env.X, axis=0),
                                                   np.cov(env.X, rowvar=False), None, None, zeta)
+=======
+          param_grid = np.zeros((0, 3))
+          for rand_param in range(20):
+            kappa = np.random.uniform(low=0.05, high=0.3)
+            zeta_0 = np.random.uniform(low=-3, high=-0.05)
+            zeta_1 = np.random.uniform(low=1, high=5)
+            param_grid = np.vstack((param_grid, np.array([kappa, zeta_0, zeta_1])))
+          param_scores = tuned_bandit.grid_search(tuned_bandit.epsilon_greedy_rollout, param_grid,
+                                                  linear_model_results, T, t, np.mean(env.X, axis=0),
+                                                  np.cov(env.X, rowvar=False))
+          bo = tuned_bandit.bayesopt(tuned_bandit.epsilon_greedy_rollout, zeta, linear_model_results, T, t, np.mean(env.X, axis=0),
+                                     np.cov(env.X, rowvar=False))
+          pdb.set_trace()
+          zeta = param_grid[np.argmax(param_scores), :]
+>>>>>>> c4d50fbbb6d3eabf544e6d29a6fafa7278349d6c
           epsilon = tuned_bandit.expit_epsilon_decay(T, t, zeta)
           print('epsilon {}'.format(epsilon))
 #          if t > T/5.0:
@@ -153,4 +179,8 @@ if __name__ == '__main__':
 # ax.plot(num_steps_Loc, 'C'+str(1), label='Linear')
 # ax.plot(range(100), 'C2', label='Local linear')
 # ax.legend()
+<<<<<<< HEAD
 # plt.savefig('Linear_Loc.png')
+=======
+# plt.savefig('Linear_Loc.png')
+>>>>>>> c4d50fbbb6d3eabf544e6d29a6fafa7278349d6c
