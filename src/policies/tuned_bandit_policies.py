@@ -155,8 +155,8 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
   return zeta
 
 
-def epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
-                          T, t):
+def linear_cb_epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
+                                    T, t):
   epsilon = tuning_function(T, t, tuning_function_parameter)
   predicted_rewards = np.dot(beta_hat, context)
   greedy_action = np.argmax(predicted_rewards)
@@ -167,8 +167,8 @@ def epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_function,
   return action
 
 
-def thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
-                             T, t):
+def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
+                                       T, t):
   shrinkage = tuning_function(T, t, tuning_function_parameter)
 
   # Sample from estimated sampling dbn
@@ -183,8 +183,9 @@ def thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_functi
   return action
 
 
-def oracle_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time,
-                   estimated_context_mean, tuning_function, estimated_context_variance, env, context_sequences):
+def normal_cb_oracle_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time,
+                             estimated_context_mean, tuning_function, estimated_context_variance, env,
+                             context_sequences):
   # MAX_ITER = 100
   it = 0
 
@@ -226,8 +227,8 @@ def oracle_rollout(tuning_function_parameter, policy, linear_model_results, time
   return score
 
 
-def rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
-            tuning_function, estimated_context_variance, env, context_sequences):
+def normal_cb_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time,
+                      estimated_context_mean, tuning_function, estimated_context_variance, env, context_sequences):
 
   MAX_ITER = 100
   it = 0
@@ -345,7 +346,54 @@ def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, tim
   return score
 
 
-# For truncation functions
+def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_time, tuning_function, env,
+                       nPatients):
+
+  MAX_ITER = 100
+  it = 0
+  score = 0
+
+  for _ in range(MAX_ITER):
+    working_means = np.random.normal(loc=env.estimated_means, scale=env.standard_errors)
+    working_variances = env.estimated_variances
+
+    # Get initial estimates, which will be updated throughout rollout
+    number_of_pulls = env.number_of_pulls
+    estimated_means = env.estimated_means
+    standard_errors = env.standard_errors
+    draws_from_each_arm = env.draws_from_each_arm
+
+    # Rollout under drawn working model
+    episode_score = 0
+    for time in range(current_time, time_horizon):
+      for j in range(nPatients):
+        action = policy(estimated_means, standard_errors, tuning_function, tuning_function_parameter,
+                        time_horizon, time)
+
+        # Get epsilon-greedy action and get resulting reward
+        # predicted_rewards = np.dot(beta_hat, context)
+        # true_rewards = np.dot(working_beta, context)
+
+        # Get reward from pulled arm
+        expected_reward = working_means[action]
+        reward = expected_reward + np.random.normal(scale=np.sqrt(working_variances[action]))
+
+        # Update score (sum of estimated rewards)
+        episode_score += expected_reward
+
+        # Update model
+        number_of_pulls[action] += 1
+        estimated_means[action] += (reward - estimated_means[action]) / number_of_pulls[action]
+        draws_from_each_arm[action].append(reward)
+        n_a = number_of_pulls[action]
+        standard_errors[action] = np.sum((draws_from_each_arm[action] - estimated_means[action])**2) / n_a**2
+
+    it += 1
+    score += (episode_score - score) / it
+  return score
+
+
+# Helpers
 def expit_truncate(T, t, zeta):
   shrinkage = expit(zeta[0] + zeta[1] * (T - t))
   return shrinkage
@@ -353,6 +401,9 @@ def expit_truncate(T, t, zeta):
 
 def expit_epsilon_decay(T, t, zeta):
   return zeta[0] * expit(zeta[1] + zeta[2]*(T - t))
+
+
+
 
 
 
