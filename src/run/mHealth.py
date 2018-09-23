@@ -82,15 +82,15 @@ def episode(policy_name, label):
     linear_model_results['sigma_hat_list'].append(sigma_hat_a)
 
   for t in range(T):
+    X = env.X
+    estimated_context_mean = np.mean(X, axis=0)
+    estimated_context_variance = np.cov(X, rowvar=False)
+    if tune:
+      tuning_function_parameter = tuned_bandit.grid_search(tuned_bandit.mHealth_rollout, policy, tuning_function,
+                                                           tuning_function_parameter,
+                                                           linear_model_results, T, t, estimated_context_mean,
+                                                           estimated_context_variance, env, nPatients)
     for j in range(nPatients): 
-      X = env.X
-      estimated_context_mean = np.mean(X, axis=0)
-      estimated_context_variance = np.cov(X, rowvar=False)
-      if tune:
-        tuning_function_parameter = tuned_bandit.grid_search(tuned_bandit.mHealth_rollout, policy, tuning_function,
-                                                               tuning_function_parameter,
-                                                               linear_model_results, T, t, estimated_context_mean,
-                                                               estimated_context_variance, env, nPatients)
         # tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
         #                                                                         estimated_context_mean,
         #                                                                         estimated_context_variance,

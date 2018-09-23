@@ -264,20 +264,30 @@ def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_m
 def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
                   estimated_context_mean, estimated_context_variance, env, nPatients):
 
-  # Generate context sequences
+  # Optimization parameters
   NUM_REP = 1000
+  POINTS_PER_GRID_DIMENSION = 1000
+  zeta0_bounds = (-2, -0.05)
+  zeta1_bounds = (1, 2)
+  kappa = 0.3
+
+
+  # Generate context sequences
   context_sequences = []
   for rep in range(NUM_REP):
     context_sequence = []
     for t in range(time_horizon - current_time):
-      context = env.draw_context()
-      context_sequence.append(context)
+      context_sequence_at_time_t = []
+      for j in range(nPatients):
+        context = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
+        context_sequence_at_time_t.append(context)
+      context_sequence.append(context_sequence_at_time_t)
     context_sequences.append(context_sequence)
 
   def objective(zeta):
     return rollout_function(zeta, policy, linear_model_results, time_horizon, current_time,
                             estimated_context_mean, tuning_function, estimated_context_variance, env,
-                            nPatients)
+                            nPatients, context_sequences)
 
   truncation_values = []
   # ToDo: Fix this shit!
@@ -289,10 +299,9 @@ def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_mod
   best_val = objective(zeta_prev)
   best_zeta = zeta_prev
   best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
-  kapa = 0.3
-  for zeta0 in np.linspace(-2, -0.05, 1000):
-    for zeta1 in np.linspace(1, 2, 1000):
-      zeta_rand = np.array([kapa, zeta0, zeta1])
+  for zeta0 in np.linspace(zeta0_bounds[0], zeta1_bounds[1], POINTS_PER_GRID_DIMENSION):
+    for zeta1 in np.linspace(zeta0_bounds[0], zeta1_bounds[1], POINTS_PER_GRID_DIMENSION):
+      zeta_rand = np.array([kappa, zeta0, zeta1])
       val = objective(zeta_rand)
       truncation_val = tuning_function(time_horizon, current_time, zeta_rand)
       truncation_values.append(truncation_val)
@@ -392,7 +401,7 @@ def oracle_rollout(tuning_function_parameter, policy, linear_model_results, time
 
 
 def rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
-            tuning_function, estimated_context_variance, env):
+            tuning_function, estimated_context_variance, env, context_sequences):
 
   MAX_ITER = 100
   it = 0
@@ -402,7 +411,7 @@ def rollout(tuning_function_parameter, policy, linear_model_results, time_horizo
 
   score = 0
 
-  while it < MAX_ITER:
+  for context_sequence in context_sequences:
     # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
     # working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
     working_context_mean = estimated_context_mean
@@ -451,8 +460,9 @@ def rollout(tuning_function_parameter, policy, linear_model_results, time_horizo
   return score
 
 
-def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
-            tuning_function, estimated_context_variance, env, nPatients):
+def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time,
+                    estimated_context_mean, tuning_function, estimated_context_variance, env, nPatients,
+                    context_sequences):
 
   MAX_ITER = 100
   it = 0
@@ -462,10 +472,9 @@ def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, tim
 
   score = 0
 
-  while it < MAX_ITER:
+  for context_sequence in context_sequences:
     # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
     # working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
-    working_context_mean = estimated_context_mean
     beta_hat = np.hstack(linear_model_results['beta_hat_list'])
     estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
                                              linear_model_results['sample_cov_list'][1])
@@ -479,14 +488,13 @@ def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, tim
     # Rollout under drawn working model
     rollout_linear_model_results = copy.deepcopy(linear_model_results)
     episode_score = 0
-    for time in range(current_time + 1, time_horizon):
+    for time in range(current_time, time_horizon):
+      beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
+                                                                                   context_dimension))
+      sampling_cov_list = linear_model_results['sample_cov_list']
       for j in range(nPatients):
-        beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
-                                                                                     context_dimension))
-        sampling_cov_list = linear_model_results['sample_cov_list']
-  
        # Draw context and take action
-        context = np.random.multivariate_normal(working_context_mean, cov=estimated_context_variance)
+        context = context_sequence[time][j]
         action = policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter, time_horizon,
                         time)
   
