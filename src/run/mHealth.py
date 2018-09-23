@@ -18,7 +18,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, save=True, points_per_grid_dimension=1, monte_carlo_reps=1):
+def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_carlo_reps=1000):
   if save:
     base_name = 'mhealth-{}-{}'.format(label, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -26,7 +26,7 @@ def episode(policy_name, label, save=True, points_per_grid_dimension=1, monte_ca
     filename = '{}_{}.yml'.format(prefix, suffix)
 
   np.random.seed(label)
-  T = 10
+  T = 1
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -131,7 +131,7 @@ def episode(policy_name, label, save=True, points_per_grid_dimension=1, monte_ca
   return cumulative_regret
 
 
-def run(policy_name, save=True, points_per_grid_dimension=100, monte_carlo_reps=1000):
+def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1000):
   """
 
   :return:
@@ -162,6 +162,6 @@ def run(policy_name, save=True, points_per_grid_dimension=100, monte_carlo_reps=
 
 
 if __name__ == '__main__':
-  # episode('eps-decay', np.random.randint(low=1, high=1000))
-  run('eps-decay')
+  episode('eps-decay', np.random.randint(low=1, high=1000))
+  # run('eps-decay')
 
