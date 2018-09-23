@@ -37,8 +37,10 @@ class Bandit(ABC):
   
 
 class MAB(Bandit):
-  def __init__(self):
+  def __init__(self, list_of_reward_mus):
     Bandit.__init__(self)
+    self.list_of_reward_mus = list_of_reward_mus
+    self.number_of_actions = len(list_of_reward_mus)
     self.number_of_pulls = np.zeros(self.number_of_actions)
     self.estimated_means = np.zeros(self.number_of_actions)
     self.estimated_vars = np.zeros(self.number_of_actions)
@@ -58,9 +60,7 @@ class MAB(Bandit):
 
 class NormalMAB(MAB):
   def __init__(self, list_of_reward_mus=[[1], [2]], list_of_reward_vars=[[1], [1]]):
-    MAB.__init__(self)
-    self.number_of_actions = len(list_of_reward_vars)
-    self.list_of_reward_mus = list_of_reward_mus
+    MAB.__init__(self, list_of_reward_mus)
     self.list_of_reward_vars = list_of_reward_vars
   
   def reward_dbn(self, a):
@@ -69,14 +69,12 @@ class NormalMAB(MAB):
     
 
 class BernoulliMAB(MAB):
-  def __init__(self, list_of_probs=[0.3, 0.7]):
-    MAB.__init__(self)
-    self.list_of_probs = list_of_probs
-    self.number_of_actions = len(list_of_probs)
-  
+  def __init__(self, list_of_reward_mus=[0.3, 0.7]):
+    MAB.__init__(self, list_of_reward_mus)
+
   def reward_dbn(self, a):
     # utility is distributed as Bernoulli(p)
-    prob = self.list_of_probs[a]
+    prob = self.list_of_reward_mus[a]
     u = np.random.binomial(n=1, p=prob) 
     return u    
       
