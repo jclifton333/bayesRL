@@ -77,7 +77,7 @@ def episode(policy_name, label):
 
     # Compute regret
     oracle_expected_reward = np.max( env.list_of_reward_mus[0], env.list_of_reward_mus[1])
-    regret = oracle_expected_reward - env.list_of_reward_mus[action]
+    regret = oracle_expected_reward - env.estimated_means[action]
     cumulative_regret += regret
 
   return cumulative_regret
