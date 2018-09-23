@@ -18,9 +18,15 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label):
+def episode(policy_name, label, save=True, points_per_grid_dimension=1, monte_carlo_reps=1):
+  if save:
+    base_name = 'mhealth-{}-{}'.format(label, policy_name)
+    prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
+    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = '{}_{}.yml'.format(prefix, suffix)
+
   np.random.seed(label)
-  T = 1
+  T = 10
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -91,7 +97,8 @@ def episode(policy_name, label):
       tuning_function_parameter = tuned_bandit.grid_search(tuned_bandit.mHealth_rollout, policy, tuning_function,
                                                            tuning_function_parameter,
                                                            linear_model_results, T, t, estimated_context_mean,
-                                                           estimated_context_variance, env, nPatients)
+                                                           estimated_context_variance, env, nPatients,
+                                                           points_per_grid_dimension, monte_carlo_reps)
     # print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     for j in range(nPatients):
         # tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
@@ -114,35 +121,38 @@ def episode(policy_name, label):
   
       # Update linear model
       linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
-  
+
+    # Save results
+    if save:
+      results = {'t': float(t), 'regret': float(cumulative_regret)}
+      with open(filename, 'w') as outfile:
+        yaml.dump(results, outfile)
+
   return cumulative_regret
 
 
-def run(policy_name, save=True):
+def run(policy_name, save=True, points_per_grid_dimension=1, monte_carlo_reps=1):
   """
 
   :return:
   """
 
-  replicates = 80
-  num_cpus = int(mp.cpu_count() / 2)
-  results = []
+  num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name)
+  episode_partial = partial(episode, policy_name, save=save, points_per_grid_dimension=points_per_grid_dimension,
+                            monte_carlo_reps=monte_carlo_reps)
 
-  num_batches = int(replicates / num_cpus)
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
+  results = pool.map(episode_partial, range(num_cpus))
 
   # Save results
   if save:
-    results = {'T': float(25), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
-                'beta': [[1.0, 1.0], [2.0, -2.0]], 'regret list': [float(r) for r in results]}
+    results = {'T': float(10), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
+               'regret list': [float(r) for r in results],
+               'points_per_grid_dimension': points_per_grid_dimension, 'monte_carlo_reps': monte_carlo_reps}
 
-    base_name = 'normalcb-25-{}'.format(policy_name)
-    prefix = os.path.join(project_dir, 'src', 'run', base_name)
+    base_name = 'mhealth-{}'.format(policy_name)
+    prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
     with open(filename, 'w') as outfile:
@@ -152,6 +162,6 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-  # run('eps-decay')
+  # episode('eps-decay', np.random.randint(low=1, high=1000))
+  run('eps-decay')
 

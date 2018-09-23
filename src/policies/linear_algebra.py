@@ -5,7 +5,7 @@ from numba import njit, jit
 import numpy as np
 
 
-#@jit
+@njit
 def sse(u, v):
   sum_ = 0.0
   n = u.size
@@ -14,7 +14,7 @@ def sse(u, v):
   return sum_
 
 
-#@jit
+@njit
 def matrix_dot_vector(M, v):
   n, m = M.shape
   res = np.zeros(n)
@@ -24,7 +24,7 @@ def matrix_dot_vector(M, v):
   return res
 
 
-#@jit
+@njit
 def vector_dot_vector(u, v):
   res = 0.0
   n = u.size
@@ -33,7 +33,7 @@ def vector_dot_vector(u, v):
   return res
 
 
-#@jit
+@njit
 def vector_outer_vector(u, v):
   n = u.size
   res = np.zeros((n, n))
@@ -43,7 +43,7 @@ def vector_outer_vector(u, v):
   return res
 
 
-#@jit
+@njit
 def matrix_dot_matrix(A, B):
   nrow_a, ncol_a = A.shape
   nrow_b, ncol_b = B.shape
@@ -56,13 +56,16 @@ def matrix_dot_matrix(A, B):
   return res
 
 
-#@jit
+@njit
 def sherman_woodbury(A_inv, u, v):
   # outer = np.outer(u, v)
   outer = vector_outer_vector(u, v)
   A_inv_times_outer = matrix_dot_matrix(A_inv, outer)
+  # A_inv_times_outer = np.dot(A_inv, outer)
   num = matrix_dot_matrix(A_inv_times_outer, A_inv)
   A_inv_times_u = matrix_dot_vector(A_inv, u)
+  # A_inv_times_u = np.dot(A_inv, u)
   denom = 1.0 + vector_dot_vector(A_inv_times_u, v)
+  # denom = 1.0 + np.dot(A_inv_times_outer, v)
   return A_inv - num / denom
 

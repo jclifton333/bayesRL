@@ -79,7 +79,7 @@ def update_linear_model(X, y, Xprime_X_inv, x_new, X_dot_y, y_new):
   sigma_hat = la.sse(yhat, y) / (n - p)
   sample_cov = sigma_hat * Xprime_X_inv_new
 
-  return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'y': y_new, 'X_dot_y': X_dot_y_new,
+  return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'y': y, 'X_dot_y': X_dot_y_new,
           'sample_cov': sample_cov, 'sigma_hat': sigma_hat}
 
 
@@ -267,19 +267,17 @@ def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_m
 
 
 def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
-                  estimated_context_mean, estimated_context_variance, env, nPatients):
+                estimated_context_mean, estimated_context_variance, env, nPatients, points_per_grid_dimension,
+                monte_carlo_reps):
 
   # Optimization parameters
-  NUM_REP = 50
-  POINTS_PER_GRID_DIMENSION = 10
   zeta0_bounds = (-2, -0.05)
-  zeta1_bounds = (1, 2)
+  zeta1_bounds = (0, 1)
   kappa = 0.3
-
 
   # Generate context sequences
   context_sequences = []
-  for rep in range(NUM_REP):
+  for rep in range(monte_carlo_reps):
     context_sequence = []
     for t in range(time_horizon - current_time):
       context_sequence_at_time_t = []
@@ -295,17 +293,11 @@ def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_mod
                             nPatients, context_sequences)
 
   truncation_values = []
-  # ToDo: Fix this shit!
-#  if len(zeta_prev) == 3:
-#    bounds = [(0.05, 0.3), (-2, -0.05), (1, 2)]
-#  elif len(zeta_prev) == 2:
-#    bounds = [(-2, -0.05), (1, 2)]
-
   best_val = objective(zeta_prev)
   best_zeta = zeta_prev
   best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
-  for zeta0 in np.linspace(zeta0_bounds[0], zeta1_bounds[1], POINTS_PER_GRID_DIMENSION):
-    for zeta1 in np.linspace(zeta0_bounds[0], zeta1_bounds[1], POINTS_PER_GRID_DIMENSION):
+  for zeta0 in np.linspace(zeta0_bounds[0], zeta1_bounds[1], points_per_grid_dimension):
+    for zeta1 in np.linspace(zeta1_bounds[0], zeta1_bounds[1], points_per_grid_dimension):
       print(zeta0, zeta1)
       zeta_rand = np.array([kappa, zeta0, zeta1])
       val = objective(zeta_rand)
@@ -499,7 +491,7 @@ def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, tim
       sampling_cov_list = linear_model_results['sample_cov_list']
       for j in range(nPatients):
        # Draw context and take action
-        context = context_sequence[time][j]
+        context = context_sequence[time - current_time][j]
         action = policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter, time_horizon,
                         time)
   
