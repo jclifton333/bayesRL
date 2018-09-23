@@ -12,6 +12,8 @@ sys.path.append(project_dir)
 
 import matplotlib.pyplot as plt
 from src.environments.Bandit import NormalCB
+from src.policies import rollout
+import src.policies.global_optimization as opt
 from src.policies import tuned_bandit_policies as tuned_bandit
 import copy
 import numpy as np
@@ -30,29 +32,29 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     filename = '{}_{}.yml'.format(prefix, suffix)
 
   np.random.seed(label)
-  T = 1
+  T = 10
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.05  # Constant epsilon
-    policy = tuned_bandit.epsilon_greedy_policy
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.epsilon_greedy_policy
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = True
     tuning_function_parameter = np.array([0.2, -2, 1])
-  elif policy_name == 'ts':
-    tuning_function = lambda a, b, c: 1.0  # No shrinkage
-    policy = tuned_bandit.thompson_sampling_policy
-    tune = False
-    tuning_function_parameter = None
-  elif policy_name == 'ts-shrink':
-    tuning_function = tuned_bandit.expit_truncate
-    policy = tuned_bandit.thompson_sampling_policy
-    tune = True
-    tuning_function_parameter = np.array([-2, 1])
+  # elif policy_name == 'ts':
+  #   tuning_function = lambda a, b, c: 1.0  # No shrinkage
+  #   policy = tuned_bandit.thompson_sampling_policy
+  #   tune = False
+  #   tuning_function_parameter = None
+  # elif policy_name == 'ts-shrink':
+  #   tuning_function = tuned_bandit.expit_truncate
+  #   policy = tuned_bandit.thompson_sampling_policy
+  #   tune = True
+  #   tuning_function_parameter = np.array([-2, 1])
   else:
     raise ValueError('Incorrect policy name')
 
@@ -98,11 +100,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
     if tune:
-      tuning_function_parameter = tuned_bandit.grid_search(tuned_bandit.mHealth_rollout, policy, tuning_function,
-                                                           tuning_function_parameter,
-                                                           linear_model_results, T, t, estimated_context_mean,
-                                                           estimated_context_variance, env, nPatients,
-                                                           points_per_grid_dimension, monte_carlo_reps)
+      tuning_function_parameter = opt.grid_search(rollout.mHealth_rollout, policy, tuning_function,
+                                                  tuning_function_parameter,
+                                                  linear_model_results, T, t, estimated_context_mean,
+                                                  estimated_context_variance, env, nPatients,
+                                                  points_per_grid_dimension, monte_carlo_reps)
     # print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     for j in range(nPatients):
         # tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
