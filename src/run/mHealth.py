@@ -1,3 +1,7 @@
+"""
+Mimic M-health by normal linear contextual bandit for multiple ''patients'' at each time step.
+"""
+
 import sys
 import pdb
 import os
