@@ -11,65 +11,53 @@ from abc import ABCMeta, abstractmethod
 
 ABC = ABCMeta('ABC', (object, ), {'__slots__': ()})
 
+
 class Bandit(ABC):   
   def __init__ (self):
-      pass
+    self.U = []
+    self.A = []
       
   def reset(self):
     self.U = []
-    self.X = self.initial_context()
     self.A = []
+
+  def step(self, a):
+    """
+    return utility given an action and current context
+    """
+    u = self.reward_dbn(a)
+    self.U = np.append(self.U, u)
+    self.A = np.append(self.A, a)
+
+    return u
+
+  @abstractmethod
+  def reward_dbn(self, a):
+    pass
+  
+
+class MAB(Bandit):
+  def __init__(self):
+    Bandit.__init__(self)
     self.number_of_pulls = np.zeros(self.number_of_actions)
     self.estimated_means = np.zeros(self.number_of_actions)
     self.estimated_vars = np.zeros(self.number_of_actions)
     self.standard_errors = np.zeros(self.number_of_actions)
-    self.draws_from_each_arm = [[]]*self.number_of_actions
-    
+    self.draws_from_each_arm = [[]] * self.number_of_actions
+
   def step(self, a):
-    ''' return untility given an action and current context'''
-    u = self.reward_dbn(a)
-    x = self.next_context()
-    self.U = np.append(self.U, u)
-    self.A = np.append(self.A, a)
-    self.X = np.vstack((self.X, x))
+    u = super(MAB, self).step(a)
     self.number_of_pulls[a] += 1
-    self.estimated_means[a] += (u - self.estimated_means[a])/self.number_of_pulls[a]
+    self.estimated_means[a] += (u - self.estimated_means[a]) / self.number_of_pulls[a]
     self.draws_from_each_arm[a] = np.append(self.draws_from_each_arm[a], u)
-    std = np.std(self.draws_from_each_arm[a] )
-    self.estimated_vars[a] = std**2
-    self.standard_errors[a] = std/np.sqrt(self.number_of_pulls[a])    
-    return {"Utility":u, "New context":x}
-
-  @abstractmethod
-  def reward_dbn(self, a):
-    pass
-  
-  @abstractmethod
-  def initial_context(self):
-    pass
-  
-  @abstractmethod
-  def next_context(self):
-    pass
-
-
-class MAB(Bandit):
-  def __init__ (self):
-    Bandit.__init__(self)
-  
-  def initial_context(self):
-    return None
-    
-  def next_context(self):
-    return None
-  
-  @abstractmethod
-  def reward_dbn(self, a):
-    pass  
+    std = np.std(self.draws_from_each_arm[a])
+    self.estimated_vars[a] = std ** 2
+    self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
+    return u
 
 
 class NormalMAB(MAB):
-  def __init__ (self, list_of_reward_mus=[[1],[2]], list_of_reward_vars=[[1],[1]]):
+  def __init__(self, list_of_reward_mus=[[1], [2]], list_of_reward_vars=[[1], [1]]):
     MAB.__init__(self)
     self.number_of_actions = len(list_of_reward_vars)
     self.list_of_reward_mus = list_of_reward_mus
@@ -81,7 +69,7 @@ class NormalMAB(MAB):
     
 
 class BernoulliMAB(MAB):
-  def __init__ (self, list_of_probs=[0.3,0.7]):
+  def __init__(self, list_of_probs=[0.3, 0.7]):
     MAB.__init__(self)
     self.list_of_probs = list_of_probs
     self.number_of_actions = len(list_of_probs)
@@ -94,7 +82,7 @@ class BernoulliMAB(MAB):
       
 
 class LinearCB(Bandit):
-  def __init__ (self, list_of_reward_betas=[[1,1],[2,-2]], list_of_reward_vars=[[1],[1]]):
+  def __init__(self, list_of_reward_betas=[[1,1], [2,-2]], list_of_reward_vars=[[1], [1]]):
     Bandit.__init__(self)
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
@@ -104,6 +92,16 @@ class LinearCB(Bandit):
     self.curr_context = None
     self.list_of_reward_betas = list_of_reward_betas
     self.list_of_reward_vars = list_of_reward_vars
+
+  def reset(self):
+    super(LinearCB, self).reset()
+    self.X = self.initial_context()
+
+  def step(self, a):
+    u = super(LinearCB, self).step(a)
+    x = self.next_context()
+    self.X = np.vstack((self.X, x))
+    return {'Utility': u, 'New context': x}
 
   @abstractmethod
   def draw_context(self):
@@ -134,8 +132,8 @@ class LinearCB(Bandit):
 
 
 class NormalCB(LinearCB):
-  def __init__ (self, list_of_reward_betas=[[1,1],[2,-2]], list_of_reward_vars=[[1],[1]],
-                context_mean=[0,0], context_var=np.array([[1., 0.1],[0.1, 1.]]) ):
+  def __init__(self, list_of_reward_betas=[[1,1], [2,-2]], list_of_reward_vars=[[1], [1]],
+               context_mean=[0, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
     LinearCB.__init__(self, list_of_reward_betas, list_of_reward_vars)
     self.context_dimension = len(context_mean)
     self.context_mean = context_mean
@@ -146,7 +144,7 @@ class NormalCB(LinearCB):
 
 
 class NormalUniformCB(LinearCB):
-  def __init__ (self, list_of_reward_betas=[[-0.1],[0.1]], list_of_reward_vars=[[2],[2]]):
+  def __init__(self, list_of_reward_betas=[[-0.1], [0.1]], list_of_reward_vars=[[2], [2]]):
     LinearCB.__init__(self, list_of_reward_betas, list_of_reward_vars)
     self.context_dimension = 1
 
