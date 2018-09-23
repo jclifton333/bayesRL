@@ -220,25 +220,44 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, linear_model_
 
 
 def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
-                  estimated_context_mean, estimated_context_variance):
+                  estimated_context_mean, estimated_context_variance, env):
+
+  # Generate context sequences
+  NUM_REP = 1000
+  context_sequences = []
+  for rep in range(NUM_REP):
+    context_sequence = []
+    for t in range(time_horizon - current_time):
+      context = env.draw_context()
+      context_sequence.append(context)
+    context_sequences.append(context_sequence)
+
   def objective(zeta):
     return rollout_function(zeta, policy, linear_model_results, time_horizon, current_time,
-                            estimated_context_mean, tuning_function, estimated_context_variance)
+                            estimated_context_mean, tuning_function, estimated_context_variance, env,
+                            context_sequences)
 
+  truncation_values = []
   # ToDo: Fix this shit!
   if len(zeta_prev) == 3:
     bounds = [(0.05, 0.3), (-2, -0.05), (1, 2)]
   elif len(zeta_prev == 2):
     bounds = [(-2, -0.05), (1, 2)]
+  random_zetas = np.array([np.array([np.random.uniform(low=low_, high=high_) for low_, high_ in bounds])
+                                    for _ in range(10)])
 
   best_val = objective(zeta_prev)
   best_zeta = zeta_prev
-  for _ in range(10):
-    zeta_rand = np.array([np.random.uniform(low=low_, high=high_) for low_, high_ in bounds])
+  best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
+  for zeta_rand in random_zetas:
     val = objective(zeta_rand)
+    truncation_val = tuning_function(time_horizon, current_time, zeta_rand)
+    truncation_values.append(truncation_val)
     if val > best_val:
+      best_truncation_val = truncation_val
       best_val = val
       best_zeta = zeta_rand
+  pdb.set_trace()
   return best_zeta
 
 
@@ -286,8 +305,51 @@ def thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_functi
   return action
 
 
+def oracle_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time,
+                   estimated_context_mean, tuning_function, estimated_context_variance, env, context_sequences):
+  # MAX_ITER = 100
+  it = 0
+
+  number_of_actions = env.number_of_actions
+  context_dimension = env.context_dimension
+
+  score = 0
+
+  # while it < MAX_ITER:
+  for context_sequence in context_sequences:  # We use a pre-specified context sequence to reduce variance of comparisons
+    # Rollout under drawn working model
+    rollout_linear_model_results = copy.deepcopy(linear_model_results)
+    episode_score = 0
+    for time in range(current_time, time_horizon):
+      context = context_sequence[time - current_time]
+      beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
+                                                                                   context_dimension))
+      sampling_cov_list = linear_model_results['sample_cov_list']
+
+     # Draw context and take action
+      # context = env.draw_context()
+      action = policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter, time_horizon,
+                      time)
+
+      # Get reward from pulled arm
+      expected_rewards = [env.expected_reward(a, context) for a in range(env.number_of_actions)]
+      expected_reward = expected_rewards[action]
+      best_expected_reward = np.max(expected_rewards)
+      reward = expected_reward + env.reward_noise(action)
+
+      # Update score (sum of estimated rewards)
+      episode_score += (expected_reward - best_expected_reward)
+
+      # Update linear model
+      rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
+                                                                   reward)
+    it += 1
+    score += (episode_score - score) / it
+  return score
+
+
 def rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
-            tuning_function, estimated_context_variance):
+            tuning_function, estimated_context_variance, env):
 
   MAX_ITER = 100
   it = 0
@@ -414,15 +476,15 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
       working_sigma_hat_at_action = working_sigma_hats[action]
       reward = np.dot(working_beta_at_action, context) + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
 
-      epsilon_gradient = expit_epsilon_decay_gradient(time_horizon, time, zeta)
+      epsilon_gradient = expit_epsilon_decay_gradient(time_horizon, time, zeta) / 2
       if action == greedy_action:
         epsilon_gradient *= -1
       gradients = np.vstack((gradients, epsilon_gradient))
       episode_rewards.append(reward)
 
-    cumulative_rewards = np.cumsum(episode_rewards)
-    cumulative_rewards_times_gradients = np.multiply(gradients, cumulative_rewards.reshape(-1, 1))
-    episode_policy_gradient += np.sum(cumulative_rewards_times_gradients, axis=0)
+    returns = np.sum(episode_rewards) - np.cumsum(episode_rewards)
+    returns_times_gradients = np.multiply(gradients, returns.reshape(-1, 1))
+    episode_policy_gradient += np.sum(returns_times_gradients, axis=0)
 
     # Update zeta
     step_size = 0.001 / (it + 1)
@@ -430,7 +492,7 @@ def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_t
     new_zeta[0] = np.min((1.0, np.max((0.01, new_zeta[0]))))
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
     # print("zeta: {}".format(new_zeta))
-
+    pdb.set_trace()
     it += 1
 
   return zeta

@@ -20,7 +20,7 @@ import multiprocessing as mp
 
 def episode(policy_name, label):
   np.random.seed(label)
-  T = 25
+  T = 1
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -84,14 +84,14 @@ def episode(policy_name, label):
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
     if tune:
-      # tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.rollout, policy, tuning_function,
-      #                                                        tuning_function_parameter,
-      #                                                        linear_model_results, T, t, estimated_context_mean,
-      #                                                        estimated_context_variance)
-      tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
-                                                                              estimated_context_mean,
-                                                                              estimated_context_variance,
-                                                                              None, None, tuning_function_parameter)
+      tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.oracle_rollout, policy, tuning_function,
+                                                             tuning_function_parameter,
+                                                             linear_model_results, T, t, estimated_context_mean,
+                                                             estimated_context_variance, env)
+      # tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
+      #                                                                         estimated_context_mean,
+      #                                                                         estimated_context_variance,
+      #                                                                         None, None, tuning_function_parameter)
 
     x = copy.copy(env.curr_context)
     print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
@@ -146,7 +146,7 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  # episode('eps-decay', 0)
-  run('eps-decay')
+  episode('eps-decay', np.random.randint(low=1, high=1000))
+  # run('eps-decay')
 
 
