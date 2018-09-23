@@ -131,7 +131,7 @@ def episode(policy_name, label, save=True, points_per_grid_dimension=1, monte_ca
   return cumulative_regret
 
 
-def run(policy_name, save=True, points_per_grid_dimension=1, monte_carlo_reps=1):
+def run(policy_name, save=True, points_per_grid_dimension=100, monte_carlo_reps=1000):
   """
 
   :return:
