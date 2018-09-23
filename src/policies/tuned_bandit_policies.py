@@ -1,15 +1,23 @@
 """
 Policies in which exploration/exploitation tradeoff is parameterized and tuned (TS, UCB, ..?).
 """
+import sys
+import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
 
 # from bayes_opt import BayesianOptimization
 from scipy.stats import norm
 from scipy.optimize import basinhopping
 from scipy.linalg import block_diag
 from scipy.special import expit
+import src.policies.linear_algebra as la
 import pdb
 import numpy as np
 import copy
+from numba import njit, jit
 
 
 def normal_ts_policy_probabilities(action, mu_0, sigma_sq_0, mu_1, sigma_sq_1):
@@ -56,27 +64,22 @@ def normal_ts_policy_gradient(action, context, sample_cov_hat_0, beta_hat_0, sam
   return gradient
 
 
-def sherman_woodbury(A_inv, u, v):
-  outer = np.outer(u, v)
-  num = np.dot(np.dot(A_inv, outer), A_inv)
-  denom = 1.0 + np.dot(np.dot(v, A_inv), u)
-  return A_inv - num / denom
-
-
-def update_linear_model(X, Xprime_X_inv, x_new, X_dot_y, y_new):
+def update_linear_model(X, y, Xprime_X_inv, x_new, X_dot_y, y_new):
   # Compute new beta hat and associated matrices
-  Xprime_X_inv_new = sherman_woodbury(Xprime_X_inv, x_new, x_new)
-  X_new = np.vstack((X, x_new))
+  Xprime_X_inv_new = la.sherman_woodbury(Xprime_X_inv, x_new, x_new)
+  X_new = np.vstack((X, x_new.reshape(1, -1)))
   X_dot_y_new = X_dot_y + y_new * x_new
-  beta_hat_new = np.dot(Xprime_X_inv_new, X_dot_y_new)
+  beta_hat_new = la.matrix_dot_vector(Xprime_X_inv_new, X_dot_y_new)
 
   # Compute new sample covariance
   n, p = X_new.shape
-  yhat = np.dot(X_new, beta_hat_new)
-  sigma_hat = np.sum((yhat - y_new)**2) / (n - p)
+  yhat = la.matrix_dot_vector(X_new, beta_hat_new)
+  # sigma_hat = np.sum((yhat - y_new)**2) / (n - p)
+  y = np.append(y, y_new)
+  sigma_hat = la.sse(yhat, y) / (n - p)
   sample_cov = sigma_hat * Xprime_X_inv_new
 
-  return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'X_dot_y': X_dot_y_new,
+  return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'y': y_new, 'X_dot_y': X_dot_y_new,
           'sample_cov': sample_cov, 'sigma_hat': sigma_hat}
 
 
@@ -87,6 +90,7 @@ def add_linear_model_results_at_action_to_dictionary(a, linear_model_results, li
   linear_model_results['X_dot_y_list'][a] = linear_model_results_for_action['X_dot_y']
   linear_model_results['sample_cov_list'][a] = linear_model_results_for_action['sample_cov']
   linear_model_results['sigma_hat_list'][a] = linear_model_results_for_action['sigma_hat']
+  linear_model_results['y_list'][a] = linear_model_results_for_action['y']
   return linear_model_results
 
 
@@ -101,9 +105,10 @@ def update_linear_model_at_action(a, linear_model_results, x_new, y_new):
   :return:
   """
   X_a = linear_model_results['X_list'][a]
+  y_a = linear_model_results['y_list'][a]
   Xprime_X_inv_a = linear_model_results['Xprime_X_inv_list'][a]
   X_dot_y_a = linear_model_results['X_dot_y_list'][a]
-  updated_linear_model_results_for_action = update_linear_model(X_a, Xprime_X_inv_a, x_new, X_dot_y_a, y_new)
+  updated_linear_model_results_for_action = update_linear_model(X_a, y_a, Xprime_X_inv_a, x_new, X_dot_y_a, y_new)
   linear_model_results = add_linear_model_results_at_action_to_dictionary(a, linear_model_results,
                                                                           updated_linear_model_results_for_action)
   return linear_model_results
@@ -265,8 +270,8 @@ def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_mod
                   estimated_context_mean, estimated_context_variance, env, nPatients):
 
   # Optimization parameters
-  NUM_REP = 1000
-  POINTS_PER_GRID_DIMENSION = 1000
+  NUM_REP = 50
+  POINTS_PER_GRID_DIMENSION = 10
   zeta0_bounds = (-2, -0.05)
   zeta1_bounds = (1, 2)
   kappa = 0.3
@@ -301,6 +306,7 @@ def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_mod
   best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
   for zeta0 in np.linspace(zeta0_bounds[0], zeta1_bounds[1], POINTS_PER_GRID_DIMENSION):
     for zeta1 in np.linspace(zeta0_bounds[0], zeta1_bounds[1], POINTS_PER_GRID_DIMENSION):
+      print(zeta0, zeta1)
       zeta_rand = np.array([kappa, zeta0, zeta1])
       val = objective(zeta_rand)
       truncation_val = tuning_function(time_horizon, current_time, zeta_rand)
@@ -309,7 +315,6 @@ def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_mod
         best_truncation_val = truncation_val
         best_val = val
         best_zeta = zeta_rand
-  pdb.set_trace()
   return best_zeta
   
 
