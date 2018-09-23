@@ -241,7 +241,7 @@ def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_m
   # ToDo: Fix this shit!
   if len(zeta_prev) == 3:
     bounds = [(0.05, 0.3), (-2, -0.05), (1, 2)]
-  elif len(zeta_prev == 2):
+  elif len(zeta_prev) == 2:
     bounds = [(-2, -0.05), (1, 2)]
   random_zetas = np.array([np.array([np.random.uniform(low=low_, high=high_) for low_, high_ in bounds])
                                     for _ in range(10)])
@@ -260,6 +260,49 @@ def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_m
   pdb.set_trace()
   return best_zeta
 
+
+def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
+                  estimated_context_mean, estimated_context_variance, env, nPatients):
+
+  # Generate context sequences
+  NUM_REP = 1000
+  context_sequences = []
+  for rep in range(NUM_REP):
+    context_sequence = []
+    for t in range(time_horizon - current_time):
+      context = env.draw_context()
+      context_sequence.append(context)
+    context_sequences.append(context_sequence)
+
+  def objective(zeta):
+    return rollout_function(zeta, policy, linear_model_results, time_horizon, current_time,
+                            estimated_context_mean, tuning_function, estimated_context_variance, env,
+                            nPatients)
+
+  truncation_values = []
+  # ToDo: Fix this shit!
+#  if len(zeta_prev) == 3:
+#    bounds = [(0.05, 0.3), (-2, -0.05), (1, 2)]
+#  elif len(zeta_prev) == 2:
+#    bounds = [(-2, -0.05), (1, 2)]
+
+  best_val = objective(zeta_prev)
+  best_zeta = zeta_prev
+  best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
+  kapa = 0.3
+  for zeta0 in np.linspace(-2, -0.05, 1000):
+    for zeta1 in np.linspace(1, 2, 1000):
+      zeta_rand = np.array([kapa, zeta0, zeta1])
+      val = objective(zeta_rand)
+      truncation_val = tuning_function(time_horizon, current_time, zeta_rand)
+      truncation_values.append(truncation_val)
+      if val > best_val:
+        best_truncation_val = truncation_val
+        best_val = val
+        best_zeta = zeta_rand
+  pdb.set_trace()
+  return best_zeta
+  
 
 def basinhop(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
              estimated_context_mean, estimated_context_variance):
@@ -408,6 +451,66 @@ def rollout(tuning_function_parameter, policy, linear_model_results, time_horizo
   return score
 
 
+def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time, estimated_context_mean,
+            tuning_function, estimated_context_variance, env, nPatients):
+
+  MAX_ITER = 100
+  it = 0
+
+  number_of_actions = len(estimated_context_mean)
+  context_dimension = len(estimated_context_mean)
+
+  score = 0
+
+  while it < MAX_ITER:
+    # Sample from distributions that we'll use to determine ''true'' context and reward dbns in rollout
+    # working_context_mean = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
+    working_context_mean = estimated_context_mean
+    beta_hat = np.hstack(linear_model_results['beta_hat_list'])
+    estimated_beta_hat_variance = block_diag(linear_model_results['sample_cov_list'][0],
+                                             linear_model_results['sample_cov_list'][1])
+    # working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance) + \
+    #   np.random.multivariate_normal(mean=np.zeros(len(beta_hat)), cov=100.0*np.eye(len(beta_hat)))
+    # working_beta = beta_hat
+    working_beta = np.random.multivariate_normal(beta_hat, estimated_beta_hat_variance)
+    working_beta = working_beta.reshape((number_of_actions, context_dimension))
+    working_sigma_hats = linear_model_results['sigma_hat_list']
+
+    # Rollout under drawn working model
+    rollout_linear_model_results = copy.deepcopy(linear_model_results)
+    episode_score = 0
+    for time in range(current_time + 1, time_horizon):
+      for j in range(nPatients):
+        beta_hat = np.hstack(rollout_linear_model_results['beta_hat_list']).reshape((number_of_actions,
+                                                                                     context_dimension))
+        sampling_cov_list = linear_model_results['sample_cov_list']
+  
+       # Draw context and take action
+        context = np.random.multivariate_normal(working_context_mean, cov=estimated_context_variance)
+        action = policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter, time_horizon,
+                        time)
+  
+        # Get epsilon-greedy action and get resulting reward
+        # predicted_rewards = np.dot(beta_hat, context)
+        # true_rewards = np.dot(working_beta, context)
+  
+        # Get reward from pulled arm
+        working_beta_at_action = working_beta[action, :]
+        working_sigma_hat_at_action = working_sigma_hats[action]
+        expected_reward = np.dot(working_beta_at_action, context)
+        reward = expected_reward + np.random.normal(scale=np.sqrt(working_sigma_hat_at_action))
+  
+        # Update score (sum of estimated rewards)
+        episode_score += expected_reward
+  
+        # Update linear model
+        rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
+                                                                     reward)
+    it += 1
+    score += (episode_score - score) / it
+  return score
+
+
 def epsilon_greedy_policy_gradient(linear_model_results, time_horizon, current_time, estimated_context_mean,
                                    estimated_context_variance, truncation_function, truncation_function_gradient,
                                    initial_zeta):
@@ -532,3 +635,5 @@ def expit_truncate_gradient(T, t, zeta):
   exp_argument = zeta[0] + zeta[1] * (T - t)
   exp_ = np.exp(exp_argument)
   return exp_ / np.power(1 + exp_, 2) * zeta
+
+
