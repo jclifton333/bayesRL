@@ -195,9 +195,6 @@ def mab_epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_funct
   return action
 
 
-
-
-
 # Helpers
 def expit_truncate(T, t, zeta):
   shrinkage = expit(zeta[0] + zeta[1] * (T - t))

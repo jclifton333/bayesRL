@@ -13,7 +13,7 @@ ABC = ABCMeta('ABC', (object, ), {'__slots__': ()})
 
 
 class Bandit(ABC):   
-  def __init__ (self):
+  def __init__(self):
     self.U = []
     self.A = []
       

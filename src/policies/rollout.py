@@ -2,6 +2,9 @@
 Functions for simulating rollouts under estimated model for various bandits.
 """
 import numpy as np
+import copy
+from scipy.linalg import block_diag
+import src.policies.tuned_bandit_policies as tuned_bandit
 
 
 def normal_cb_oracle_rollout(tuning_function_parameter, policy, linear_model_results, time_horizon, current_time,
@@ -41,8 +44,8 @@ def normal_cb_oracle_rollout(tuning_function_parameter, policy, linear_model_res
       episode_score += (expected_reward - best_expected_reward)
 
       # Update linear model
-      rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
-                                                                   reward)
+      rollout_linear_model_results = tuned_bandit.update_linear_model_at_action(action, rollout_linear_model_results, context,
+                                                                                reward)
     it += 1
     score += (episode_score - score) / it
   return score
@@ -101,8 +104,8 @@ def normal_cb_rollout(tuning_function_parameter, policy, linear_model_results, t
       episode_score += expected_reward
 
       # Update linear model
-      rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
-                                                                   reward)
+      rollout_linear_model_results = tuned_bandit.update_linear_model_at_action(action, rollout_linear_model_results, context,
+                                                                                reward)
     it += 1
     score += (episode_score - score) / it
   return score
@@ -159,8 +162,8 @@ def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, tim
         episode_score += expected_reward
 
         # Update linear model
-        rollout_linear_model_results = update_linear_model_at_action(action, rollout_linear_model_results, context,
-                                                                     reward)
+        rollout_linear_model_results = tuned_bandit.update_linear_model_at_action(action, rollout_linear_model_results, context,
+                                                                                  reward)
     it += 1
     score += (episode_score - score) / it
   return score
