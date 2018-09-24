@@ -70,30 +70,25 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
   return cumulative_regret
 
 
-def run(policy_name, save=True):
+def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1000):
   """
 
   :return:
   """
 
-  replicates = 80
-  num_cpus = int(mp.cpu_count() / 2)
-  results = []
+  num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name)
-
-  num_batches = int(replicates / num_cpus)
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
+  episode_partial = partial(episode, policy_name, save=False, points_per_grid_dimension=points_per_grid_dimension,
+                            monte_carlo_reps=monte_carlo_reps)
+  results = pool.map(episode_partial, range(num_cpus))
 
   # Save results
   if save:
     results = {'T': float(25), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
                 'beta': [[1.0, 1.0], [2.0, -2.0]], 'regret list': [float(r) for r in results]}
 
-    base_name = 'normalcb-25-{}'.format(policy_name)
+    base_name = 'normalmab-10-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
