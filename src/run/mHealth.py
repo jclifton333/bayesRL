@@ -100,10 +100,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
       env.step(action)
 
       # Compute regret
-      expected_reward = env.expected_reward(action, env.curr_context)
-      optimal_expected_reward = np.max([env.expected_reward(a, env.curr_context)
+      expected_rewards = np.max([env.expected_reward(a, env.curr_context)
                                         for a in range(env.number_of_actions)])
-      regret = optimal_expected_reward - expected_reward
+      expected_reward_at_action = expected_rewards[action]
+      optimal_expected_reward = np.max(expected_rewards)
+      regret = optimal_expected_reward - expected_reward_at_action
       cumulative_regret += regret
   
     # Save results
@@ -124,7 +125,7 @@ def run(policy_name, save=True, points_per_grid_dimension=10, monte_carlo_reps=1
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name, save=save, points_per_grid_dimension=points_per_grid_dimension,
+  episode_partial = partial(episode, policy_name, save=False, points_per_grid_dimension=points_per_grid_dimension,
                             monte_carlo_reps=monte_carlo_reps)
 
   results = pool.map(episode_partial, range(num_cpus))

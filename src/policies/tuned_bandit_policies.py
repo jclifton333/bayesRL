@@ -140,7 +140,7 @@ def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current
 
 
 def linear_cb_epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
-                                    T, t):
+                                    T, t, env):
   epsilon = tuning_function(T, t, tuning_function_parameter)
   predicted_rewards = np.dot(beta_hat, context)
   greedy_action = np.argmax(predicted_rewards)
