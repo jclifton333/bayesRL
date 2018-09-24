@@ -42,12 +42,12 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
   else:
     raise ValueError('Incorrect policy name')
 
-  env = NormalMAB(list_of_reward_mus=[[1], [2]], list_of_reward_vars=[[1], [1]])
+  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
   env.reset()
 
-  # Initial pulls (so we can fit the models)
+  # Initial pulls
   for a in range(env.number_of_actions):
     env.step(a)
 
@@ -59,12 +59,13 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
                                                       points_per_grid_dimension, monte_carlo_reps)
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
-    action = policy(env, tuning_function, tuning_function_parameter, T, t)
-    env.step(action)
+    for j in range(nPatients):
+      action = policy(env.estimated_means, env.standard_errors, tuning_function, tuning_function_parameter, T, t)
+      env.step(action)
 
-    # Compute regret
-    regret = mu_opt - env.list_of_reward_mus[action]
-    cumulative_regret += regret
+      # Compute regret
+      regret = mu_opt - env.list_of_reward_mus[action]
+      cumulative_regret += regret
 
   return cumulative_regret
 
@@ -103,7 +104,7 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-  # run('eps-decay')
+  # episode('eps-decay', np.random.randint(low=1, high=1000))
+  run('eps-decay')
 
 

@@ -1,6 +1,7 @@
 """
 Functions for simulating rollouts under estimated model for various bandits.
 """
+import pdb
 import numpy as np
 import copy
 from scipy.linalg import block_diag
@@ -178,10 +179,10 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
     working_variances = env.estimated_vars
 
     # Get initial estimates, which will be updated throughout rollout
-    number_of_pulls = env.number_of_pulls
-    estimated_means = env.estimated_means
-    standard_errors = env.standard_errors
-    draws_from_each_arm = env.draws_from_each_arm
+    number_of_pulls = env.number_of_pulls[:]
+    estimated_means = env.estimated_means[:]
+    standard_errors = env.standard_errors[:]
+    draws_from_each_arm = env.draws_from_each_arm[:]
 
     # Rollout under drawn working model
     episode_score = 0
@@ -189,10 +190,6 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
       for j in range(nPatients):
         action = policy(estimated_means, standard_errors, tuning_function, tuning_function_parameter,
                         time_horizon, time)
-
-        # Get epsilon-greedy action and get resulting reward
-        # predicted_rewards = np.dot(beta_hat, context)
-        # true_rewards = np.dot(working_beta, context)
 
         # Get reward from pulled arm
         expected_reward = working_means[action]
@@ -207,6 +204,5 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
         draws_from_each_arm[action] = np.append(draws_from_each_arm[action], reward)
         n_a = number_of_pulls[action]
         standard_errors[action] = np.sum((draws_from_each_arm[action] - estimated_means[action]) ** 2) / n_a ** 2
-
     score += (episode_score - score) / (it + 1)
   return score
