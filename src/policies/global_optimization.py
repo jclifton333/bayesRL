@@ -67,6 +67,35 @@ def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_m
   return best_zeta
 
 
+def mab_grid_search(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
+                    current_time, env, nPatients, points_per_grid_dimension, monte_carlo_reps):
+  # Optimization parameters
+  # zeta0_bounds = (-2, -0.05)
+  zeta0 = -5
+  zeta1_bounds = (0, 2)
+  kappa = 0.3
+
+  def objective(zeta):
+    return rollout_function(zeta, policy, time_horizon, current_time, tuning_function, env, nPatients, monte_carlo_reps)
+
+  truncation_values = []
+  best_val = objective(zeta_prev)
+  best_zeta = zeta_prev
+  best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
+  # for zeta0 in np.linspace(zeta0_bounds[0], zeta0_bounds[1], points_per_grid_dimension):
+  for zeta1 in np.linspace(zeta1_bounds[0], zeta1_bounds[1], points_per_grid_dimension):
+    print(zeta0, zeta1)
+    zeta_rand = np.array([kappa, zeta0, zeta1])
+    val = objective(zeta_rand)
+    truncation_val = tuning_function(time_horizon, current_time, zeta_rand)
+    truncation_values.append(truncation_val)
+    if val > best_val:
+      best_truncation_val = truncation_val
+      best_val = val
+      best_zeta = zeta_rand
+  return best_zeta
+
+
 def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
                 estimated_context_mean, estimated_context_variance, env, nPatients, points_per_grid_dimension,
                 monte_carlo_reps):

@@ -17,7 +17,13 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label):
+def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_carlo_reps=1000):
+  if save:
+    base_name = 'normal-mab-{}-{}'.format(label, policy_name)
+    prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
+    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = '{}_{}.yml'.format(prefix, suffix)
+
   np.random.seed(label)
   nPatients = 10
   T = 10
@@ -47,8 +53,8 @@ def episode(policy_name, label):
 
   for t in range(T):
     if tune:
-      tuning_function_parameter = opt.random_search(rollout.normal_mab_rollout, policy, tuning_function,
-                                                    tuning_function_parameter, T, t, env, nPatients)
+      tuning_function_parameter = opt.mab_grid_search(rollout.normal_mab_rollout, policy, tuning_function,
+                                                      tuning_function_parameter, T, t, env, nPatients)
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     action = policy(tuning_function, tuning_function_parameter, T, t)

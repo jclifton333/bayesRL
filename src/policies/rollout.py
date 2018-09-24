@@ -170,12 +170,10 @@ def mHealth_rollout(tuning_function_parameter, policy, linear_model_results, tim
 
 
 def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_time, tuning_function, env,
-                       nPatients):
-  MAX_ITER = 100
-  it = 0
+                       nPatients, monte_carlo_reps):
   score = 0
 
-  for _ in range(MAX_ITER):
+  for it in range(monte_carlo_reps):
     working_means = np.random.normal(loc=env.estimated_means, scale=env.standard_errors)
     working_variances = env.estimated_variances
 
@@ -210,6 +208,5 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
         n_a = number_of_pulls[action]
         standard_errors[action] = np.sum((draws_from_each_arm[action] - estimated_means[action]) ** 2) / n_a ** 2
 
-    it += 1
-    score += (episode_score - score) / it
+    score += (episode_score - score) / (it + 1)
   return score
