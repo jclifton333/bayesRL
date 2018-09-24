@@ -175,7 +175,7 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
 
   for it in range(monte_carlo_reps):
     working_means = np.random.normal(loc=env.estimated_means, scale=env.standard_errors)
-    working_variances = env.estimated_variances
+    working_variances = env.estimated_vars
 
     # Get initial estimates, which will be updated throughout rollout
     number_of_pulls = env.number_of_pulls
@@ -204,7 +204,7 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
         # Update model
         number_of_pulls[action] += 1
         estimated_means[action] += (reward - estimated_means[action]) / number_of_pulls[action]
-        draws_from_each_arm[action].append(reward)
+        draws_from_each_arm[action] = np.append(draws_from_each_arm[action], reward)
         n_a = number_of_pulls[action]
         standard_errors[action] = np.sum((draws_from_each_arm[action] - estimated_means[action]) ** 2) / n_a ** 2
 

@@ -183,9 +183,9 @@ def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tun
   return action
 
 
-def mab_epsilon_greedy_policy(env, tuning_function, tuning_function_parameter, T, t):
+def mab_epsilon_greedy_policy(estimated_means, standard_errors, tuning_function, tuning_function_parameter, T, t):
   epsilon = tuning_function(T, t, tuning_function_parameter)
-  greedy_action = np.argmax(env.estimated_means)
+  greedy_action = np.argmax(estimated_means)
   if np.random.random() < epsilon:
     action = np.random.choice(2)
   else:

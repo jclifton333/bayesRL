@@ -52,9 +52,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     env.step(a)
 
   for t in range(T):
+    print(t)
     if tune:
       tuning_function_parameter = opt.mab_grid_search(rollout.normal_mab_rollout, policy, tuning_function,
-                                                      tuning_function_parameter, T, t, env, nPatients)
+                                                      tuning_function_parameter, T, t, env, nPatients,
+                                                      points_per_grid_dimension, monte_carlo_reps)
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     action = policy(env, tuning_function, tuning_function_parameter, T, t)
