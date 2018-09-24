@@ -1,5 +1,5 @@
 import numpy as np
-from bayes_opt import BayesianOptimization
+# from bayes_opt import BayesianOptimization
 from scipy.optimize import basinhopping
 
 

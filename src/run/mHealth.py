@@ -45,6 +45,12 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = True
     tuning_function_parameter = np.array([0.2, -2, 1])
+  elif policy_name == 'greedy':
+    tuning_function = lambda a, b, c: 0.00  # Constant epsilon
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
+    tune = False
+    tuning_function_parameter = None
+
   # elif policy_name == 'ts':
   #   tuning_function = lambda a, b, c: 1.0  # No shrinkage
   #   policy = tuned_bandit.thompson_sampling_policy
@@ -168,6 +174,6 @@ def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-  # run('eps-decay')
+  # episode('eps-decay', np.random.randint(low=1, high=1000))
+  run('greedy')
 
