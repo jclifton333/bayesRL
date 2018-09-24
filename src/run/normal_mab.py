@@ -57,7 +57,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
                                                       tuning_function_parameter, T, t, env, nPatients)
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
-    action = policy(tuning_function, tuning_function_parameter, T, t)
+    action = policy(env, tuning_function, tuning_function_parameter, T, t)
     env.step(action)
 
     # Compute regret
