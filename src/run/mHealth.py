@@ -100,8 +100,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
       env.step(action)
 
       # Compute regret
-      expected_rewards = np.max([env.expected_reward(a, env.curr_context)
-                                        for a in range(env.number_of_actions)])
+      expected_rewards = [env.expected_reward(a, env.curr_context) for a in range(env.number_of_actions)]
       expected_reward_at_action = expected_rewards[action]
       optimal_expected_reward = np.max(expected_rewards)
       regret = optimal_expected_reward - expected_reward_at_action
