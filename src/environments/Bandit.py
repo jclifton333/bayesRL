@@ -12,6 +12,7 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
+import copy
 import numpy as np
 import src.policies.linear_algebra as la
 from abc import ABCMeta, abstractmethod
@@ -91,48 +92,71 @@ class BernoulliMAB(MAB):
       
 
 class LinearCB(Bandit):
-  def __init__(self, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[[1], [1]]):
+  def __init__(self, context_mean, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[1, 1]):
     Bandit.__init__(self)
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
     ## context_var: the covariance matrix
+    self.context_mean = context_mean
     self.number_of_actions = len(list_of_reward_vars)
-    self.context_dimension = None
+    self.context_dimension = len(context_mean)
     self.curr_context = None
     self.list_of_reward_betas = list_of_reward_betas
     self.list_of_reward_vars = list_of_reward_vars
+    self.X = np.zeros((0, self.context_dimension))
 
     # For updating linear model estimates incrementally
-    self.beta_hat_list = []
-    self.Xprime_X_inv_list = []
+    self.beta_hat_list = [None]*self.number_of_actions
+    self.Xprime_X_inv_list = [None]*self.number_of_actions
     self.X_list = [np.zeros((0, self.context_dimension)) for a in range(self.number_of_actions)]
     self.y_list = [np.zeros(0) for a in range(self.number_of_actions)]
     self.X_dot_y_list = [np.zeros(self.context_dimension) for a in range(self.number_of_actions)]
-    self.sampling_cov_list = []
-    self.sigma_hat_list = []
+    self.sampling_cov_list = [None]*self.number_of_actions
+    self.sigma_hat_list = [0.0]*self.number_of_actions
+
+    # Get initial pulls and model; do this at initialization so we don't have to re-fit on initial obs every time
+    self.initial_pulls()
+    self.beta_hat_list_initial = self.beta_hat_list[:]
+    self.Xprime_X_inv_list_initial = self.Xprime_X_inv_list[:]
+    self.X_list_initial = self.X_list[:]
+    self.y_list_initial = self.y_list[:]
+    self.X_dot_y_list_initial = self.X_dot_y_list[:]
+    self.sampling_cov_list_initial = self.sampling_cov_list[:]
+    self.sigma_hat_list_initial = self.sigma_hat_list[:]
+    self.X_initial = copy.copy(self.X)
 
   def initial_pulls(self):
     """
     Pull each arm twice so we can fit the model.
     :return:
     """
+    self.initial_context()
     for a in range(self.number_of_actions):
       for rep in range(2):
         self.step(a)
 
   def update_linear_model(self, a, x_new, y_new):
-    linear_model_results = la.update_linear_model(self.X_list[a], self.y_list[a], self.Xprime_X_inv_list[a], x,
-                                                  self.X_dot_y_list[a], u)
+    linear_model_results = la.update_linear_model(self.X_list[a], self.y_list[a], self.Xprime_X_inv_list[a], x_new,
+                                                  self.X_dot_y_list[a], y_new)
     self.beta_hat_list[a] = linear_model_results['beta_hat']
+    self.y_list[a] = linear_model_results['y']
     self.X_list[a] = linear_model_results['X']
     self.Xprime_X_inv_list[a] = linear_model_results['Xprime_X_inv']
     self.X_dot_y_list[a] = linear_model_results['X_dot_y']
-    self.sampling_cov_list = linear_model_results['sample_cov']
-    self.sigma_hat_list = linear_model_results['sigma_hat']
+    self.sampling_cov_list[a] = linear_model_results['sample_cov']
+    self.sigma_hat_list[a] = linear_model_results['sigma_hat']
 
   def reset(self):
     super(LinearCB, self).reset()
-    self.X = self.initial_context()
+    # Reset linear model info
+    self.beta_hat_list = self.beta_hat_list_initial[:]
+    self.Xprime_X_inv_list = self.Xprime_X_inv_list_initial[:]
+    self.X_list = self.X_list_initial[:]
+    self.y_list = self.y_list_initial[:]
+    self.X_dot_y_list = self.X_dot_y_list_initial[:]
+    self.sampling_cov_list = self.sampling_cov_list_initial[:]
+    self.sigma_hat_list = self.sigma_hat_list_initial[:]
+    self.X = copy.copy(self.X_initial)
 
   def step(self, a):
     u = super(LinearCB, self).step(a)
@@ -155,7 +179,8 @@ class LinearCB(Bandit):
 
   def reward_noise(self, a):
     var = self.list_of_reward_vars[a]
-    return np.random.normal(0.0, np.sqrt(var))
+    noise = np.random.normal(0.0, np.sqrt(var))
+    return noise
 
   def reward_dbn(self, a):
     mean = self.expected_reward(a, self.curr_context)
@@ -172,18 +197,17 @@ class LinearCB(Bandit):
 class NormalCB(LinearCB):
   def __init__(self, list_of_reward_betas=[[1,1], [2,-2]], list_of_reward_vars=[[1], [1]],
                context_mean=[0, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
-    LinearCB.__init__(self, list_of_reward_betas, list_of_reward_vars)
-    self.context_dimension = len(context_mean)
-    self.context_mean = context_mean
     self.context_var = context_var
+    LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
+
 
   def draw_context(self):
     return np.random.multivariate_normal(self.context_mean, self.context_var)
 
 
 class NormalUniformCB(LinearCB):
-  def __init__(self, list_of_reward_betas=[[-0.1], [0.1]], list_of_reward_vars=[[2], [2]]):
-    LinearCB.__init__(self, list_of_reward_betas, list_of_reward_vars)
+  def __init__(self, list_of_reward_betas=[[-0.1], [0.1]], context_mean=[0.5], list_of_reward_vars=[[2], [2]]):
+    LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
     self.context_dimension = 1
 
   def draw_context(self):

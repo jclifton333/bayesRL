@@ -3,6 +3,7 @@ Numba implementations of linear algebra...hopefully this will speed things up.
 """
 from numba import njit, jit
 import numpy as np
+import pdb
 
 
 @njit
@@ -88,7 +89,7 @@ def update_linear_model(X, y, Xprime_X_inv, x_new, X_dot_y, y_new):
   yhat = matrix_dot_vector(X_new, beta_hat_new)
   # sigma_hat = np.sum((yhat - y_new)**2) / (n - p)
   y = np.append(y, y_new)
-  sigma_hat = np.sqrt(sse(yhat, y) / (n - p))
+  sigma_hat = np.sqrt(sse(yhat, y) / np.max((1.0, n - p)))
   sample_cov = sigma_hat * Xprime_X_inv_new
 
   return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'y': y, 'X_dot_y': X_dot_y_new,

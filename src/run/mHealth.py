@@ -69,38 +69,6 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
   nPatients = 10
   env.reset()
 
-  # Initial pulls (so we can fit the models)  
-  for a in range(env.number_of_actions):
-    for p in range(5):
-        for j in range(nPatients): 
-          env.step(a)
-
-  # Get initial linear model
-  X, A, U = env.X, env.A, env.U
-  linear_model_results = {'beta_hat_list': [], 'Xprime_X_inv_list': [], 'X_list': [], 'X_dot_y_list': [],
-                          'sample_cov_list': [], 'sigma_hat_list': [], 'y_list': []}
-  for a in range(env.number_of_actions):  # Fit linear model on data from each actions
-    # Get observations where action == a
-    indices_for_a = np.where(A == a)
-    X_a = X[indices_for_a]
-    U_a = U[indices_for_a]
-
-    Xprime_X_inv_a = np.linalg.inv(np.dot(X_a.T, X_a))
-    X_dot_y_a = np.dot(X_a.T, U_a)
-    beta_hat_a = np.dot(Xprime_X_inv_a, X_dot_y_a)
-    yhat_a = np.dot(X_a, beta_hat_a)
-    sigma_hat_a = np.sum((U_a - yhat_a) ** 2)
-    sample_cov_a = sigma_hat_a * Xprime_X_inv_a
-
-    # Add to linear model results
-    linear_model_results['beta_hat_list'].append(beta_hat_a)
-    linear_model_results['Xprime_X_inv_list'].append(Xprime_X_inv_a)
-    linear_model_results['X_list'].append(X_a)
-    linear_model_results['X_dot_y_list'].append(X_dot_y_a)
-    linear_model_results['sample_cov_list'].append(sample_cov_a)
-    linear_model_results['sigma_hat_list'].append(sigma_hat_a)
-    linear_model_results['y_list'].append(U_a)
-
   for t in range(T):
     X = env.X
     estimated_context_mean = np.mean(X, axis=0)
@@ -108,32 +76,24 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     if tune:
       tuning_function_parameter = opt.grid_search(rollout.mHealth_rollout, policy, tuning_function,
                                                   tuning_function_parameter,
-                                                  linear_model_results, T, t, estimated_context_mean,
+                                                  T, t, estimated_context_mean,
                                                   estimated_context_variance, env, nPatients,
                                                   points_per_grid_dimension, monte_carlo_reps)
     # print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     for j in range(nPatients):
-        # tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
-        #                                                                         estimated_context_mean,
-        #                                                                         estimated_context_variance,
-        #                                                                         None, None, tuning_function_parameter)
-  
       x = copy.copy(env.curr_context)
 
-      beta_hat = np.array(linear_model_results['beta_hat_list'])
-      action = policy(beta_hat, linear_model_results['sample_cov_list'], x, tuning_function,
-                      tuning_function_parameter, T, t)
-      step_results = env.step(action)
-      reward = step_results['Utility']
-  
+      beta_hat = env.beta_hat_list
+      action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t)
+      env.step(action)
+
       # Compute regret
-      oracle_expected_reward = np.max((np.dot(x, env.list_of_reward_betas[0]), np.dot(x, env.list_of_reward_betas[1])))
-      regret = oracle_expected_reward - np.dot(x, env.list_of_reward_betas[a])
+      expected_reward = env.expected_reward(action, env.curr_context)
+      optimal_expected_reward = np.max([env.expected_reward(a, env.curr_context)
+                                        for a in range(env.number_of_actions)])
+      regret = optimal_expected_reward - expected_reward
       cumulative_regret += regret
   
-      # Update linear model
-      linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
-
     # Save results
     if save:
       results = {'t': float(t), 'regret': float(cumulative_regret)}
@@ -143,7 +103,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
   return cumulative_regret
 
 
-def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1000):
+def run(policy_name, save=True, points_per_grid_dimension=10, monte_carlo_reps=1000):
   """
 
   :return:
@@ -175,5 +135,5 @@ def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1
 
 if __name__ == '__main__':
   # episode('eps-decay', np.random.randint(low=1, high=1000))
-  run('greedy')
+  run('eps-decay')
 

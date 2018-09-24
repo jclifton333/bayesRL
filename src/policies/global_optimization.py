@@ -98,7 +98,7 @@ def mab_grid_search(rollout_function, policy, tuning_function, zeta_prev, time_h
   return best_zeta
 
 
-def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
+def grid_search(rollout_function, policy, tuning_function, zeta_prev, time_horizon, current_time,
                 estimated_context_mean, estimated_context_variance, env, nPatients, points_per_grid_dimension,
                 monte_carlo_reps):
   # Optimization parameters
@@ -107,26 +107,27 @@ def grid_search(rollout_function, policy, tuning_function, zeta_prev, linear_mod
   zeta1_bounds = (0, 2)
   kappa = 0.3
 
-  # Generate context sequences
-  context_sequences = []
-  for rep in range(monte_carlo_reps):
-    context_sequence = []
-    for t in range(time_horizon - current_time):
-      context_sequence_at_time_t = []
-      for j in range(nPatients):
-        context = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
-        context_sequence_at_time_t.append(context)
-      context_sequence.append(context_sequence_at_time_t)
-    context_sequences.append(context_sequence)
+  # # Generate context sequences
+  # context_sequences = []
+  # for rep in range(monte_carlo_reps):
+  #   context_sequence = []
+  #   for t in range(time_horizon - current_time):
+  #     context_sequence_at_time_t = []
+  #     for j in range(nPatients):
+  #       context = np.random.multivariate_normal(estimated_context_mean, estimated_context_variance)
+  #       context_sequence_at_time_t.append(context)
+  #     context_sequence.append(context_sequence_at_time_t)
+  #   context_sequences.append(context_sequence)
 
   def objective(zeta):
-    return rollout_function(zeta, policy, linear_model_results, time_horizon, current_time,
+    return rollout_function(zeta, policy, time_horizon, current_time,
                             estimated_context_mean, tuning_function, estimated_context_variance, env,
-                            nPatients, context_sequences)
+                            nPatients, monte_carlo_reps)
 
   truncation_values = []
   best_val = objective(zeta_prev)
   best_zeta = zeta_prev
+  print(zeta_prev)
   best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
   # for zeta0 in np.linspace(zeta0_bounds[0], zeta0_bounds[1], points_per_grid_dimension):
   for zeta1 in np.linspace(zeta1_bounds[0], zeta1_bounds[1], points_per_grid_dimension):
