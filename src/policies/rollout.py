@@ -136,7 +136,7 @@ def mHealth_rollout(tuning_function_parameter, policy, time_horizon, current_tim
         # Draw context and take action
         # context = context_sequence[time - current_time][j]
         action = policy(beta_hat, sampling_cov_list, rollout_env.curr_context, tuning_function,
-                        tuning_function_parameter, time_horizon, time)
+                        tuning_function_parameter, time_horizon, time, env)
         expected_reward = rollout_env.expected_reward(action, rollout_env.curr_context)
         optimal_expected_reward = np.max([rollout_env.expected_reward(a, rollout_env.curr_context)
                                           for a in range(rollout_env.number_of_actions)])

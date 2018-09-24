@@ -50,7 +50,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
-
+  elif policy_name == 'worst':
+    tuning_function = lambda a, b, c: 0.00
+    policy = tuned_bandit.linear_cb_worst_policy
+    tune = False
+    tuning_function_parameter = None
   # elif policy_name == 'ts':
   #   tuning_function = lambda a, b, c: 1.0  # No shrinkage
   #   policy = tuned_bandit.thompson_sampling_policy
@@ -91,7 +95,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
       x = copy.copy(env.curr_context)
 
       beta_hat = env.beta_hat_list
-      action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t)
+      action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
       env.step(action)
 
       # Compute regret
@@ -141,6 +145,6 @@ def run(policy_name, save=True, points_per_grid_dimension=10, monte_carlo_reps=1
 
 
 if __name__ == '__main__':
-  # episode('eps-decay', np.random.randint(low=1, high=1000))
-  run('eps-decay')
+  # episode('worst', np.random.randint(low=1, high=1000))
+  run('worst')
 
