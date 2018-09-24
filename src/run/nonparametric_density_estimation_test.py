@@ -52,8 +52,8 @@ with model:
     tau = pm.Gamma('tau', 1., 1., shape=K)
     obs = pm.NormalMixture('obs', w, mu, tau=tau, observed=std_logratio)
 
-SAMPLES = 10
-BURN = 2
+SAMPLES = 5
+BURN = 1
 
 with model:
     step = pm.Metropolis()
@@ -73,37 +73,37 @@ ax.set_ylabel('Largest posterior expected\nmixture weight')
 plt.show()
 
 # plot credible interval
-PP_SAMPLES = 5000
+PP_SAMPLES = 50
 
 lidar_pp_x = np.linspace(std_range.min() - 0.05, std_range.max() + 0.05, 100)
 x_lidar.set_value(lidar_pp_x[:, np.newaxis])
 
 with model:
-    pp_trace = pm.sample_posterior_predictive(trace, PP_SAMPLES, random_seed=SEED)
+    pp_trace = pm.sample_ppc(trace, PP_SAMPLES, random_seed=SEED)
 
-fig, ax = plt.subplots(figsize=(8, 6))
+fig2, ax2 = plt.subplots(figsize=(8, 6))
 blue, *_ = sns.color_palette()
-ax.scatter(df.std_range, df.std_logratio,
+ax2.scatter(df.std_range, df.std_logratio,
            c=blue, zorder=10,
            label=None);
 
 low, high = np.percentile(pp_trace['obs'], [2.5, 97.5], axis=0)
-ax.fill_between(lidar_pp_x, low, high,
+ax2.fill_between(lidar_pp_x, low, high,
                 color='k', alpha=0.35, zorder=5,
-                label='95% posterior credible interval');
+                label='95% posterior credible interval')
 
-ax.plot(lidar_pp_x, pp_trace['obs'].mean(axis=0),
+ax2.plot(lidar_pp_x, pp_trace['obs'].mean(axis=0),
         c='k', zorder=6,
-        label='Posterior expected value');
+        label='Posterior expected value')
 
-ax.set_xticklabels([]);
-ax.set_xlabel('Standardized range');
+ax2.set_xticklabels([]);
+ax2.set_xlabel('Standardized range')
 
-ax.set_yticklabels([]);
-ax.set_ylabel('Standardized log ratio');
+ax2.set_yticklabels([]);
+ax2.set_ylabel('Standardized log ratio')
 
 ax.legend(loc=1);
-ax.set_title('LIDAR Data');
+ax.set_title('LIDAR Data')
 plt.show()
 
 pass
