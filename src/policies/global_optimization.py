@@ -64,7 +64,6 @@ def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_m
       best_truncation_val = truncation_val
       best_val = val
       best_zeta = zeta_rand
-  pdb.set_trace()
   return best_zeta
 
 
@@ -96,7 +95,6 @@ def mab_grid_search(rollout_function, policy, tuning_function, zeta_prev, time_h
       best_truncation_val = truncation_val
       best_val = val
       best_zeta = zeta_rand
-  pdb.set_trace()
   return best_zeta
 
 

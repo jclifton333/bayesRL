@@ -7,6 +7,7 @@ sys.path.append(project_dir)
 
 
 from src.policies import tuned_bandit_policies as tuned_bandit
+from src.policies import gittins_index_policies as gittins
 from src.policies import rollout
 from src.environments.Bandit import NormalMAB
 import src.policies.global_optimization as opt
@@ -39,6 +40,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = True
     tuning_function_parameter = np.array([0.2, -2, 1])
+  elif policy_name == 'gittins':
+    tuning_function = lambda a, b, c: None
+    tuning_function_parameter = None
+    tune = False
+    policy = gittins.normal_mab_gittins_index_policy
   else:
     raise ValueError('Incorrect policy name')
 
@@ -60,7 +66,8 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     for j in range(nPatients):
-      action = policy(env.estimated_means, env.standard_errors, tuning_function, tuning_function_parameter, T, t)
+      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+                      tuning_function_parameter, T, t)
       env.step(action)
 
       # Compute regret
@@ -99,7 +106,7 @@ def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-  # run('eps-decay')
+  # episode('gittins', np.random.randint(low=1, high=1000))
+  run('gittins')
 
 

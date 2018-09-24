@@ -16,23 +16,7 @@ import numpy as np
 import copy
 
 
-def update_linear_model(X, y, Xprime_X_inv, x_new, X_dot_y, y_new):
-  # Compute new beta hat and associated matrices
-  Xprime_X_inv_new = la.sherman_woodbury(Xprime_X_inv, x_new, x_new)
-  X_new = np.vstack((X, x_new.reshape(1, -1)))
-  X_dot_y_new = X_dot_y + y_new * x_new
-  beta_hat_new = la.matrix_dot_vector(Xprime_X_inv_new, X_dot_y_new)
 
-  # Compute new sample covariance
-  n, p = X_new.shape
-  yhat = la.matrix_dot_vector(X_new, beta_hat_new)
-  # sigma_hat = np.sum((yhat - y_new)**2) / (n - p)
-  y = np.append(y, y_new)
-  sigma_hat = la.sse(yhat, y) / (n - p)
-  sample_cov = sigma_hat * Xprime_X_inv_new
-
-  return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'y': y, 'X_dot_y': X_dot_y_new,
-          'sample_cov': sample_cov, 'sigma_hat': sigma_hat}
 
 
 def add_linear_model_results_at_action_to_dictionary(a, linear_model_results, linear_model_results_for_action):
@@ -183,7 +167,8 @@ def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tun
   return action
 
 
-def mab_epsilon_greedy_policy(estimated_means, standard_errors, tuning_function, tuning_function_parameter, T, t):
+def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
+                              tuning_function_parameter, T, t):
   epsilon = tuning_function(T, t, tuning_function_parameter)
   greedy_action = np.argmax(estimated_means)
   if np.random.random() < epsilon:

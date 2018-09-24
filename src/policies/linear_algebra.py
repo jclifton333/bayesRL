@@ -69,3 +69,27 @@ def sherman_woodbury(A_inv, u, v):
   # denom = 1.0 + np.dot(A_inv_times_outer, v)
   return A_inv - num / denom
 
+
+def update_linear_model(X, y, Xprime_X_inv, x_new, X_dot_y, y_new):
+  X_new = np.vstack((X, x_new.reshape(1, -1)))
+  X_dot_y_new = X_dot_y + y_new * x_new
+
+  if Xprime_X_inv is None:  # Can't do fast update
+    Xprime_X = np.dot(X.T, X)
+    Xprime_X_inv_new = np.linalg.inv(Xprime_X + 0.1*np.eye(X.shape[1]))
+  else:
+    # Compute new beta hat and associated matrices
+    Xprime_X_inv_new = sherman_woodbury(Xprime_X_inv, x_new, x_new)
+
+  beta_hat_new = matrix_dot_vector(Xprime_X_inv_new, X_dot_y_new)
+
+  # Compute new sample covariance
+  n, p = X_new.shape
+  yhat = matrix_dot_vector(X_new, beta_hat_new)
+  # sigma_hat = np.sum((yhat - y_new)**2) / (n - p)
+  y = np.append(y, y_new)
+  sigma_hat = np.sqrt(sse(yhat, y) / (n - p))
+  sample_cov = sigma_hat * Xprime_X_inv_new
+
+  return {'beta_hat': beta_hat_new, 'Xprime_X_inv': Xprime_X_inv_new, 'X': X_new, 'y': y, 'X_dot_y': X_dot_y_new,
+          'sample_cov': sample_cov, 'sigma_hat': sigma_hat}

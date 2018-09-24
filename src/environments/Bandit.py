@@ -5,8 +5,15 @@ Created on Thu Sep 20 15:27:56 2018
 
 @author: lili
 """
+import sys
+import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
 
 import numpy as np
+import src.policies.linear_algebra as la
 from abc import ABCMeta, abstractmethod
 
 ABC = ABCMeta('ABC', (object, ), {'__slots__': ()})
@@ -57,6 +64,10 @@ class MAB(Bandit):
     self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
     return u
 
+  @abstractmethod
+  def reward_dbn(self, a):
+    pass
+
 
 class NormalMAB(MAB):
   def __init__(self, list_of_reward_mus=[[1], [2]], list_of_reward_vars=[[1], [1]]):
@@ -80,7 +91,7 @@ class BernoulliMAB(MAB):
       
 
 class LinearCB(Bandit):
-  def __init__(self, list_of_reward_betas=[[1,1], [2,-2]], list_of_reward_vars=[[1], [1]]):
+  def __init__(self, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[[1], [1]]):
     Bandit.__init__(self)
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
@@ -91,6 +102,34 @@ class LinearCB(Bandit):
     self.list_of_reward_betas = list_of_reward_betas
     self.list_of_reward_vars = list_of_reward_vars
 
+    # For updating linear model estimates incrementally
+    self.beta_hat_list = []
+    self.Xprime_X_inv_list = []
+    self.X_list = [np.zeros((0, self.context_dimension)) for a in range(self.number_of_actions)]
+    self.y_list = [np.zeros(0) for a in range(self.number_of_actions)]
+    self.X_dot_y_list = [np.zeros(self.context_dimension) for a in range(self.number_of_actions)]
+    self.sampling_cov_list = []
+    self.sigma_hat_list = []
+
+  def initial_pulls(self):
+    """
+    Pull each arm twice so we can fit the model.
+    :return:
+    """
+    for a in range(self.number_of_actions):
+      for rep in range(2):
+        self.step(a)
+
+  def update_linear_model(self, a, x_new, y_new):
+    linear_model_results = la.update_linear_model(self.X_list[a], self.y_list[a], self.Xprime_X_inv_list[a], x,
+                                                  self.X_dot_y_list[a], u)
+    self.beta_hat_list[a] = linear_model_results['beta_hat']
+    self.X_list[a] = linear_model_results['X']
+    self.Xprime_X_inv_list[a] = linear_model_results['Xprime_X_inv']
+    self.X_dot_y_list[a] = linear_model_results['X_dot_y']
+    self.sampling_cov_list = linear_model_results['sample_cov']
+    self.sigma_hat_list = linear_model_results['sigma_hat']
+
   def reset(self):
     super(LinearCB, self).reset()
     self.X = self.initial_context()
@@ -99,6 +138,7 @@ class LinearCB(Bandit):
     u = super(LinearCB, self).step(a)
     x = self.next_context()
     self.X = np.vstack((self.X, x))
+    self.update_linear_model(a, x, u)
     return {'Utility': u, 'New context': x}
 
   @abstractmethod
