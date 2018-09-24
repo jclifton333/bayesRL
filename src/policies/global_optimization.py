@@ -80,6 +80,7 @@ def mab_grid_search(rollout_function, policy, tuning_function, zeta_prev, time_h
     return rollout_function(zeta, policy, time_horizon, current_time, tuning_function, env, nPatients, monte_carlo_reps)
 
   truncation_values = []
+  objective_values = []
   best_val = objective(zeta_prev)
   best_zeta = zeta_prev
   best_truncation_val = tuning_function(time_horizon, current_time, zeta_prev)
@@ -88,12 +89,14 @@ def mab_grid_search(rollout_function, policy, tuning_function, zeta_prev, time_h
     print(zeta0, zeta1)
     zeta_rand = np.array([kappa, zeta0, zeta1])
     val = objective(zeta_rand)
+    objective_values.append(val)
     truncation_val = tuning_function(time_horizon, current_time, zeta_rand)
     truncation_values.append(truncation_val)
     if val > best_val:
       best_truncation_val = truncation_val
       best_val = val
       best_zeta = zeta_rand
+  pdb.set_trace()
   return best_zeta
 
 

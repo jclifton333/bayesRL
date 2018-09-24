@@ -17,7 +17,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_carlo_reps=1000):
+def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_carlo_reps=1000):
   if save:
     base_name = 'normal-mab-{}-{}'.format(label, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -99,7 +99,7 @@ def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1
 
 
 if __name__ == '__main__':
-  # episode('eps-decay', np.random.randint(low=1, high=1000))
-  run('eps-decay')
+  episode('eps-decay', np.random.randint(low=1, high=1000))
+  # run('eps-decay')
 
 

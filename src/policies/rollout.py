@@ -179,14 +179,15 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
     working_variances = env.estimated_vars
 
     # Get initial estimates, which will be updated throughout rollout
-    number_of_pulls = env.number_of_pulls[:]
-    estimated_means = env.estimated_means[:]
-    standard_errors = env.standard_errors[:]
-    draws_from_each_arm = env.draws_from_each_arm[:]
+    number_of_actions = env.number_of_actions
+    number_of_pulls = np.zeros(number_of_actions)
+    estimated_means = np.zeros(number_of_actions)
+    standard_errors = np.zeros(number_of_actions)
+    draws_from_each_arm = [np.array([])]*number_of_actions
 
     # Rollout under drawn working model
     episode_score = 0
-    for time in range(current_time, time_horizon):
+    for time in range(time_horizon):
       for j in range(nPatients):
         action = policy(estimated_means, standard_errors, tuning_function, tuning_function_parameter,
                         time_horizon, time)
