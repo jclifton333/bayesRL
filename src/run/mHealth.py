@@ -15,6 +15,7 @@ from src.environments.Bandit import NormalCB
 from src.policies import rollout
 import src.policies.global_optimization as opt
 from src.policies import tuned_bandit_policies as tuned_bandit
+from src.policies import reference_policies as ref
 import copy
 import numpy as np
 from scipy.linalg import block_diag
@@ -52,7 +53,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     tuning_function_parameter = None
   elif policy_name == 'worst':
     tuning_function = lambda a, b, c: 0.00
-    policy = tuned_bandit.linear_cb_worst_policy
+    policy = ref.linear_cb_worst_policy
     tune = False
     tuning_function_parameter = None
   # elif policy_name == 'ts':
