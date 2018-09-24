@@ -69,6 +69,13 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
   nPatients = 10
   env.reset()
 
+  # Initial assignments
+  for t in range(10):
+    for j in range(5):
+      env.step(0)
+    for j in range(5):
+      env.step(1)
+
   for t in range(T):
     X = env.X
     estimated_context_mean = np.mean(X, axis=0)
