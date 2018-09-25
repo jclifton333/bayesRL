@@ -36,7 +36,7 @@ def stepwise_linear_epsilon(zeta, J, t, T=100):
   ## zeta: parameter vector with length J
   interval = int(T/J)
   if t == 0:
-    j = 0
+    j = J - 1
   else:
     j = int(np.floor((T-t)/interval))
   epsilon = sum(zeta[:j]) + ((T-t) - j*interval) * zeta[j] / interval
@@ -52,13 +52,13 @@ def stochastic_approximation_step(zeta_k, lambda_k, env, J, mc_rep, T):
 
 
 def optimize_zeta(zeta_init, mc_rep=10, T=100):
-  MAX_ITER = 100
-  TOL = 1e-6
+  MAX_ITER = 20
+  TOL = 1e-4
   it = 0
   diff = float('inf')
 
   J = zeta_init.size
-  env = NormalMAB()
+  env = BernoulliMAB()
   zeta = zeta_init
 
   while it < MAX_ITER and diff > TOL:

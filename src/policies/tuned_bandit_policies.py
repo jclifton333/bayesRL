@@ -146,6 +146,7 @@ def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls,
 
 
 # Helpers
+
 def expit_truncate(T, t, zeta):
   shrinkage = expit(zeta[0] + zeta[1] * (T - t))
   return shrinkage
@@ -154,6 +155,16 @@ def expit_truncate(T, t, zeta):
 def expit_epsilon_decay(T, t, zeta):
   return zeta[0] * expit(zeta[1] + zeta[2]*(T - t))
 
+
+def stepwise_linear_epsilon(T, t, zeta):
+  J = len(zeta)
+  interval = int(T/J)
+  if t == 0:
+    j = 0
+  else:
+    j = int(np.floor((T-t)/interval))
+  epsilon = sum(zeta[:j]) + ((T-t) - j*interval) * zeta[j] / interval
+  return epsilon
 
 
 
