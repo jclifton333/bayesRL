@@ -2,7 +2,6 @@ import sys
 """
 Functions for sensitive analysis the optimal value of \zeta is to the parameters of the model
 """
-import pdb
 import os
 this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
@@ -10,47 +9,70 @@ sys.path.append(project_dir)
 
 import pdb
 import numpy as np
-import copy
-from scipy.linalg import block_diag
-from src.environments.Bandit import NormalCB
+from src.environments.Bandit import NormalMAB, BernoulliMAB
 import src.policies.tuned_bandit_policies as tuned_bandit
-import pickle
+import yaml
 import multiprocessing as mp
+from functools import partial
 
 
-def episode(env_name, grid_dimension = 50, mc_rep = 500, zeta = np.array([0.3, -5, 1]), T = 10):
+def episode(p0p1, env_name, zeta_grid_dimension, mc_rep=500, T=10):
+  if env_name == "BernoulliMAB":
+    env = BernoulliMAB(list_of_reward_mus=[p0p1[0], p0p1[1]])
+  elif env_name == "NormalMAB":
+    env = NormalMAB(list_of_reward_mus=[p0p1[0], p0p1[1]])
+
+  best_zeta2 = None
+  best_score = -float('inf')
+  print('p0p1 {}'.format(p0p1))
+  for zeta2 in np.linspace(0, 2, zeta_grid_dimension):
+    zeta = np.array([0.3, -5, zeta2])
+    mean_cum_reward = 0.0
+    for rep in range(mc_rep):
+      env.reset()
+      for t in range(T):
+        epsilon = tuned_bandit.expit_epsilon_decay(T, t, zeta)
+        if np.random.rand() < epsilon:
+          action = np.random.choice(2)
+        else:
+          action = np.argmax([env.estimated_means])
+        env.step(action)
+      cum_reward = sum(env.U)
+      mean_cum_reward += (cum_reward - mean_cum_reward)/(rep+1)
+    if mean_cum_reward > best_score:
+      best_score = mean_cum_reward
+      best_zeta2 = zeta2
+  return {'p0': float(env.list_of_reward_mus[0]), 'p1': float(env.list_of_reward_mus[1]),
+          'best_zeta2': float(best_zeta2), 'best_score': float(best_score)}
+
+
+def run(env_name, p_grid_dimension=10, zeta_grid_dimension=10, mc_rep=500, T=10):
 
   if env_name == "BernoulliMAB":
-    env = BernoulliMAB()
     p0_low = 0
     p0_up = 1
-    p1_up = 1
   elif env_name == "NormalMAB":
-    env = NormalMAB()
     p0_low = -2
     p0_up = 2
-    p1_up = 2
-    
-  for p0 in np.linspace(p0_low, p0_up, grid_dimension):
-    for p1 in np.linspace(p0, p1_up, grid_dimension):
-      for zeta2 in np.linspace(0, 2, grid_dimension):
-        mean_cum_reward = 0
-        for rep in range(mc_rep):
-          env.reset()
-          for t in range(T):
-            zeta[2] = zeta2
-            epsilon = tuned_bandit.expit_epsilon_decay(T, t, zeta)
-            if np.random.rand() < epsilon:
-              action = np.random.choice(2)
-            else:
-              action = np.argmax([p0, p1])
-            env.step(action)
-          cum_reward = sum(env.U)
-          mean_cum_reward += (cum_reward - mean_cum_reward)/(rep+1)
-          a = {'p0':p0, 'p1':p1, 'zeta':zeta, 'mean_cum_reward':mean_cum_reward}
-          with open('{}_analysi_p0{}_p1{}_zeta2{}.pickle'.format(env_name, p0, p1, zeta2), 'wb') as handle:
-            pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
-  return a
 
-#with open('analysis.pickle', 'rb') as handle:
-#    b = pickle.load(handle)
+  param_grid = np.linspace(p0_low, p0_up, p_grid_dimension)
+  params = [(param_grid[i], param_grid[j]) for i in range(len(param_grid)) for j in range(i, len(param_grid))]
+
+  episode_partial = partial(episode, env_name=env_name, zeta_grid_dimension=zeta_grid_dimension, mc_rep=mc_rep, T=T)
+
+  pool = mp.Pool(mp.cpu_count())
+  results = pool.map(episode_partial, params)
+
+  # Collect results
+  combined_results = {'p0': [], 'p1': [], 'best_zeta2': [], 'best_score': []}
+  for d in results:
+    for k, v in d.items():
+      combined_results[k].append(v)
+
+  with open('{}-opt-zeta-vs-model.yml'.format(env_name), 'w') as handle:
+    yaml.dump(combined_results, handle)
+
+
+if __name__ == '__main__':
+  run("NormalMAB", p_grid_dimension=10, zeta_grid_dimension=10, mc_rep=500, T=10)
+  run("BernoulliMAB", p_grid_dimension=10, zeta_grid_dimension=10, mc_rep=500, T=10)
