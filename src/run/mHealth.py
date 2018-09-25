@@ -56,11 +56,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     policy = ref.linear_cb_worst_policy
     tune = False
     tuning_function_parameter = None
-  # elif policy_name == 'ts':
-  #   tuning_function = lambda a, b, c: 1.0  # No shrinkage
-  #   policy = tuned_bandit.thompson_sampling_policy
-  #   tune = False
-  #   tuning_function_parameter = None
+  elif policy_name == 'ts':
+    tuning_function = lambda a, b, c: 1.0  # No shrinkage
+    policy = tuned_bandit.thompson_sampling_policy
+    tune = False
+    tuning_function_parameter = None
   # elif policy_name == 'ts-shrink':
   #   tuning_function = tuned_bandit.expit_truncate
   #   policy = tuned_bandit.thompson_sampling_policy

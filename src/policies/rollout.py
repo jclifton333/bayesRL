@@ -129,6 +129,14 @@ def mHealth_rollout(tuning_function_parameter, policy, time_horizon, current_tim
   for rep in range(monte_carlo_reps):
     rollout_env.reset()
     episode_score = 0
+
+    # Initial assignments
+    for t in range(10):
+      for j in range(5):
+        rollout_env.step(0)
+      for j in range(5):
+        rollout_env.step(1)
+
     for time in range(time_horizon):
       beta_hat = rollout_env.beta_hat_list
       sampling_cov_list = rollout_env.sampling_cov_list

@@ -152,7 +152,7 @@ def linear_cb_epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning
 
 
 def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
-                                       T, t):
+                                       T, t, env):
   shrinkage = tuning_function(T, t, tuning_function_parameter)
 
   # Sample from estimated sampling dbn
