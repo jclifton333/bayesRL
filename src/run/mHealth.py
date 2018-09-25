@@ -152,5 +152,5 @@ def run(policy_name, save=True, points_per_grid_dimension=10, monte_carlo_reps=1
 
 if __name__ == '__main__':
   # episode('worst', np.random.randint(low=1, high=1000))
-  run('eps-decay-fixed')
+  run('eps-decay')
 
