@@ -102,8 +102,8 @@ ax2.set_xlabel('Standardized range')
 ax2.set_yticklabels([]);
 ax2.set_ylabel('Standardized log ratio')
 
-ax.legend(loc=1);
-ax.set_title('LIDAR Data')
+ax2.legend(loc=1);
+ax2.set_title('LIDAR Data')
 plt.show()
 
 pass
