@@ -76,7 +76,9 @@ if __name__ == "__main__":
   zeta_init = 0.1 * np.ones(J)
   zeta_opt = optimize_zeta(zeta_init)
   times = np.linspace(0, 100, 100)
-  plt.plot(stepwise_linear_epsilon(zeta_opt, J, times), times)
+  vals = [stepwise_linear_epsilon(zeta_opt, J, t) for t in times]
+  plt.plot(times, vals)
+  plt.show()
 
 
 
