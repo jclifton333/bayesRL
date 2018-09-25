@@ -65,6 +65,14 @@ class MAB(Bandit):
     self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
     return u
 
+  def reset(self):
+    super(MAB, self).reset()
+    self.number_of_pulls = np.zeros(self.number_of_actions)
+    self.estimated_means = np.zeros(self.number_of_actions)
+    self.estimated_vars = np.zeros(self.number_of_actions)
+    self.standard_errors = np.zeros(self.number_of_actions)
+    self.draws_from_each_arm = [[]] * self.number_of_actions
+
   @abstractmethod
   def reward_dbn(self, a):
     pass

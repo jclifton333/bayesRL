@@ -35,8 +35,11 @@ def rollout_stepwise_linear_mab(zeta, env, J=10, mc_rep=10, T=100):
 def stepwise_linear_epsilon(zeta, J, t, T=100):
   ## zeta: parameter vector with length J
   interval = int(T/J)
-  j = int((T-t)/interval) - 1
-  epsilon = sum(zeta[:j]) + ((T-t) - j*interval) * zeta[j]
+  if t == 0:
+    j = 0
+  else:
+    j = int(np.floor((T-t)/interval))
+  epsilon = sum(zeta[:j]) + ((T-t) - j*interval) * zeta[j] / interval
   return epsilon
 
 
@@ -50,7 +53,7 @@ def stochastic_approximation_step(zeta_k, lambda_k, env, J, mc_rep, T):
 
 def optimize_zeta(zeta_init, mc_rep=10, T=100):
   MAX_ITER = 100
-  TOL = 1e-3
+  TOL = 1e-6
   it = 0
   diff = float('inf')
 
@@ -60,9 +63,9 @@ def optimize_zeta(zeta_init, mc_rep=10, T=100):
 
   while it < MAX_ITER and diff > TOL:
     print(it)
-    lambda_ = 1.0 / (it + 1)
+    lambda_ = 0.01 / (it + 1)
     new_zeta = stochastic_approximation_step(zeta, lambda_, env, J, mc_rep, T)
-    new_zeta = np.array([np.max((z, 0.0)) for z in new_zeta])
+    new_zeta = np.array([np.min((np.max((z, 0.0)), 0.05)) for z in new_zeta])
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
     zeta = new_zeta
     print(zeta)
