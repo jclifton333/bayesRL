@@ -15,6 +15,25 @@ import numpy as np
 from src.environments.Bandit import NormalMAB, BernoulliMAB
 import matplotlib.pyplot as plt
 
+def rollout_epsilon_mab(env, mc_rep=50, T=100):
+  best_score = -float('inf')
+  for epsilon in np.linspace(0, 0.5, 25):
+    mean_cum_reward = 0.0
+    for rep in range(mc_rep):
+      env.reset()
+      for t in range(T):
+        if np.random.rand() < epsilon:
+          action = np.random.choice(2)
+        else:
+          action = np.argmax([env.estimated_means])
+        env.step(action)
+      cum_reward = sum(env.U)
+      mean_cum_reward += (cum_reward - mean_cum_reward)/(rep+1)
+    if mean_cum_reward > best_score:
+      best_score = mean_cum_reward
+      best_epsilon = epsilon
+  return best_epsilon
+
 
 def rollout_stepwise_linear_mab(zeta, env, J=10, mc_rep=10, T=100):
   mean_cum_reward = 0.0
@@ -51,14 +70,14 @@ def stochastic_approximation_step(zeta_k, lambda_k, env, J, mc_rep, T):
   return zeta_k_plus_one
 
 
-def optimize_zeta(zeta_init, mc_rep=10, T=100):
+def optimize_zeta(zeta_init, reward_mus, reward_vars, mc_rep=10, T=100):
   MAX_ITER = 100
-  TOL = 1e-6
+  TOL = 1e-4
   it = 0
   diff = float('inf')
 
   J = zeta_init.size
-  env = NormalMAB()
+  env = NormalMAB(list_of_reward_mus = reward_mus, list_of_reward_vars = reward_vars)
   zeta = zeta_init
 
   while it < MAX_ITER and diff > TOL:
@@ -77,11 +96,19 @@ def optimize_zeta(zeta_init, mc_rep=10, T=100):
 if __name__ == "__main__":
   J = 10
   zeta_init = 0.1 * np.ones(J)
-  zeta_opt = optimize_zeta(zeta_init)
-  times = np.linspace(0, 100, 100)
-  vals = [stepwise_linear_epsilon(zeta_opt, J, t) for t in times]
-  plt.plot(times, vals)
-  plt.show()
+  for mu in [1.1, 2, 5, 10]:
+    for var in [1, 10, 100]:
+      reward_mus = [[1],[mu]]
+      reward_vars = [[1], [var]]
+      zeta_opt = optimize_zeta(zeta_init, reward_mus, reward_vars)
+      times = np.linspace(0, 100, 100)
+      vals = [stepwise_linear_epsilon(zeta_opt, J, t) for t in times]  
+      plt.plot(times, vals)
+      plt.title("mus{}; vars {}".format(reward_mus, reward_vars))
+#      plt.show()
+      plt.savefig("mu{}_var{}.png".format(mu, var))
+      
+      rollout_epsilon_mab()
 
 
 
