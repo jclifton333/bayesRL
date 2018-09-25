@@ -17,39 +17,6 @@ import copy
 
 
 
-
-
-def add_linear_model_results_at_action_to_dictionary(a, linear_model_results, linear_model_results_for_action):
-  linear_model_results['beta_hat_list'][a] = linear_model_results_for_action['beta_hat']
-  linear_model_results['Xprime_X_inv_list'][a] = linear_model_results_for_action['Xprime_X_inv']
-  linear_model_results['X_list'][a] = linear_model_results_for_action['X']
-  linear_model_results['X_dot_y_list'][a] = linear_model_results_for_action['X_dot_y']
-  linear_model_results['sample_cov_list'][a] = linear_model_results_for_action['sample_cov']
-  linear_model_results['sigma_hat_list'][a] = linear_model_results_for_action['sigma_hat']
-  linear_model_results['y_list'][a] = linear_model_results_for_action['y']
-  return linear_model_results
-
-
-def update_linear_model_at_action(a, linear_model_results, x_new, y_new):
-  """
-  Linear model results is a dictionary of lists.
-  Each list is a list of corresponding matrices/arrays of observations, indexed by actions a=0,...,nA.
-  :param a:
-  :param linear_model_results:
-  :param x_new
-  :param y_new:
-  :return:
-  """
-  X_a = linear_model_results['X_list'][a]
-  y_a = linear_model_results['y_list'][a]
-  Xprime_X_inv_a = linear_model_results['Xprime_X_inv_list'][a]
-  X_dot_y_a = linear_model_results['X_dot_y_list'][a]
-  updated_linear_model_results_for_action = update_linear_model(X_a, y_a, Xprime_X_inv_a, x_new, X_dot_y_a, y_new)
-  linear_model_results = add_linear_model_results_at_action_to_dictionary(a, linear_model_results,
-                                                                          updated_linear_model_results_for_action)
-  return linear_model_results
-
-
 def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current_time, estimated_context_mean,
                                      estimated_context_variance, truncation_function, truncation_function_gradient,
                                      initial_zeta):

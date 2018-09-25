@@ -41,6 +41,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
+  elif policy_name == 'eps-decay-fixed':
+    tuning_function = lambda a, t, c: 0.5 / (t + 1)
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
+    tune = False
+    tuning_function_parameter = None
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
@@ -147,5 +152,5 @@ def run(policy_name, save=True, points_per_grid_dimension=10, monte_carlo_reps=1
 
 if __name__ == '__main__':
   # episode('worst', np.random.randint(low=1, high=1000))
-  run('ts')
+  run('eps-decay-fixed')
 
