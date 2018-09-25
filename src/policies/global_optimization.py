@@ -157,3 +157,45 @@ def basinhop(rollout_function, policy, tuning_function, zeta_prev, linear_model_
   minimizer_kwargs = dict(method="L-BFGS-B", bounds=bounds)
   res = basinhopping(objective, x0=zeta_prev, minimizer_kwargs=minimizer_kwargs)
   return res.x
+
+
+def stochastic_approximation_step(rollout_function, policy, tuning_function, zeta_k, lambda_k, env, J, monte_carlo_reps,
+                                  estimated_context_mean, estimated_context_variance, nPatients, T, t):
+  def objective(zeta):
+    return rollout_function(zeta, policy, T, t,
+                            estimated_context_mean, tuning_function, estimated_context_variance, env,
+                            nPatients, monte_carlo_reps)
+
+  z = np.random.normal(loc=0, size=J)
+  v_of_zeta_k = objective(zeta_k)
+  v_of_zeta_k_plus_z = objective(zeta_k + z)
+  zeta_k_plus_one = zeta_k + lambda_k * z * (v_of_zeta_k_plus_z - v_of_zeta_k)
+  return zeta_k_plus_one
+
+
+def linear_cb_stochastic_approximation(rollout_function, policy, tuning_function, tuning_function_parameter, T, t,
+                                       estimated_context_mean, estimated_context_variance, env, nPatients,
+                                       points_per_grid_dimension, monte_carlo_reps):
+
+  MAX_ITER = 20
+  TOL = 1e-4
+  it = 0
+  diff = float('inf')
+
+  J = tuning_function_parameter.size
+  zeta = tuning_function_parameter
+
+  while it < MAX_ITER and diff > TOL:
+    # print(it)
+    lambda_ = 0.01 / (it + 1)
+    new_zeta = stochastic_approximation_step(rollout_function, policy, tuning_function, zeta, lambda_, env, J,
+                                             monte_carlo_reps, estimated_context_mean, estimated_context_variance,
+                                             nPatients, T, t)
+    new_zeta = np.array([np.min((np.max((z, 0.0)), 0.05)) for z in new_zeta])  # Project zeta onto space of reasonable
+                                                                               # values
+    diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
+    zeta = new_zeta
+    # print(zeta)
+    it += 1
+
+  return zeta
