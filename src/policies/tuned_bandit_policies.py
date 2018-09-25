@@ -156,10 +156,10 @@ def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tun
   shrinkage = tuning_function(T, t, tuning_function_parameter)
 
   # Sample from estimated sampling dbn
-  beta_hat_ = beta_hat.flatten()
+  beta_hat_ = np.array(beta_hat).flatten()
   sampling_cov_ = block_diag(sampling_cov_list[0], sampling_cov_list[1])
   beta_tilde = np.random.multivariate_normal(beta_hat_, shrinkage * sampling_cov_)
-  beta_tilde = beta_tilde.reshape(beta_hat.shape)
+  beta_tilde = beta_tilde.reshape(np.array(beta_hat).shape)
 
   # Estimate rewards and pull arm
   estimated_rewards = np.dot(beta_tilde, context)
