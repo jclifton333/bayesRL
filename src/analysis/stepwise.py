@@ -13,6 +13,7 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 import numpy as np
 from src.environments.Bandit import NormalMAB, BernoulliMAB
+import matplotlib.pyplot as plt
 
 
 def rollout_stepwise_linear_mab(zeta, env, J=10, mc_rep=10, T=100):
@@ -73,7 +74,9 @@ def optimize_zeta(zeta_init, mc_rep=10, T=100):
 if __name__ == "__main__":
   J = 10
   zeta_init = 0.1 * np.ones(J)
-  optimize_zeta(zeta_init)
+  zeta_opt = optimize_zeta(zeta_init)
+  times = np.linspace(0, 100, 100)
+  plt.plot(stepwise_linear_epsilon(zeta_opt, J, times), times)
 
 
 
