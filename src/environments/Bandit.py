@@ -195,11 +195,10 @@ class LinearCB(Bandit):
 
 
 class NormalCB(LinearCB):
-  def __init__(self, list_of_reward_betas=[[1,1], [2,-2]], list_of_reward_vars=[[1], [1]],
-               context_mean=[0, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
+  def __init__(self, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[1, 1],
+               context_mean=[1, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
     self.context_var = context_var
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
-
 
   def draw_context(self):
     return np.random.multivariate_normal(self.context_mean, self.context_var)
