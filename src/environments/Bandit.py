@@ -191,7 +191,7 @@ class LinearCB(Bandit):
           rewards[t, a] = u
           regrets[t, a] = opt_expected_reward - np.dot(self.list_of_reward_betas[a], self.curr_context)
         estimated_context_mean += (self.curr_context - estimated_context_mean)/(t+1)
-        estimated_context_var = np.cov(contexts[:t, ])
+        estimated_context_var = np.cov(contexts[:t, ], rowvar=False)
       each_rep_result['contexts'] = contexts
       each_rep_result['rewards'] = rewards
       each_rep_result['regrets'] = regrets   
