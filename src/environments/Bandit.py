@@ -196,7 +196,7 @@ class LinearCB(Bandit):
       each_rep_result['rewards'] = rewards
       each_rep_result['regrets'] = regrets   
       each_rep_result['estimated_context_mean'] = estimated_context_mean
-      each_rep_result['estimated_context_var'] = estimated_context_mean
+      each_rep_result['estimated_context_var'] = estimated_context_var
       results = np.append(results, each_rep_result)      
     return results
       
