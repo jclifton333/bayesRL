@@ -83,7 +83,7 @@ def optimize_zeta(zeta_init, reward_mus, reward_vars, mc_rep=10, T=100):
     print(it)
     lambda_ = 0.01 / (it + 1)
     new_zeta = stochastic_approximation_step(zeta, lambda_, env, J, mc_rep, T)
-    new_zeta = np.array([np.min((np.max((z, 0.0)), 0.05)) for z in new_zeta])
+    new_zeta = np.array([np.min((np.max((z, 0.0)), 0.10)) for z in new_zeta])
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
     zeta = new_zeta
     print(zeta)
@@ -95,19 +95,30 @@ def optimize_zeta(zeta_init, reward_mus, reward_vars, mc_rep=10, T=100):
 if __name__ == "__main__":
   J = 10
   zeta_init = 0.1 * np.ones(J)
-  for mu in [1.1, 2, 5, 10]:
+  replicates = 1
+  mc_rep = 100
+  method = "stochastic-gradient"
+  
+#  for mu in [1.1, 2, 5, 10]:
+  for mu in [2]:
+#    for var in [1]:
     for var in [1, 10, 100]:
-      reward_mus = [[1],[mu]]
-      reward_vars = [[1], [var]]
-      zeta_opt = optimize_zeta(zeta_init, reward_mus, reward_vars)
-      times = np.linspace(0, 100, 100)
-      vals = [stepwise_linear_epsilon(zeta_opt, J, t) for t in times]  
-      plt.plot(times, vals)
-      plt.title("mus{}; vars {}".format(reward_mus, reward_vars))
-#      plt.show()
-      plt.savefig("mu{}_var{}.png".format(mu, var))
-      
-      rollout_epsilon_mab()
+      for rep in range(replicates):
+        reward_mus = [[1],[mu]]
+        reward_vars = [[1], [var]]
+        if method == "stochastic-gradient":
+          zeta_opt = optimize_zeta(zeta_init, reward_mus, reward_vars, 
+                                   mc_rep=mc_rep)
+        elif method == "random":
+          zeta_opt = np.random.uniform(low=0.0, high=0.1, size=J)
+        times = np.linspace(0, 100, 100)
+        vals = [stepwise_linear_epsilon(zeta_opt, J, t) for t in times]  
+        plt.plot(times, vals)
+        plt.title("mus{}; vars {}".format(reward_mus, reward_vars))
+        # plt.show()
+        plt.savefig("method_{}_MC{}_samePara_mu{}_var{}.png".format(method, mc_rep, mu, var))
+        
+#        rollout_epsilon_mab()
 
 
 
