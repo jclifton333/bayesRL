@@ -120,7 +120,7 @@ def normal_cb_rollout(tuning_function_parameter, policy, linear_model_results, t
   return score
 
 
-def mHealth_rollout(tuning_function_parameter, policy, time_horizon, current_time, estimated_context_mean,
+def mHealth_rollout(tuning_function_parameter, policy, time_horizon, estimated_context_mean,
                     tuning_function, estimated_context_variance, env, nPatients, monte_carlo_reps):
 
   score = 0

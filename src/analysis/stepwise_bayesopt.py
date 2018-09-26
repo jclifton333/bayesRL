@@ -24,28 +24,30 @@ def bayes_optimize_zeta(seed, mc_rep=100, T=100):
 
   bounds = {'zeta{}'.format(i): (0.0, 0.2) for i in range(10)}
   bo = BayesianOptimization(objective, bounds)
-  bo.maximize(init_points=1, n_iter=1)
+  bo.maximize(init_points=5, n_iter=15)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(10)])
   return best_param
 
 
 if __name__ == "__main__":
-  num_processes = mp.cpu_count()
-  pool = mp.Pool(num_processes)
-  params = pool.map(bayes_optimize_zeta, range(num_processes))
-  params_dict = {i: params[i] for i in range(params)}
+  # num_processes = 2
+  # num_replicates = 10
+  # pool = mp.Pool(num_processes)
+  # params = []
+  # for batch in range(int(num_replicates / num_processes)):
+  #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
+  # params_dict = {str(i): params[i].tolist() for i in range(len(params))}
+  # with open('bayes-opt-100.yml', 'w') as handle:
+  #   yaml.dump(params_dict, handle)
 
-  with open('bayes-opt-100.yml', 'w') as handle:
-    yaml.dump(params_dict, handle)
-
- #  mc_rep = 100
- #  number_of_plots = 10
- #  times = np.linspace(0, 100, 100)
- #  for rep in range(10):
- #    zeta_opt = bayes_optimize_zeta(mc_rep=mc_rep)
- #    vals = [stepwise.stepwise_linear_epsilon(zeta_opt, 10, t) for t in times]
- #    plt.plot(times, vals)
- #    plt.savefig('bayes-opt-{}-mc-rep-{}.png'.format(mc_rep, rep))
+  mc_rep = 100
+  number_of_plots = 10
+  times = np.linspace(0, 100, 100)
+  for rep in range(10):
+    zeta_opt = bayes_optimize_zeta(rep, mc_rep=mc_rep)
+    vals = [stepwise.stepwise_linear_epsilon(zeta_opt, 10, t) for t in times]
+    plt.plot(times, vals)
+    plt.savefig('bayes-opt-{}.png'.format(mc_rep, rep))
 
 

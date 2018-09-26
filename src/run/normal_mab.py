@@ -36,7 +36,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay':
-    tuning_function = tuned_bandit.expit_epsilon_decay
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = True
     tuning_function_parameter = np.array([0.2, -2, 1])
@@ -60,9 +60,9 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
   for t in range(T):
     print(t)
     if tune:
-      tuning_function_parameter = opt.mab_grid_search(rollout.normal_mab_rollout, policy, tuning_function,
-                                                      tuning_function_parameter, T, t, env, nPatients,
-                                                      points_per_grid_dimension, monte_carlo_reps)
+      tuning_function_parameter = opt.bayesopt_normal_mab(rollout.normal_mab_rollout, policy, tuning_function,
+                                                          tuning_function_parameter, T, t, env, nPatients,
+                                                          points_per_grid_dimension, monte_carlo_reps)
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     for j in range(nPatients):

@@ -25,7 +25,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_carlo_reps=1000):
+def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_carlo_reps=100):
   if save:
     base_name = 'mhealth-{}-{}'.format(label, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -91,11 +91,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
     if tune:
-      tuning_function_parameter = opt.linear_cb_stochastic_approximation(rollout.mHealth_rollout, policy, tuning_function,
-                                                                         tuning_function_parameter,
-                                                                         T, t, estimated_context_mean,
-                                                                         estimated_context_variance, env, nPatients,
-                                                                         points_per_grid_dimension, monte_carlo_reps)
+      tuning_function_parameter = opt.bayesopt(rollout.mHealth_rollout, policy, tuning_function,
+                                                               tuning_function_parameter,
+                                                               T, estimated_context_mean,
+                                                               estimated_context_variance, env, nPatients,
+                                                               points_per_grid_dimension, monte_carlo_reps)
     # print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     for j in range(nPatients):
       x = copy.copy(env.curr_context)
@@ -120,37 +120,41 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=50, monte_
   return cumulative_regret
 
 
-def run(policy_name, save=True, points_per_grid_dimension=10, monte_carlo_reps=1000):
+def run(policy_name, save=True, points_per_grid_dimension=10, monte_carlo_reps=100):
   """
 
   :return:
   """
 
   num_cpus = int(mp.cpu_count())
+  num_reps = 96
+  num_batches = int(num_reps / num_cpus)
   pool = mp.Pool(processes=num_cpus)
 
   episode_partial = partial(episode, policy_name, save=False, points_per_grid_dimension=points_per_grid_dimension,
                             monte_carlo_reps=monte_carlo_reps)
+  results = []
+  base_name = 'mhealth-{}'.format(policy_name)
+  prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
+  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+  filename = '{}_{}.yml'.format(prefix, suffix)
 
-  results = pool.map(episode_partial, range(num_cpus))
+  for batch in range(num_batches):
+    results += pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
 
-  # Save results
-  if save:
-    results = {'T': float(10), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
-               'regret list': [float(r) for r in results],
-               'points_per_grid_dimension': points_per_grid_dimension, 'monte_carlo_reps': monte_carlo_reps}
+    # Save results
+    if save:
+      save_results = {'T': float(10), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
+                 'regret list': [float(r) for r in results],
+                 'points_per_grid_dimension': points_per_grid_dimension, 'monte_carlo_reps': monte_carlo_reps}
 
-    base_name = 'mhealth-{}'.format(policy_name)
-    prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
-    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-    filename = '{}_{}.yml'.format(prefix, suffix)
-    with open(filename, 'w') as outfile:
-      yaml.dump(results, outfile)
+      with open(filename, 'w') as outfile:
+        yaml.dump(save_results, outfile)
 
   return
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000), monte_carlo_reps=10)
-  # run('eps-decay')
+  # episode('eps-decay', np.random.randint(low=1, high=1000), monte_carlo_reps=1)
+  run('eps-decay')
 

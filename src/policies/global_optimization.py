@@ -1,28 +1,23 @@
 import pdb
 import numpy as np
-# from bayes_opt import BayesianOptimization
+from bayes_opt import BayesianOptimization
 from scipy.optimize import basinhopping
 
 
-def bayesopt(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon, current_time,
-             estimated_context_mean, estimated_context_variance):
-  def objective(kappa, zeta0, zeta1):
-    return rollout_function(np.array([kappa, zeta0, zeta1]), policy, linear_model_results, time_horizon, current_time,
-                            estimated_context_mean, tuning_function, estimated_context_variance)
+def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, estimated_context_mean,
+             estimated_context_variance, env, nPatients, points_per_grid_dimension, monte_carlo_reps):
 
-  # ToDo: Fix this shit!
-  if len(zeta_prev) == 3:
-    bo = BayesianOptimization(objective, {'kappa': (0.05, 0.3), 'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
-    bo.explore({'kappa': [zeta_prev[0]], 'zeta0': [zeta_prev[1]], 'zeta1': [zeta_prev[2]]})
-    bo.maximize(init_points=5, n_iter=10)
-    best_param = bo.res['max']['max_params']
-    best_param = np.array([best_param['kappa'], best_param['zeta0'], best_param['zeta1']])
-  elif len(zeta_prev == 2):
-    bo = BayesianOptimization(objective, {'zeta0': (-2, -0.05), 'zeta1': (1, 2)})
-    bo.explore({'zeta0': [zeta_prev[0]], 'zeta1': [zeta_prev[1]]})
-    bo.maximize(init_points=5, n_iter=10)
-    best_param = bo.res['max']['max_params']
-    best_param = np.array([best_param['zeta0'], best_param['zeta1']])
+  # Assuming 10 params!
+  def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
+    zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
+    return rollout_function(zeta, policy, time_horizon, estimated_context_mean, tuning_function,
+                            estimated_context_variance, env, nPatients, monte_carlo_reps)
+
+  bounds = {'zeta{}'.format(i): (0.0, 0.2) for i in range(10)}
+  bo = BayesianOptimization(objective, bounds)
+  bo.maximize(init_points=5, n_iter=15)
+  best_param = bo.res['max']['max_params']
+  best_param = np.array([best_param['zeta{}'.format(i)] for i in range(10)])
   return best_param
 
 
