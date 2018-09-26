@@ -173,6 +173,38 @@ class LinearCB(Bandit):
     self.update_linear_model(a, x, u)
     return {'Utility': u, 'New context': x}
 
+  def generate_MC_samples(self, context_mean, context_var, mc_reps, time_horizon):
+    results = []
+    for rep in range(mc_reps):
+      each_rep_result = dict()
+      rewards = np.zeros([time_horizon, self.number_of_actions])
+      regrets = np.zeros([time_horizon, self.number_of_actions])      
+      contexts = np.zeros(time_horizon)
+      estimated_context_mean = np.zeros(self.context_dimension)
+      estimated_context_var = np.diag(np.ones(self.context_dimension))
+      for t in range(time_horizon):
+        self.curr_context = self.draw_context(context_mean, context_var)
+        contexts[t] = self.curr_context
+        opt_expected_reward = np.max(np.dot(np.vstack((self.list_of_reward_betas)), self.curr_context))
+        for a in range(self.number_of_actions):
+          u = self.reward_dbn(a)
+          rewards[t, a] = u
+          regrets[t, a] = opt_expected_reward - np.dot(self.list_of_reward_betas[a], self.curr_context)
+        estimated_context_mean += (self.curr_context - estimated_context_mean)/(t+1)
+        estimated_context_var = np.cov(contexts[:t, ])
+      each_rep_result['contexts'] = contexts
+      each_rep_result['rewards'] = rewards
+      each_rep_result['regrets'] = regrets   
+      each_rep_result['estimated_context_mean'] = estimated_context_mean
+      each_rep_result['estimated_context_var'] = estimated_context_mean
+      results = np.append(results, each_rep_result)      
+    return results
+      
+      
+          
+          
+    
+
   @abstractmethod
   def draw_context(self):
     pass
@@ -208,8 +240,12 @@ class NormalCB(LinearCB):
     self.context_var = context_var
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
 
-  def draw_context(self):
-    return np.random.multivariate_normal(self.context_mean, self.context_var)
+  def draw_context(self, context_mean=None, context_var=None):
+    if context_mean is None:
+      context_mean = self.context_mean
+    if context_var is None:
+      context_var = self.context_var  
+    return np.random.multivariate_normal(context_mean, context_var)
 
 
 class NormalUniformCB(LinearCB):
@@ -217,7 +253,7 @@ class NormalUniformCB(LinearCB):
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
     self.context_dimension = 1
 
-  def draw_context(self):
+  def draw_context(self, context_mean=None, context_var=None):
     return np.random.random()
 
 
