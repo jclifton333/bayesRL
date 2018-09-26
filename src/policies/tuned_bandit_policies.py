@@ -16,7 +16,6 @@ import numpy as np
 import copy
 
 
-
 def tune_truncated_thompson_sampling(linear_model_results, time_horizon, current_time, estimated_context_mean,
                                      estimated_context_variance, truncation_function, truncation_function_gradient,
                                      initial_zeta):
