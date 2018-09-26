@@ -5,13 +5,13 @@ from scipy.optimize import basinhopping
 
 
 def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, estimated_context_mean,
-             estimated_context_variance, env, nPatients, points_per_grid_dimension, monte_carlo_reps):
+             estimated_context_variance, env, monte_carlo_reps, rollout_function_kwargs):
 
   # Assuming 10 params!
   def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
     zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
     return rollout_function(zeta, policy, time_horizon, estimated_context_mean, tuning_function,
-                            estimated_context_variance, env, nPatients, monte_carlo_reps)
+                            estimated_context_variance, env, monte_carlo_reps, **rollout_function_kwargs)
 
   bounds = {'zeta{}'.format(i): (0.0, 0.2) for i in range(10)}
   bo = BayesianOptimization(objective, bounds)

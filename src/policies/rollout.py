@@ -12,6 +12,7 @@ import pdb
 import numpy as np
 import copy
 from scipy.linalg import block_diag
+import src.policies.linear_algebra as la
 from src.environments.Bandit import NormalCB
 import src.policies.tuned_bandit_policies as tuned_bandit
 
@@ -118,6 +119,69 @@ def normal_cb_rollout(tuning_function_parameter, policy, linear_model_results, t
     it += 1
     score += (episode_score - score) / it
   return score
+
+
+def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_horizon,
+                                             estimated_context_mean, tuning_function, estimated_context_variance, env,
+                                             **kwargs):
+  """
+  Evaluate CB exploration policy on already-generated data.
+
+  :param kwargs: contain key pre_simlated_data, which is mc_rep-length list of dictionaries, which contain lists of
+  length time_horizon of data needed to evaluate policy.
+  :param tuning_function_parameter:
+  :param policy:
+  :param time_horizon:
+  :param estimated_context_mean:
+  :param tuning_function:
+  :param estimated_context_variance:
+  :param env:
+  :return:
+  """
+
+  pre_simulated_data = kwargs['pre_simulated_data']
+  mean_cumulative_regret = 0.0
+  for rep, rep_dict in enumerate(pre_simulated_data):
+
+    # For updating linear model estimates incrementally
+    beta_hat_list = [None]*env.number_of_actions
+    Xprime_X_inv_list = [None]*env.number_of_actions
+    X_list = [np.zeros((0, env.context_dimension)) for a in range(env.number_of_actions)]
+    y_list = [np.zeros(0) for a in range(env.number_of_actions)]
+    X_dot_y_list = [np.zeros(env.context_dimension) for a in range(env.number_of_actions)]
+    sampling_cov_list = [None]*env.number_of_actions
+    sigma_hat_list = [0.0]*env.number_of_actions
+
+    # Get obs sequences for this rep
+    context_sequence = rep_dict['context_list']
+    rewards_sequence = rep_dict['rewards_list']
+    regrets_sequence = rep_dict['regret_list']
+
+    regret_for_rep = 0.0
+
+    for t in range(time_horizon):
+      # Draw context and draw arm based on policy
+      context = context_sequence[t]
+      action = policy(beta_hat_list, sampling_cov_list, context, tuning_function,
+                      tuning_function_parameter, time_horizon, t)
+
+      # Get reward and regret
+      reward = rewards_sequence[action, t]
+      regret = regrets_sequence[action, t]
+      regret_for_rep += (regret - regret_for_rep) / (t + 1)
+
+      # Update model
+      linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action], context,
+                                                    X_dot_y_list[action], reward)
+      beta_hat_list[action] = linear_model_results['beta_hat']
+      y_list[action] = linear_model_results['y']
+      X_list[action] = linear_model_results['X']
+      Xprime_X_inv_list[action] = linear_model_results['Xprime_X_inv']
+      X_dot_y_list[action] = linear_model_results['X_dot_y']
+      sampling_cov_list[action] = linear_model_results['sample_cov']
+      sigma_hat_list[action] = linear_model_results['sigma_hat']
+
+    mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
 
 
 def mHealth_rollout(tuning_function_parameter, policy, time_horizon, estimated_context_mean,

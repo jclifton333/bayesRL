@@ -9,6 +9,8 @@ sys.path.append(project_dir)
 import matplotlib.pyplot as plt
 from src.environments.Bandit import NormalCB
 from src.policies import tuned_bandit_policies as tuned_bandit
+from src.policies import global_optimization as opt
+from src.policies import rollout
 import copy
 import numpy as np
 from scipy.linalg import block_diag
@@ -18,9 +20,10 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label):
+def episode(policy_name, label, pre_simulate=True):
   np.random.seed(label)
   T = 1
+  mc_replicates = 1
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -50,48 +53,25 @@ def episode(policy_name, label):
   cumulative_regret = 0.0
   env.reset()
 
-  # Initial pulls (so we can fit the models)
-  for a in range(env.number_of_actions):
-    for p in range(env.context_dimension):
-      env.step(a)
-
-  # Get initial linear model
-  X, A, U = env.X, env.A, env.U
-  linear_model_results = {'beta_hat_list': [], 'Xprime_X_inv_list': [], 'X_list': [], 'X_dot_y_list': [],
-                          'sample_cov_list': [], 'sigma_hat_list': []}
-  for a in range(env.number_of_actions):  # Fit linear model on data from each actions
-    # Get observations where action == a
-    indices_for_a = np.where(A == a)
-    X_a = X[indices_for_a]
-    U_a = U[indices_for_a]
-
-    Xprime_X_inv_a = np.linalg.inv(np.dot(X_a.T, X_a))
-    X_dot_y_a = np.dot(X_a.T, U_a)
-    beta_hat_a = np.dot(Xprime_X_inv_a, X_dot_y_a)
-    yhat_a = np.dot(X_a, beta_hat_a)
-    sigma_hat_a = np.sum((U_a - yhat_a) ** 2)
-    sample_cov_a = sigma_hat_a * Xprime_X_inv_a
-    # Add to linear model results
-    linear_model_results['beta_hat_list'].append(beta_hat_a)
-    linear_model_results['Xprime_X_inv_list'].append(Xprime_X_inv_a)
-    linear_model_results['X_list'].append(X_a)
-    linear_model_results['X_dot_y_list'].append(X_dot_y_a)
-    linear_model_results['sample_cov_list'].append(sample_cov_a)
-    linear_model_results['sigma_hat_list'].append(sigma_hat_a)
-
   for t in range(T):
     X = env.X
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
+
     if tune:
-      tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.oracle_rollout, policy, tuning_function,
-                                                             tuning_function_parameter,
-                                                             linear_model_results, T, t, estimated_context_mean,
-                                                             estimated_context_variance, env)
-      # tuning_function_parameter = tuned_bandit.epsilon_greedy_policy_gradient(linear_model_results, T, t,
-      #                                                                         estimated_context_mean,
-      #                                                                         estimated_context_variance,
-      #                                                                         None, None, tuning_function_parameter)
+      if pre_simulate:
+        pre_simulated_data = env.generate_MC_samples(estimated_context_mean, estimated_context_variance,
+                                                     mc_replicates, T)
+        tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
+                                                 tuning_function, tuning_function_parameter, T, estimated_context_mean,
+                                                 estimated_context_variance, env, mc_replicates,
+                                                 {'pre_simulated_data': pre_simulated_data})
+      else:
+        # tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.oracle_rollout, policy, tuning_function,
+        #                                                        tuning_function_parameter,
+        #                                                        linear_model_results, T, t, estimated_context_mean,
+        #                                                        estimated_context_variance, env)
+
 
     x = copy.copy(env.curr_context)
     print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
