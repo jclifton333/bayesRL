@@ -28,24 +28,39 @@ def episode(policy_name, label, pre_simulate=True):
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.05  # Constant epsilon
-    policy = tuned_bandit.epsilon_greedy_policy
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == 'eps-decay-fixed':
+    tuning_function = lambda a, t, c: 0.5 / (t + 1)
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay':
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.epsilon_greedy_policy
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = True
-    tuning_function_parameter = np.array([0.2, -2, 1])
-  elif policy_name == 'ts':
-    tuning_function = lambda a, b, c: 1.0  # No shrinkage
-    policy = tuned_bandit.thompson_sampling_policy
+    tuning_function_parameter = np.ones(10) * 0.025
+  elif policy_name == 'greedy':
+    tuning_function = lambda a, b, c: 0.00  # Constant epsilon
+    policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
-  elif policy_name == 'ts-shrink':
-    tuning_function = tuned_bandit.expit_truncate
-    policy = tuned_bandit.thompson_sampling_policy
-    tune = True
-    tuning_function_parameter = np.array([-2, 1])
+  elif policy_name == 'worst':
+    tuning_function = lambda a, b, c: 0.00
+    policy = ref.linear_cb_worst_policy
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == 'ts':
+    tuning_function = lambda a, b, c: 1.0  # No shrinkage
+    policy = tuned_bandit.linear_cb_thompson_sampling_policy
+    tune = False
+    tuning_function_parameter = None
+  # elif policy_name == 'ts-shrink':
+  #   tuning_function = tuned_bandit.expit_truncate
+  #   policy = tuned_bandit.thompson_sampling_policy
+  #   tune = True
+  #   tuning_function_parameter = np.array([-2, 1])
   else:
     raise ValueError('Incorrect policy name')
 
@@ -60,34 +75,25 @@ def episode(policy_name, label, pre_simulate=True):
 
     if tune:
       if pre_simulate:
-        pre_simulated_data = env.generate_MC_samples(estimated_context_mean, estimated_context_variance,
-                                                     mc_replicates, T)
+        sim_env = NormalCB(list_of_reward_betas=env.beta_hat_list, list_of_reward_vars=env.sigma_hat_list,
+                           context_mean=estimated_context_mean, context_var=estimated_context_variance)
+        pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T)
         tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
                                                  tuning_function, tuning_function_parameter, T, estimated_context_mean,
-                                                 estimated_context_variance, env, mc_replicates,
+                                                 estimated_context_variance, sim_env, mc_replicates,
                                                  {'pre_simulated_data': pre_simulated_data})
       else:
-        # tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.oracle_rollout, policy, tuning_function,
-        #                                                        tuning_function_parameter,
-        #                                                        linear_model_results, T, t, estimated_context_mean,
-        #                                                        estimated_context_variance, env)
-
+        tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.oracle_rollout, policy, tuning_function,
+                                                               tuning_function_parameter,
+                                                               linear_model_results, T, t, estimated_context_mean,
+                                                               estimated_context_variance, env)
 
     x = copy.copy(env.curr_context)
     print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
-    beta_hat = np.array(linear_model_results['beta_hat_list'])
-    action = policy(beta_hat, linear_model_results['sample_cov_list'], x, tuning_function,
-                    tuning_function_parameter, T, t)
-    step_results = env.step(action)
-    reward = step_results['Utility']
-
-    # Compute regret
-    oracle_expected_reward = np.max((np.dot(x, env.list_of_reward_betas[0]), np.dot(x, env.list_of_reward_betas[1])))
-    regret = oracle_expected_reward - np.dot(x, env.list_of_reward_betas[a])
-    cumulative_regret += regret
-
-    # Update linear model
-    linear_model_results = tuned_bandit.update_linear_model_at_action(a, linear_model_results, x, reward)
+    beta_hat = np.array(env.beta_hat_list)
+    action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
+    env.step(action)
+    cumulative_regret += env.regret(action, x)
 
   return cumulative_regret
 

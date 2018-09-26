@@ -173,38 +173,66 @@ class LinearCB(Bandit):
     self.update_linear_model(a, x, u)
     return {'Utility': u, 'New context': x}
 
-  def generate_MC_samples(self, context_mean, context_var, mc_reps, time_horizon):
+  def generate_mc_samples(self, mc_reps, time_horizon):
     results = []
     for rep in range(mc_reps):
       each_rep_result = dict()
-      rewards = np.zeros([time_horizon, self.number_of_actions])
-      regrets = np.zeros([time_horizon, self.number_of_actions])      
-      contexts = np.zeros(time_horizon)
+
+      # Initial pulls
+      # For updating linear model estimates incrementally
+      beta_hat_list = [None] * self.number_of_actions
+      Xprime_X_inv_list = [None] * self.number_of_actions
+      X_list = [np.zeros((0, self.context_dimension)) for a in range(self.number_of_actions)]
+      y_list = [np.zeros(0) for a in range(self.number_of_actions)]
+      X_dot_y_list = [np.zeros(self.context_dimension) for a in range(self.number_of_actions)]
+      sampling_cov_list = [None] * self.number_of_actions
+      sigma_hat_list = [0.0] * self.number_of_actions
+
+      for action in range(self.number_of_actions):
+        for p in range(2):
+          context = self.draw_context()
+          reward = self.reward_dbn(action)
+          linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action],
+                                                        context, X_dot_y_list[action], reward)
+          beta_hat_list[action] = linear_model_results['beta_hat']
+          y_list[action] = linear_model_results['y']
+          X_list[action] = linear_model_results['X']
+          Xprime_X_inv_list[action] = linear_model_results['Xprime_X_inv']
+          X_dot_y_list[action] = linear_model_results['X_dot_y']
+          sampling_cov_list[action] = linear_model_results['sample_cov']
+          sigma_hat_list[action] = linear_model_results['sigma_hat']
+
+      initial_linear_model = {'beta_hat_list': beta_hat_list, 'y_list': y_list, 'X_list': X_list,
+                              'Xprime_X_inv_list': Xprime_X_inv_list, 'X_dot_y_list': X_dot_y_list,
+                              'sampling_cov_list': sampling_cov_list, 'sigma_hat_list': sigma_hat_list}
+
+      rewards = np.zeros((time_horizon, self.number_of_actions))
+      regrets = np.zeros((time_horizon, self.number_of_actions))
+      contexts = np.zeros((0, self.context_dimension))
       estimated_context_mean = np.zeros(self.context_dimension)
       estimated_context_var = np.diag(np.ones(self.context_dimension))
+
       for t in range(time_horizon):
-        self.curr_context = self.draw_context(context_mean, context_var)
-        contexts[t] = self.curr_context
-        opt_expected_reward = np.max(np.dot(np.vstack((self.list_of_reward_betas)), self.curr_context))
+        context = self.next_context()
+        contexts = np.vstack((contexts, context))
+        opt_expected_reward = self.optimal_expected_reward(context)
         for a in range(self.number_of_actions):
           u = self.reward_dbn(a)
+          expected_u = self.expected_reward(a, context)
           rewards[t, a] = u
-          regrets[t, a] = opt_expected_reward - np.dot(self.list_of_reward_betas[a], self.curr_context)
-        estimated_context_mean += (self.curr_context - estimated_context_mean)/(t+1)
-        estimated_context_var = np.cov(contexts[:t, ], rowvar=False)
+          regrets[t, a] = expected_u - opt_expected_reward
+        estimated_context_mean += (context - estimated_context_mean)/(t+1)
+        estimated_context_var = np.cov(contexts, rowvar=False)
+
       each_rep_result['contexts'] = contexts
       each_rep_result['rewards'] = rewards
       each_rep_result['regrets'] = regrets   
       each_rep_result['estimated_context_mean'] = estimated_context_mean
       each_rep_result['estimated_context_var'] = estimated_context_var
+      each_rep_result['initial_linear_model'] = initial_linear_model
       results = np.append(results, each_rep_result)      
     return results
       
-      
-          
-          
-    
-
   @abstractmethod
   def draw_context(self):
     pass
@@ -214,8 +242,14 @@ class LinearCB(Bandit):
     self.curr_context = x0
     return x0
 
+  def regret(self, a, context):
+    return self.expected_reward(a, context) - self.optimal_expected_reward(context)
+
   def expected_reward(self, a, context):
     return np.dot(context, self.list_of_reward_betas[a])
+
+  def optimal_expected_reward(self, context):
+    return np.max([np.dot(context, beta) for beta in self.list_of_reward_betas])
 
   def reward_noise(self, a):
     var = self.list_of_reward_vars[a]
