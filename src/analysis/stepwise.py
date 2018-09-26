@@ -67,7 +67,7 @@ def stochastic_approximation_step(zeta_k, lambda_k, env, J, mc_rep, T):
   v_of_zeta_k = rollout_stepwise_linear_mab(zeta_k, env, J=J, mc_rep=mc_rep, T=T)
   v_of_zeta_k_plus_z = rollout_stepwise_linear_mab(zeta_k + z, env, J=J, mc_rep=mc_rep, T=T)
   zeta_k_plus_one = zeta_k + lambda_k * z * (v_of_zeta_k_plus_z - v_of_zeta_k)
-  return zeta_k_plus_one
+  return zeta_k_plus_one, v_of_zeta_k_plus_z 
 
 
 def optimize_zeta(zeta_init, reward_mus, reward_vars, mc_rep=10, T=100):
@@ -81,12 +81,13 @@ def optimize_zeta(zeta_init, reward_mus, reward_vars, mc_rep=10, T=100):
 
   while it < MAX_ITER and diff > TOL:
     print(it)
-    lambda_ = 0.01 / (it + 1)
-    new_zeta = stochastic_approximation_step(zeta, lambda_, env, J, mc_rep, T)
-    new_zeta = np.array([np.min((np.max((z, 0.0)), 0.10)) for z in new_zeta])
+    lambda_ = 1 / (it + 1)
+    new_zeta, new_v_zeta = stochastic_approximation_step(zeta, lambda_, env, J, mc_rep, T)
+#    new_zeta = np.array([np.min((np.max((z, 0.0)), 0.10)) for z in new_zeta])
     diff = np.linalg.norm(new_zeta - zeta) / np.linalg.norm(zeta)
     zeta = new_zeta
     print(zeta)
+    print(new_v_zeta)
     it += 1
 
   return zeta
@@ -95,17 +96,19 @@ def optimize_zeta(zeta_init, reward_mus, reward_vars, mc_rep=10, T=100):
 if __name__ == "__main__":
   J = 10
   zeta_init = 0.1 * np.ones(J)
-  replicates = 1
-  mc_rep = 100
+  replicates = 10
+  mc_rep = 20
   method = "stochastic-gradient"
+  
   
 #  for mu in [1.1, 2, 5, 10]:
   for mu in [2]:
-#    for var in [1]:
-    for var in [1, 10, 100]:
+    for var in [1]:
+#    for var in [1, 10, 100]:
       for rep in range(replicates):
         reward_mus = [[1],[mu]]
         reward_vars = [[1], [var]]
+#        env = NormalMAB(list_of_reward_mus = reward_mus, list_of_reward_vars = reward_vars)
         if method == "stochastic-gradient":
           zeta_opt = optimize_zeta(zeta_init, reward_mus, reward_vars, 
                                    mc_rep=mc_rep)
@@ -116,7 +119,7 @@ if __name__ == "__main__":
         plt.plot(times, vals)
         plt.title("mus{}; vars {}".format(reward_mus, reward_vars))
         # plt.show()
-        plt.savefig("method_{}_MC{}_samePara_mu{}_var{}.png".format(method, mc_rep, mu, var))
+#        plt.savefig("method_{}_MC{}_samePara_mu{}_var{}_rep{}_lambda001.png".format(method, mc_rep, mu, var, replicates))
         
 #        rollout_epsilon_mab()
 
