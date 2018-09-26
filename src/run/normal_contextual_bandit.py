@@ -104,8 +104,8 @@ def run(policy_name, save=True):
   :return:
   """
 
-  replicates = 80
-  num_cpus = int(mp.cpu_count() / 2)
+  replicates = 96
+  num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
 
@@ -132,7 +132,7 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-  # run('eps-decay')
+  # episode('eps-decay', np.random.randint(low=1, high=1000))
+  run('eps-decay')
 
 
