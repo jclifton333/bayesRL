@@ -27,11 +27,21 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
 
   np.random.seed(label)
   nPatients = 10
-  T = 10
+  T = 100
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.05  # Constant epsilon
+    policy = tuned_bandit.mab_epsilon_greedy_policy
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == 'greedy':
+    tuning_function = lambda a, b, c: 0.00  # Constant epsilon
+    policy = tuned_bandit.mab_epsilon_greedy_policy
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == 'eps-decay-fixed':
+    tuning_function = lambda a, t, c: 0.5 / (t + 1)
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
@@ -48,7 +58,9 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
   else:
     raise ValueError('Incorrect policy name')
 
-  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
+#  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
+  env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [140]])
+
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
   env.reset()
@@ -67,7 +79,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     for j in range(nPatients):
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                      tuning_function_parameter, T, t)
+                      tuning_function_parameter, T, t, env)
       env.step(action)
 
       # Compute regret
@@ -107,6 +119,9 @@ def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1
 
 if __name__ == '__main__':
   # episode('gittins', np.random.randint(low=1, high=1000))
-  run('gittins')
+  run('eps-decay-fixed')
+  run('eps')
+  run('greedy')
+
 
 
