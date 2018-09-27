@@ -23,12 +23,12 @@ import multiprocessing as mp
 def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
             context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], pre_simulate=True):
   np.random.seed(label)
-  T = 1000
+  T = 10000
   mc_replicates = 100
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.1  # Constant epsilon
+    tuning_function = lambda a, b, c: 0.5  # Constant epsilon
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
@@ -94,6 +94,16 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     x = copy.copy(env.curr_context)
     print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     beta_hat = np.array(env.beta_hat_list)
+    print('beta hat {}'.format(beta_hat))
+    if t > 1000:
+      from sklearn.linear_model import LinearRegression
+      m = LinearRegression(fit_intercept=False)
+      m.fit(env.X_list[0], env.y_list[0])
+      print(m.coef_)
+      m = LinearRegression(fit_intercept=False)
+      m.fit(env.X_list[1], env.y_list[1])
+      print(m.coef_)
+      pdb.set_trace()
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
     res = env.step(action)
     # cumulative_regret += env.regret(action, x)
@@ -165,8 +175,8 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  # episode('eps', np.random.randint(low=1, high=1000))
-  run('eps')
-  run('greedy')
-  run('eps-decay-fixed')
+  episode('eps', np.random.randint(low=1, high=1000))
+  # run('eps')
+  # run('greedy')
+  # run('eps-decay-fixed')
 
