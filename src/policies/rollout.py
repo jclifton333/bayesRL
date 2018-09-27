@@ -121,8 +121,7 @@ def normal_cb_rollout(tuning_function_parameter, policy, linear_model_results, t
   return score
 
 
-def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_horizon,
-                                             estimated_context_mean, tuning_function, estimated_context_variance, env,
+def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_horizon, tuning_function, env,
                                              **kwargs):
   """
   Evaluate CB exploration policy on already-generated data.
@@ -132,9 +131,7 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
   :param tuning_function_parameter:
   :param policy:
   :param time_horizon:
-  :param estimated_context_mean:
   :param tuning_function:
-  :param estimated_context_variance:
   :param env:
   :return:
   """
@@ -168,8 +165,8 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
 
       # Get reward and regret
       reward = rewards_sequence[t, action]
-      regret = regrets_sequence[t, action]
-      regret_for_rep += (regret - regret_for_rep) / (t + 1)
+      # regret = regrets_sequence[t, action]
+      regret_for_rep += reward
 
       # Update model
       linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action], context,

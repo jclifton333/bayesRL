@@ -206,8 +206,8 @@ class LinearCB(Bandit):
                               'Xprime_X_inv_list': Xprime_X_inv_list, 'X_dot_y_list': X_dot_y_list,
                               'sampling_cov_list': sampling_cov_list, 'sigma_hat_list': sigma_hat_list}
 
-      rewards = np.zeros((time_horizon, self.number_of_actions))
-      regrets = np.zeros((time_horizon, self.number_of_actions))
+      rewards = np.zeros((0, self.number_of_actions))
+      regrets = np.zeros((0, self.number_of_actions))
       contexts = np.zeros((0, self.context_dimension))
       estimated_context_mean = np.zeros(self.context_dimension)
       estimated_context_var = np.diag(np.ones(self.context_dimension))
@@ -216,11 +216,8 @@ class LinearCB(Bandit):
         context = self.next_context()
         contexts = np.vstack((contexts, context))
         opt_expected_reward = self.optimal_expected_reward(context)
-        for a in range(self.number_of_actions):
-          u = self.reward_dbn(a)
-          expected_u = self.expected_reward(a, context)
-          rewards[t, a] = u
-          regrets[t, a] = expected_u - opt_expected_reward
+        rewards_t = np.array([self.expected_reward(a, context) for a in range(self.number_of_actions)])
+        rewards = np.vstack((rewards, rewards_t))
         estimated_context_mean += (context - estimated_context_mean)/(t+1)
         estimated_context_var = np.cov(contexts, rowvar=False)
 
@@ -283,12 +280,14 @@ class NormalCB(LinearCB):
 
 
 class NormalUniformCB(LinearCB):
-  def __init__(self, list_of_reward_betas=[[0.1, -0.1], [0.2, 0.1]], context_mean=[1.0, 0.5], list_of_reward_vars=[[4], [4]]):
+  def __init__(self, list_of_reward_betas=[[0.1, -0.1], [0.2, 0.1]], context_mean=[1.0, 0.5], list_of_reward_vars=[[4], [4]],
+               context_bounds=(0.0, 1.0)):
+    self.context_bounds=context_bounds
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
     # self.context_dimension = 2
 
   def draw_context(self, context_mean=None, context_var=None):
-    x = np.random.random(size=self.context_dimension-1)
+    x = np.random.uniform(low=self.context_bounds[0], high=self.context_bounds[1], size=self.context_dimension-1)
     context = np.append([1.0], x)
     return context
 

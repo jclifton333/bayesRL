@@ -23,7 +23,7 @@ import multiprocessing as mp
 def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
             context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], pre_simulate=True):
   np.random.seed(label)
-  T = 100
+  T = 50
   mc_replicates = 100
 
   # ToDo: Create policy class that encapsulates this behavior
@@ -72,24 +72,26 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
 
   # env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
   #                list_of_reward_vars=list_of_reward_vars)
-  env = NormalUniformCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean)
+  env = NormalUniformCB()
   cumulative_regret = 0.0
   env.reset()
-
+  tuning_parameter_sequence = []
   for t in range(T):
     X = env.X
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
+    estimated_context_bounds = (np.min(X), np.max(X))
 
     if tune:
       if pre_simulate:
-        sim_env = NormalCB(list_of_reward_betas=env.beta_hat_list, list_of_reward_vars=env.sigma_hat_list,
-                           context_mean=estimated_context_mean, context_var=estimated_context_variance)
+        sim_env = NormalUniformCB(list_of_reward_betas=env.beta_hat_list, list_of_reward_vars=env.sigma_hat_list,
+                                  context_bounds=estimated_context_bounds)
         pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T)
         tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
                                                  tuning_function, tuning_function_parameter, T, estimated_context_mean,
                                                  estimated_context_variance, sim_env, mc_replicates,
                                                  {'pre_simulated_data': pre_simulated_data})
+        tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
       else:
         tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.oracle_rollout, policy, tuning_function,
                                                                tuning_function_parameter,
@@ -104,7 +106,10 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     # cumulative_regret += env.regret(action, x)
     cumulative_regret += res['Utility']
 
-  return cumulative_regret
+    if t > 20:
+      break
+
+  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence}
 
 
 def run(policy_name, save=True):
@@ -137,7 +142,7 @@ def run(policy_name, save=True):
                            2.58873581, 2.58058572, 3.24249907, 3.9112971, 3.25518813],
                           [2.90426182, 2.36349276, 2.79547751, 2.23755312, 2.77606548,
                            2.57908617, 2.65037651, 3.43369339, 3.25518813, 3.95748798]]) / 10.0
-  replicates = 96*10
+  replicates = 16
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -150,14 +155,17 @@ def run(policy_name, save=True):
     results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
     results += results_for_batch
 
+  rewards = [np.float(d['cumulative_regret']) for d in results]
+  zeta_sequences = [d['zeta_sequence'] for d in results]
   # Save results
   if save:
-    results = {'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
+    results = {'mean_regret': float(np.mean(rewards)), 'std_regret': float(np.std(rewards)),
                'beta_hat_list': [beta for beta in list_of_reward_betas],
-               'context_mean': [float(c) for c in context_mean], 'regret list': [float(r) for r in results],
+               'context_mean': [float(c) for c in context_mean], 'regret list': [float(r) for r in rewards],
                'context_variance': [[float(context_var[i, j]) for j in range(context_var.shape[1])]
                                     for i in range(context_var.shape[0])],
-               'reward_vars': list_of_reward_vars}
+               'reward_vars': list_of_reward_vars,
+               'zeta_sequences': zeta_sequences}
 
     base_name = 'normalcb-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -170,8 +178,9 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  episode('greedy', np.random.randint(low=1, high=1000))
+  # episode('greedy', np.random.randint(low=1, high=1000))
   # run('eps')
   # run('greedy')
   # run('eps-decay-fixed')
+  run('eps-decay')
   # run('uniform')
