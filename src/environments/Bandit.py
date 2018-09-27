@@ -283,11 +283,11 @@ class NormalCB(LinearCB):
 
 
 class NormalUniformCB(LinearCB):
-  def __init__(self, list_of_reward_betas=[[-0.1], [0.1]], context_mean=[0.5], list_of_reward_vars=[[2], [2]]):
+  def __init__(self, list_of_reward_betas=[[-0.1, 0.1], [0.1, 0.1]], context_mean=[0.5, 0.5], list_of_reward_vars=[[2], [2]]):
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
-    self.context_dimension = 1
+    self.context_dimension = len(context_mean)
 
   def draw_context(self, context_mean=None, context_var=None):
-    return np.random.random()
+    return np.random.random(size=self.context_dimension)
 
 

@@ -7,7 +7,7 @@ sys.path.append(project_dir)
 
 
 import matplotlib.pyplot as plt
-from src.environments.Bandit import NormalCB
+from src.environments.Bandit import NormalCB, NormalUniformCB
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.policies import global_optimization as opt
 from src.policies import rollout
@@ -65,8 +65,9 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
   else:
     raise ValueError('Incorrect policy name')
 
-  env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
-                 list_of_reward_vars=list_of_reward_vars)
+  # env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
+  #                list_of_reward_vars=list_of_reward_vars)
+  env = NormalUniformCB()
   cumulative_regret = 0.0
   env.reset()
 
@@ -163,8 +164,8 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  # episode('eps-decay', np.random.randint(low=1, high=1000))
-  run('eps')
-  run('greedy')
-  run('eps-decay-fixed')
+  episode('eps', np.random.randint(low=1, high=1000))
+  # run('eps')
+  # run('greedy')
+  # run('eps-decay-fixed')
 
