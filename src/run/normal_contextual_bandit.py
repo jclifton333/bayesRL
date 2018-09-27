@@ -21,7 +21,7 @@ import multiprocessing as mp
 
 
 def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
-            context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1,, 1], pre_simulate=True):
+            context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], pre_simulate=True):
   np.random.seed(label)
   T = 100
   mc_replicates = 100
@@ -33,7 +33,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    tuning_function = lambda a, t, c: 0.5 / (t + 1)
+    tuning_function = lambda a, t, c: 0.5 / np.sqrt(t + 1)
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
@@ -107,9 +107,9 @@ def run(policy_name, save=True):
   """
 
   # These were randomly generated acc to ?
-  list_of_reward_betas = [[1, 1, 2, 1, 1, 2, 5, 2, 1, 2], [1, 1, 2, 5, 2, -2, 2, 5, 2, 1]]
-  list_of_reward_vars = [1, 100]
-  context_mean = [1, 0, 1.1, 1, 0, 2, 5, 2, -2, -1]
+  list_of_reward_betas = [[1, 1, 2, 1, 1, 2, 5, 2, 1, 2], [1, 1 + 0.1, 2, 1, 1, 2, 5, 2, 1, 2]]
+  list_of_reward_vars = [10, 100]
+  context_mean = [1, 5, 1.1, 1, 0, 2, 5, 2, -2, -1]
   context_var = np.array([[3.6312428, 3.00522183, 2.98244109, 2.53272188, 3.17706977,
                            3.04298017, 2.70522407, 3.27572415, 3.12577619, 2.90426182],
                           [3.00522183, 2.98044241, 2.19461563, 1.94296405, 2.79104146,
@@ -129,8 +129,8 @@ def run(policy_name, save=True):
                           [3.12577619, 2.30906299, 2.60945919, 2.54971706, 2.18703712,
                            2.58873581, 2.58058572, 3.24249907, 3.9112971, 3.25518813],
                           [2.90426182, 2.36349276, 2.79547751, 2.23755312, 2.77606548,
-                           2.57908617, 2.65037651, 3.43369339, 3.25518813, 3.95748798]])
-  replicates = 96
+                           2.57908617, 2.65037651, 3.43369339, 3.25518813, 3.95748798]]) / 10.0
+  replicates = 96*10
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -146,7 +146,7 @@ def run(policy_name, save=True):
   # Save results
   if save:
     results = {'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
-               'beta_hat_list': [beta.tolist() for beta in list_of_reward_betas],
+               'beta_hat_list': [beta for beta in list_of_reward_betas],
                'context_mean': [float(c) for c in context_mean], 'regret list': [float(r) for r in results],
                'context_variance': [[float(context_var[i, j]) for j in range(context_var.shape[1])]
                                     for i in range(context_var.shape[0])],
