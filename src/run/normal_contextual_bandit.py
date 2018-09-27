@@ -23,12 +23,12 @@ import multiprocessing as mp
 def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
             context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], pre_simulate=True):
   np.random.seed(label)
-  T = 100
+  T = 1000
   mc_replicates = 100
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.5  # Constant epsilon
+    tuning_function = lambda a, b, c: 0.1  # Constant epsilon
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
@@ -95,8 +95,9 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     beta_hat = np.array(env.beta_hat_list)
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
-    env.step(action)
-    cumulative_regret += env.regret(action, x)
+    res = env.step(action)
+    # cumulative_regret += env.regret(action, x)
+    cumulative_regret += res['Utility']
 
   return cumulative_regret
 
@@ -108,9 +109,9 @@ def run(policy_name, save=True):
   """
 
   # These were randomly generated acc to ?
-  list_of_reward_betas = [[1, 1, 2, 1, 1, 2, 5, 2, 1, 2], [1, 1 + 0.1, 2, 1, 1, 2, 5, 2, 1, 2]]
-  list_of_reward_vars = [10, 100]
-  context_mean = [1, 5, 1.1, 1, 0, 2, 5, 2, -2, -1]
+  list_of_reward_betas=[[1, 1, 2, 1, 1, 2, 5, 2, 1, 2], [ 1, 1, 2, 5, 2, -2, 2, 5, 2, 1]]
+  list_of_reward_vars=[0.001, 10]
+  context_mean=[1, 0, 1.1, 1, 0, 2, 5, 2, -2, -1]
   context_var = np.array([[3.6312428, 3.00522183, 2.98244109, 2.53272188, 3.17706977,
                            3.04298017, 2.70522407, 3.27572415, 3.12577619, 2.90426182],
                           [3.00522183, 2.98044241, 2.19461563, 1.94296405, 2.79104146,
@@ -130,7 +131,7 @@ def run(policy_name, save=True):
                           [3.12577619, 2.30906299, 2.60945919, 2.54971706, 2.18703712,
                            2.58873581, 2.58058572, 3.24249907, 3.9112971, 3.25518813],
                           [2.90426182, 2.36349276, 2.79547751, 2.23755312, 2.77606548,
-                           2.57908617, 2.65037651, 3.43369339, 3.25518813, 3.95748798]]) / 10.0
+                           2.57908617, 2.65037651, 3.43369339, 3.25518813, 3.95748798]])
   replicates = 96*10
   num_cpus = int(mp.cpu_count())
   results = []
@@ -164,8 +165,8 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  episode('eps', np.random.randint(low=1, high=1000))
-  # run('eps')
-  # run('greedy')
-  # run('eps-decay-fixed')
+  # episode('eps', np.random.randint(low=1, high=1000))
+  run('eps')
+  run('greedy')
+  run('eps-decay-fixed')
 
