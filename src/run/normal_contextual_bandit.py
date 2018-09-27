@@ -23,12 +23,12 @@ import multiprocessing as mp
 def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
             context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], pre_simulate=True):
   np.random.seed(label)
-  T = 100
+  T = 100000
   mc_replicates = 100
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.05  # Constant epsilon
+    tuning_function = lambda a, b, c: 0.5  # Constant epsilon
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None

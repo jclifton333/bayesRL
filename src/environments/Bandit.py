@@ -168,9 +168,9 @@ class LinearCB(Bandit):
 
   def step(self, a):
     u = super(LinearCB, self).step(a)
+    self.X = np.vstack((self.X, self.curr_context))
+    self.update_linear_model(a, self.curr_context, u)
     x = self.next_context()
-    self.X = np.vstack((self.X, x))
-    self.update_linear_model(a, x, u)
     return {'Utility': u, 'New context': x}
 
   def generate_mc_samples(self, mc_reps, time_horizon):
@@ -283,7 +283,7 @@ class NormalCB(LinearCB):
 
 
 class NormalUniformCB(LinearCB):
-  def __init__(self, list_of_reward_betas=[[-0.1, 0.1], [0.1, 0.1]], context_mean=[0.5, 0.5], list_of_reward_vars=[[2], [2]]):
+  def __init__(self, list_of_reward_betas=[[-0.1, 0.1], [0.1, 0.1]], context_mean=[0.5, 0.5], list_of_reward_vars=[[0.01], [0.01]]):
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
     self.context_dimension = len(context_mean)
 
