@@ -20,10 +20,11 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, pre_simulate=True):
+def episode(policy_name, label, beta_hat_list=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
+            context_variance=np.array([[1.0, -0.2], [-0.2, 1.]]), pre_simulate=True):
   np.random.seed(label)
-  T = 1
-  mc_replicates = 1
+  T = 100
+  mc_replicates = 100
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -64,7 +65,8 @@ def episode(policy_name, label, pre_simulate=True):
   else:
     raise ValueError('Incorrect policy name')
 
-  env = NormalCB(list_of_reward_betas=[np.array([1.0, 1.0]), np.array([2.0, -2.0])])
+  env = NormalCB(list_of_reward_betas=beta_hat_list, context_mean=context_mean, context_var=context_variance,
+                 list_of_reward_vars=[1, 1000])
   cumulative_regret = 0.0
   env.reset()
 
@@ -103,13 +105,19 @@ def run(policy_name, save=True):
 
   :return:
   """
+  np.random.seed(3)
+  beta_hat_list = [np.random.normal(scale=0.5, size=10) for act in range(2)]
+  context_mean = np.zeros(10)
+  context_variance = np.diag(np.random.random(size=10))
+
 
   replicates = 96
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name)
+  episode_partial = partial(episode, policy_name, beta_hat_list=beta_hat_list, context_mean=context_mean, 
+                            context_variance=context_variance)
 
   num_batches = int(replicates / num_cpus)
   for batch in range(num_batches):
@@ -118,10 +126,13 @@ def run(policy_name, save=True):
 
   # Save results
   if save:
-    results = {'T': float(25), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
-                'beta': [[1.0, 1.0], [2.0, -2.0]], 'regret list': [float(r) for r in results]}
+    results = {'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
+               'beta_hat_list': [beta.tolist() for beta in beta_hat_list], 
+               'context_mean': [float(c) for c in context_mean], 'regret list': [float(r) for r in results],
+               'context_variance': [[float(context_variance[i, j]) for j in range(context_variance.shape[1])]
+                                    for i in range(context_variance.shape[0])]}
 
-    base_name = 'normalcb-25-{}'.format(policy_name)
+    base_name = 'normalcb-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -133,6 +144,7 @@ def run(policy_name, save=True):
 
 if __name__ == '__main__':
   # episode('eps-decay', np.random.randint(low=1, high=1000))
-  run('eps-decay')
-
+  run('eps')
+  run('greedy')
+  run('eps-decay-fixed')
 
