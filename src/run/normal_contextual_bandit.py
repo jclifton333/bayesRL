@@ -70,9 +70,9 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
   else:
     raise ValueError('Incorrect policy name')
 
-  env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
-                 list_of_reward_vars=list_of_reward_vars)
-  # env = NormalUniformCB()
+  # env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
+  #                list_of_reward_vars=list_of_reward_vars)
+  env = NormalUniformCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean)
   cumulative_regret = 0.0
   env.reset()
 
@@ -170,8 +170,8 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  # episode('greedy', np.random.randint(low=1, high=1000))
-  run('eps')
-  run('greedy')
-  run('eps-decay-fixed')
+  episode('greedy', np.random.randint(low=1, high=1000))
+  # run('eps')
+  # run('greedy')
+  # run('eps-decay-fixed')
   # run('uniform')

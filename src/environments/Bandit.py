@@ -288,7 +288,7 @@ class NormalUniformCB(LinearCB):
     # self.context_dimension = 2
 
   def draw_context(self, context_mean=None, context_var=None):
-    x = np.random.random(size=1)
+    x = np.random.random(size=self.context_dimension-1)
     context = np.append([1.0], x)
     return context
 
