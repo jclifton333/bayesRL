@@ -157,7 +157,7 @@ def expit_epsilon_decay(T, t, zeta):
 
 def stepwise_linear_epsilon(T, t, zeta):
   J = len(zeta)
-  interval = int(T/J)
+  interval = int(T/float(J))
   if t == 0:
     j = 0
   else:

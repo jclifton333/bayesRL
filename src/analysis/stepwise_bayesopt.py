@@ -32,7 +32,7 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=100):
   def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
     zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
     return rollout.mab_rollout_with_fixed_simulations(zeta, policies.mab_epsilon_greedy_policy, T,
-                                                      stepwise_linear_epsilon, sim_env, **rollout_function_kwargs)
+                                                      policies.stepwise_linear_epsilon, sim_env, **rollout_function_kwargs)
     # return normal_cb_rollout_with_fixed_simulations(zeta, linear_cb_epsilon_greedy_policy, T,
     #                                                 stepwise_linear_epsilon, sim_env, **rollout_function_kwargs)
 
@@ -56,9 +56,10 @@ if __name__ == "__main__":
   num_processes = 16
   num_replicates = num_processes
   pool = mp.Pool(num_processes)
-  params = []
-  for batch in range(int(num_replicates / num_processes)):
-    params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
+  # params = []
+  # for batch in range(int(num_replicates / num_processes)):
+  #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
+  params = pool.map(bayes_optimize_zeta, range(num_processes))
   params_dict = {str(i): params[i].tolist() for i in range(len(params))}
   with open('bayes-opt-presimulated-normal-mab-1000.yml', 'w') as handle:
     yaml.dump(params_dict, handle)
