@@ -88,8 +88,8 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
                                   context_bounds=estimated_context_bounds)
         pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T)
         tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
-                                                 tuning_function, tuning_function_parameter, T, estimated_context_mean,
-                                                 estimated_context_variance, sim_env, mc_replicates,
+                                                 tuning_function, tuning_function_parameter, T,
+                                                 sim_env, mc_replicates,
                                                  {'pre_simulated_data': pre_simulated_data})
         tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
       else:
@@ -175,9 +175,9 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  # episode('greedy', np.random.randint(low=1, high=1000))
+  episode('eps-decay', np.random.randint(low=1, high=1000))
   # run('eps')
   # run('greedy')
   # run('eps-decay-fixed')
-  run('eps-decay')
+  # run('eps-decay')
   # run('uniform')

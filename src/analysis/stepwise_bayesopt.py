@@ -67,7 +67,7 @@ if __name__ == "__main__":
   for param in results.values():
     vals = [stepwise.stepwise_linear_epsilon(param, 10, t) for t in times]
     plt.plot(times, vals)
-  plt.show()
+  plt.savefig('bayes-opt-presimulated-unif-T-{}-mcrep-{}.png'.format(100, 100))
 
 
 
