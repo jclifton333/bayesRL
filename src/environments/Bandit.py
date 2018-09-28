@@ -105,9 +105,9 @@ class MAB(Bandit):
 
 class NormalMAB(MAB):
   def __init__(self, list_of_reward_mus=[[1], [2]], list_of_reward_vars=[[1], [1]]):
-    MAB.__init__(self, list_of_reward_mus)
     self.list_of_reward_vars = list_of_reward_vars
-  
+    MAB.__init__(self, list_of_reward_mus)
+
   def reward_dbn(self, a):
     # utility is distributed as Normal(mu, var)
     return np.random.normal(self.list_of_reward_mus[a], np.sqrt(self.list_of_reward_vars[a]))

@@ -18,7 +18,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_carlo_reps=1000):
+def episode(policy_name, label, save=False, monte_carlo_reps=100):
   if save:
     base_name = 'normal-mab-{}-{}'.format(label, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -49,7 +49,7 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = True
-    tuning_function_parameter = np.array([0.2, -2, 1])
+    tuning_function_parameter = np.ones(10)*0.05
   elif policy_name == 'gittins':
     tuning_function = lambda a, b, c: None
     tuning_function_parameter = None
@@ -72,9 +72,11 @@ def episode(policy_name, label, save=False, points_per_grid_dimension=10, monte_
   for t in range(T):
     print(t)
     if tune:
-      tuning_function_parameter = opt.bayesopt_normal_mab(rollout.normal_mab_rollout, policy, tuning_function,
-                                                          tuning_function_parameter, T, t, env, nPatients,
-                                                          points_per_grid_dimension, monte_carlo_reps)
+      sim_env = NormalMAB(list_of_reward_mus=env.estimated_means, list_of_reward_vars=env.estimated_vars)
+      pre_simulated_data = sim_env.generate_mc_samples(monte_carlo_reps, T)
+      tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
+                                               tuning_function_parameter, T, env,
+                                               {'pre_simulated_data': pre_simulated_data})
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     for j in range(nPatients):
@@ -118,10 +120,10 @@ def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1
 
 
 if __name__ == '__main__':
-  # episode('gittins', np.random.randint(low=1, high=1000))
-  run('eps-decay-fixed')
-  run('eps')
-  run('greedy')
+  episode('eps-decay', np.random.randint(low=1, high=1000))
+  # run('eps-decay-fixed')
+  # run('eps')
+  # run('greedy')
 
 
 

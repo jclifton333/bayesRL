@@ -282,7 +282,7 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
   mean_cumulative_regret = 0.0
   for rep, rep_dict in enumerate(pre_simulated_data):
     initial_model = rep_dict['initial_model']
-    estimated_means = initial_model['sample_means_list']
+    estimated_means = initial_model['sample_mean_list']
     number_of_pulls = initial_model['number_of_pulls']
 
     # Get obs sequences for this rep
