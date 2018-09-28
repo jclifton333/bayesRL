@@ -55,6 +55,11 @@ class MAB(Bandit):
     self.standard_errors = np.zeros(self.number_of_actions)
     self.draws_from_each_arm = [[]] * self.number_of_actions
 
+    # Initial pulls
+    for a in range(self.number_of_actions):
+      for N in range(10):
+        self.step(a)
+
   def step(self, a):
     u = super(MAB, self).step(a)
     self.number_of_pulls[a] += 1
@@ -76,6 +81,26 @@ class MAB(Bandit):
   @abstractmethod
   def reward_dbn(self, a):
     pass
+
+  def generate_mc_samples(self, mc_reps, time_horizon):
+    results = []
+    for rep in range(mc_reps):
+      each_rep_result = dict()
+      initial_model = {'sample_mean_list': copy.copy(self.estimated_means),
+                       'number_of_pulls': copy.copy(self.number_of_pulls)}
+
+      rewards = np.zeros((0, self.number_of_actions))
+      regrets = np.zeros((0, self.number_of_actions))
+
+      for t in range(time_horizon):
+        rewards_t = np.array([self.reward_dbn(a) for a in range(self.number_of_actions)])
+        rewards = np.vstack((rewards, rewards_t))
+
+      each_rep_result['rewards'] = rewards
+      each_rep_result['regrets'] = regrets
+      each_rep_result['initial_model'] = initial_model
+      results = np.append(results, each_rep_result)
+    return results
 
 
 class NormalMAB(MAB):
@@ -216,7 +241,7 @@ class LinearCB(Bandit):
         context = self.next_context()
         contexts = np.vstack((contexts, context))
         opt_expected_reward = self.optimal_expected_reward(context)
-        rewards_t = np.array([self.expected_reward(a, context) for a in range(self.number_of_actions)])
+        rewards_t = np.array([self.expected_reward(a, context) + self.reward_noise(a) for a in range(self.number_of_actions)])
         rewards = np.vstack((rewards, rewards_t))
         estimated_context_mean += (context - estimated_context_mean)/(t+1)
         estimated_context_var = np.cov(contexts, rowvar=False)

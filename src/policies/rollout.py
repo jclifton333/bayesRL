@@ -183,6 +183,8 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
   return mean_cumulative_regret
 
 
+
+
 def mHealth_rollout(tuning_function_parameter, policy, time_horizon, estimated_context_mean,
                     tuning_function, estimated_context_variance, env, nPatients, monte_carlo_reps):
 
@@ -259,3 +261,49 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
         standard_errors[action] = np.sum((draws_from_each_arm[action] - estimated_means[action]) ** 2) / n_a ** 2
     score += (episode_score - score) / (it + 1)
   return score
+
+
+def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_horizon, tuning_function, env,
+                                        **kwargs):
+  """
+  Evaluate CB exploration policy on already-generated data.
+
+  :param kwargs: contain key pre_simlated_data, which is mc_rep-length list of dictionaries, which contain lists of
+  length time_horizon of data needed to evaluate policy.
+  :param tuning_function_parameter:
+  :param policy:
+  :param time_horizon:
+  :param tuning_function:
+  :param env:
+  :return:
+  """
+
+  pre_simulated_data = kwargs['pre_simulated_data']
+  mean_cumulative_regret = 0.0
+  for rep, rep_dict in enumerate(pre_simulated_data):
+    initial_model = rep_dict['initial_model']
+    estimated_means = initial_model['sample_means_list']
+    number_of_pulls = initial_model['number_of_pulls']
+
+    # Get obs sequences for this rep
+    rewards_sequence = rep_dict['rewards']
+    regrets_sequence = rep_dict['regrets']
+    regret_for_rep = 0.0
+
+    for t in range(time_horizon):
+      # Draw context and draw arm based on policy
+      action = policy(initial_model, None, None, tuning_function,
+                      tuning_function_parameter, time_horizon, t, env)
+
+      # Get reward and regret
+      reward = rewards_sequence[t, action]
+      # regret = regrets_sequence[t, action]
+      number_of_pulls[action] += 1
+      regret_for_rep += reward
+
+      # Update model
+      sample_mean_at_action = (reward - estimated_means[action]) / number_of_pulls[action]
+      estimated_means[action] = sample_mean_at_action
+
+    mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
+  return mean_cumulative_regret

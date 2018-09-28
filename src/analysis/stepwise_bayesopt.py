@@ -42,15 +42,15 @@ def bayes_optimize_zeta(seed, mc_rep=100, T=1000):
 
 
 if __name__ == "__main__":
-  num_processes = mp.cpu_count()
-  num_replicates = num_processes
-  pool = mp.Pool(num_processes)
-  params = []
-  for batch in range(int(num_replicates / num_processes)):
-    params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
-  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
-  with open('bayes-opt-presimulated-unif-100.yml', 'w') as handle:
-    yaml.dump(params_dict, handle)
+  # num_processes = mp.cpu_count()
+  # num_replicates = num_processes
+  # pool = mp.Pool(num_processes)
+  # params = []
+  # for batch in range(int(num_replicates / num_processes)):
+  #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
+  # params_dict = {str(i): params[i].tolist() for i in range(len(params))}
+  # with open('bayes-opt-presimulated-unif-100.yml', 'w') as handle:
+  #   yaml.dump(params_dict, handle)
 
   # mc_rep = 100
   # time_horizon = 1000
@@ -61,6 +61,13 @@ if __name__ == "__main__":
   #   vals = [stepwise.stepwise_linear_epsilon(zeta_opt, 10, t) for t in times]
   #   plt.plot(times, vals)
   #   plt.savefig('bayes-opt-presimulated-unif-T-{}-mcrep-{}.png'.format(time_horizon, mc_rep))
+
+  results = yaml.load(open("bayes-opt-presimulated-unif-100.yml"))
+  times = np.linspace(0, 100, 100)
+  for param in results.values():
+    vals = [stepwise.stepwise_linear_epsilon(param, 10, t) for t in times]
+    plt.plot(times, vals)
+  plt.show()
 
 
 

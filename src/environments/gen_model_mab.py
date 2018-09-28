@@ -5,6 +5,8 @@ NormalMAB();
 assume mu0 < mu1, so that the true optimal action is arm 1;
 '''
 import scipy.stats
+import pdb
+
 
 def gen_normal_mab(N=100, mu0=0, mu1=1, var0=1, greedy_subopt_prob=0.3):
   '''
@@ -18,4 +20,6 @@ def gen_normal_mab(N=100, mu0=0, mu1=1, var0=1, greedy_subopt_prob=0.3):
   Z = scipy.stats.norm.ppf(1 - greedy_subopt_prob, 0, 1)  
   var1 = (mu1 - mu0)**2*N/Z**2 - var0
   return {'N':100, 'mu0':mu0, 'mu1':mu1, 'var0':var0, 'var1': var1, 'greedy_subopt_prob':greedy_subopt_prob}
-  
+
+
+pdb.set_trace()
