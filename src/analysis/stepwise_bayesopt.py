@@ -50,21 +50,22 @@ def plot_epsilon_sequences(fname):
   for param in results.values():
     vals = [stepwise.stepwise_linear_epsilon(param, 10, t) for t in times]
     plt.plot(times, vals)
+  plt.savefig("bayes-opt-presimulated-normal-mab-1000.png")
 
 
 if __name__ == "__main__":
-  num_processes = 16
-  num_replicates = num_processes
-  pool = mp.Pool(num_processes)
+  # num_processes = 16
+  # num_replicates = num_processes
+  # pool = mp.Pool(num_processes)
   # params = []
   # for batch in range(int(num_replicates / num_processes)):
   #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
-  params = pool.map(bayes_optimize_zeta, range(num_processes))
-  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
-  with open('bayes-opt-presimulated-normal-mab-1000.yml', 'w') as handle:
-    yaml.dump(params_dict, handle)
+  # params = pool.map(bayes_optimize_zeta, range(num_processes))
+  # params_dict = {str(i): params[i].tolist() for i in range(len(params))}
+  # with open('bayes-opt-presimulated-normal-mab-1000.yml', 'w') as handle:
+  #   yaml.dump(params_dict, handle)
 
-  # plot_epsilon_sequences("bayes-opt-presimulated-unif-100.yml")
+  plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-1000.yml")
 
 
 
