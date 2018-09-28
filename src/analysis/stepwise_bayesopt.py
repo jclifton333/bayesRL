@@ -48,9 +48,23 @@ def plot_epsilon_sequences(fname):
   results = yaml.load(open(fname))
   times = np.linspace(0, 100, 100)
   for param in results.values():
-    vals = [stepwise.stepwise_linear_epsilon(param, 10, t) for t in times]
-    plt.plot(times, vals)
-  plt.savefig("bayes-opt-presimulated-normal-mab-1000.png")
+   vals = [policies.stepwise_linear_epsilon(100, t, param) for t in times]
+   plt.plot(times, vals)
+   plt.savefig("bayes-opt-presimulated-normal-mab-1000.png")
+
+
+def plot_approximate_epsilon_sequences_from_sims(fname):
+  results = yaml.load(open(fname))
+  times = np.linspace(0, 100, 100)
+
+  time_slices = [5, 10, 50, 99]
+  for time_slice in time_slices:
+    params = [episode_results[time_slice] for episode_results in results['zeta_sequences']]
+    plt.figure()
+    for param in params:
+      vals = [policies.stepwise_linear_epsilon(100, t, param) for t in times]
+      plt.plot(times, vals)
+    plt.savefig("estimated-zeta-normal-mab-1000-timeslice-{}.png".format(time_slice))
 
 
 if __name__ == "__main__":
@@ -65,7 +79,8 @@ if __name__ == "__main__":
   # with open('bayes-opt-presimulated-normal-mab-1000.yml', 'w') as handle:
   #   yaml.dump(params_dict, handle)
 
-  plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-1000.yml")
+  # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-1000.yml")
+  plot_approximate_epsilon_sequences_from_sims("normalcb-eps-decay_180928_142928.yml")
 
 
 

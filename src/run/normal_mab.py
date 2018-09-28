@@ -27,7 +27,7 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
 
   np.random.seed(label)
   nPatients = 10
-  T = 100
+  T = 1
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -92,12 +92,12 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
   return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence}
 
 
-def run(policy_name, save=True, monte_carlo_reps=1000):
+def run(policy_name, save=True, monte_carlo_reps=1):
   """
 
   :return:
   """
-  replicates = 96
+  replicates = 1
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   results = []
@@ -114,7 +114,7 @@ def run(policy_name, save=True, monte_carlo_reps=1000):
   # Save results
   if save:
     results = {'T': float(100), 'mean_regret': float(np.mean(rewards)), 'std_regret': float(np.std(rewards)),
-               'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in results],
+               'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in rewards],
                'zeta_sequences': zeta_sequences}
 
     base_name = 'normalmab-10-{}'.format(policy_name)
