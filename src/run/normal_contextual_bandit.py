@@ -80,7 +80,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     X = env.X
     estimated_context_mean = np.mean(X, axis=0)
     estimated_context_variance = np.cov(X, rowvar=False)
-    estimated_context_bounds = (np.min(X), np.max(X))
+    estimated_context_bounds = (np.min(X), np.max(X[:, 1:]))
 
     if tune:
       if pre_simulate:
@@ -139,7 +139,7 @@ def run(policy_name, save=True):
                            2.58873581, 2.58058572, 3.24249907, 3.9112971, 3.25518813],
                           [2.90426182, 2.36349276, 2.79547751, 2.23755312, 2.77606548,
                            2.57908617, 2.65037651, 3.43369339, 3.25518813, 3.95748798]]) / 10.0
-  replicates = 16
+  replicates = 96
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)

@@ -214,7 +214,7 @@ class LinearCB(Bandit):
       sigma_hat_list = [0.0] * self.number_of_actions
 
       for action in range(self.number_of_actions):
-        for p in range(2):
+        for p in range(3):
           context = self.draw_context()
           reward = self.reward_dbn(action)
           linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action],

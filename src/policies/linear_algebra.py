@@ -77,7 +77,7 @@ def update_linear_model(X, y, Xprime_X_inv, x_new, X_dot_y, y_new):
 
   if Xprime_X_inv is None:  # Can't do fast update
     Xprime_X = np.dot(X.T, X)
-    Xprime_X_inv_new = np.linalg.inv(Xprime_X + 0.0001*np.eye(X.shape[1]))
+    Xprime_X_inv_new = np.linalg.inv(Xprime_X + 0.01*np.eye(X.shape[1]))
   else:
     # Compute new beta hat and associated matrices
     Xprime_X_inv_new = sherman_woodbury(Xprime_X_inv, x_new, x_new)
