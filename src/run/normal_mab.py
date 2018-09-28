@@ -18,7 +18,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, save=False, monte_carlo_reps=100):
+def episode(policy_name, label, save=True, monte_carlo_reps=1000):
   if save:
     base_name = 'normal-mab-{}-{}'.format(label, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -64,7 +64,7 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
   env.reset()
-
+  tuning_parameter_sequence = []
   # Initial pulls
   for a in range(env.number_of_actions):
     env.step(a)
@@ -77,6 +77,7 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
       tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env,
                                                {'pre_simulated_data': pre_simulated_data})
+      tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     for j in range(nPatients):
@@ -88,26 +89,33 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
       regret = mu_opt - env.list_of_reward_mus[action]
       cumulative_regret += regret
 
-  return cumulative_regret
+  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence}
 
 
-def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1000):
+def run(policy_name, save=True, monte_carlo_reps=1000):
   """
 
   :return:
   """
-
+  replicates = 96
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
-
-  episode_partial = partial(episode, policy_name, save=False, points_per_grid_dimension=points_per_grid_dimension,
+  results = []
+  episode_partial = partial(episode, policy_name, save=False,
                             monte_carlo_reps=monte_carlo_reps)
-  results = pool.map(episode_partial, range(num_cpus))
+  num_batches = int(replicates / num_cpus)
+  for batch in range(num_batches):
+    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+    results += results_for_batch
 
+  rewards = [np.float(d['cumulative_regret']) for d in results]
+  zeta_sequences = [d['zeta_sequence'] for d in results]
+  
   # Save results
   if save:
-    results = {'T': float(25), 'mean_regret': float(np.mean(results)), 'std_regret': float(np.std(results)),
-                'beta': [[1.0, 1.0], [2.0, -2.0]], 'regret list': [float(r) for r in results]}
+    results = {'T': float(100), 'mean_regret': float(np.mean(rewards)), 'std_regret': float(np.std(rewards)),
+               'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in results],
+               'zeta_sequences': zeta_sequences}
 
     base_name = 'normalmab-10-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -121,9 +129,10 @@ def run(policy_name, save=True, points_per_grid_dimension=50, monte_carlo_reps=1
 
 if __name__ == '__main__':
   episode('eps-decay', np.random.randint(low=1, high=1000))
-  # run('eps-decay-fixed')
-  # run('eps')
-  # run('greedy')
+#  run('eps-decay-fixed')
+  run('eps')
+  run('greedy')
+  run('eps-decay')
 
 
 
