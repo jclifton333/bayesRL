@@ -8,7 +8,7 @@ import scipy.stats
 import pdb
 
 
-def gen_normal_mab(N=100, mu0=0, mu1=1, var0=1, greedy_subopt_prob=0.3):
+def gen_normal_mab(N=100, mu0=0, mu1=1, var0=1, greedy_subopt_prob=0.35):
   '''
   greedy_subopt_prob < 0.5;
   mu0 < mu1;

@@ -132,7 +132,7 @@ class LinearCB(Bandit):
     ## context_var: the covariance matrix
     self.context_mean = context_mean
     self.number_of_actions = len(list_of_reward_vars)
-    self.context_dimension = len(context_mean)
+    self.context_dimension = len(list_of_reward_betas[0])
     self.curr_context = None
     self.list_of_reward_betas = list_of_reward_betas
     self.list_of_reward_vars = list_of_reward_vars
@@ -312,8 +312,8 @@ class NormalUniformCB(LinearCB):
     # self.context_dimension = 2
 
   def draw_context(self, context_mean=None, context_var=None):
-    x = np.random.uniform(low=self.context_bounds[0], high=self.context_bounds[1], size=self.context_dimension-1)
-    context = np.append([1.0], x)
-    return context
+    x = np.random.uniform(low=self.context_bounds[0], high=self.context_bounds[1], size=self.context_dimension)
+#    context = np.append([1.0], x)
+    return x
 
 

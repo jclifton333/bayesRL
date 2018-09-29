@@ -18,7 +18,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, save=True, monte_carlo_reps=1000):
+def episode(policy_name, label, save=True, monte_carlo_reps=30):
   if save:
     base_name = 'normal-mab-{}-{}'.format(label, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -26,7 +26,7 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     filename = '{}_{}.yml'.format(prefix, suffix)
 
   np.random.seed(label)
-  nPatients = 10
+  nPatients = 1
   T = 100
 
   # ToDo: Create policy class that encapsulates this behavior
@@ -37,6 +37,11 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     tuning_function_parameter = None
   elif policy_name == 'greedy':
     tuning_function = lambda a, b, c: 0.00  # Constant epsilon
+    policy = tuned_bandit.mab_epsilon_greedy_policy
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == 'random':
+    tuning_function = lambda a, b, c: 1.0  # Constant epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
@@ -59,7 +64,7 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     raise ValueError('Incorrect policy name')
 
 #  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
-  env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [140]])
+  env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [600]])
 
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
@@ -89,15 +94,15 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
       regret = mu_opt - env.list_of_reward_mus[action]
       cumulative_regret += regret
 
-  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence}
+  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence, 'list_of_reward_mus': env.list_of_reward_mus}
 
 
-def run(policy_name, save=True, monte_carlo_reps=1000):
+def run(policy_name, save=True, monte_carlo_reps=30):
   """
 
   :return:
   """
-  replicates = 96
+  replicates = 48
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   results = []
@@ -110,12 +115,13 @@ def run(policy_name, save=True, monte_carlo_reps=1000):
 
   rewards = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [d['zeta_sequence'] for d in results]
+  list_of_reward_mus_sequences = [d['list_of_reward_mus'] for d in results]
   
   # Save results
   if save:
     results = {'T': float(100), 'mean_regret': float(np.mean(rewards)), 'std_regret': float(np.std(rewards)),
-               'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in results],
-               'zeta_sequences': zeta_sequences}
+               'mus': [[0], [1]], 'vars':[[1], [600]], 'regret list': [float(r) for r in rewards],
+               'list_of_reward_mus_sequences': list_of_reward_mus_sequences, 'zeta_sequences': zeta_sequences}
 
     base_name = 'normalmab-10-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -128,11 +134,12 @@ def run(policy_name, save=True, monte_carlo_reps=1000):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-#  run('eps-decay-fixed')
+#  episode('eps-decay')
+  run('eps-decay-fixed')
   run('eps')
   run('greedy')
-  run('eps-decay')
+  run('random')
+#  run('eps-decay')
 
 
 
