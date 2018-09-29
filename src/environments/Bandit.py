@@ -63,11 +63,11 @@ class MAB(Bandit):
   def step(self, a):
     u = super(MAB, self).step(a)
     self.number_of_pulls[a] += 1
-    self.estimated_means[a] += (u - self.estimated_means[a]) / self.number_of_pulls[a]
+    # self.estimated_means[a] += (u - self.estimated_means[a]) / self.number_of_pulls[a]
     self.draws_from_each_arm[a] = np.append(self.draws_from_each_arm[a], u)
     std = np.std(self.draws_from_each_arm[a])
-    self.estimated_vars[a] = std ** 2
-    self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
+    # self.estimated_vars[a] = std ** 2
+    # self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
     return u
 
   def reset(self):
@@ -106,12 +106,42 @@ class MAB(Bandit):
 class NormalMAB(MAB):
   def __init__(self, list_of_reward_mus=[[1], [2]], list_of_reward_vars=[[1], [1]]):
     self.list_of_reward_vars = list_of_reward_vars
+
+    # Hyperparameters for conjugate normal model of mean and variance
+    self.tau0 = 1.0 / 10.0  # tau is inverse variance
+    self.alpha0 = 10e-3
+    self.beta0 = 10e-3
+
     MAB.__init__(self, list_of_reward_mus)
+
+  def conjugate_bayes_mean_and_variance(self, a):
+    """
+    Get bayes estimators of mean and variance from current list of rewards at each arm.
+    :return:
+    """
+    rewards_at_arm = self.draws_from_each_arm[a]
+    xbar = np.mean(rewards_at_arm)
+    s_sq = np.var(rewards_at_arm)
+    n = self.number_of_pulls[a]
+    post_mean = (n * xbar) / (self.tau0 + n)
+    post_alpha = self.alpha0 + n/2.0
+    post_beta = self.beta0 + (1/2.0) * (n*s_sq + (self.tau0 * n * xbar**2) / (self.tau0 + n))
+    post_precision = post_alpha / post_beta
+    post_var = 1 / post_precision
+    self.estimated_means[a] = post_mean
+    self.estimated_vars[a] = post_var
+    pdb.set_trace()
 
   def reward_dbn(self, a):
     # utility is distributed as Normal(mu, var)
     return np.random.normal(self.list_of_reward_mus[a], np.sqrt(self.list_of_reward_vars[a]))
-    
+
+  def step(self, a):
+    u = super(NormalMAB, self).step(a)
+    self.conjugate_bayes_mean_and_variance(a)  # Update means and variances with new posterior expectations
+    self.standard_errors[a] = np.sqrt(self.estimated_vars[a] / self.number_of_pulls[a])
+    return {'Utility': u}
+
 
 class BernoulliMAB(MAB):
   def __init__(self, list_of_reward_mus=[0.3, 0.7]):
