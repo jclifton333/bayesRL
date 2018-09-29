@@ -26,8 +26,7 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     filename = '{}_{}.yml'.format(prefix, suffix)
 
   np.random.seed(label)
-  nPatients = 10
-  T = 1
+  T = 100
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -41,10 +40,13 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    tuning_function = lambda a, t, c: 0.5 / (t + 1)
+    # tuning_function = lambda a, t, c: 0.5 / (t + 1)
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
-    tuning_function_parameter = None
+    # Estimated optimal for normal mab with high variance on bad arm
+    tuning_function_parameter = np.array([0.2, 0.164, 0.2, 0.193, 0.189, 
+                                          0.087, 0.069, 0.159, 0.09, 0.015])
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
@@ -69,8 +71,11 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
   for a in range(env.number_of_actions):
     env.step(a)
 
+  estimated_means_list = []
+  estimated_vars_list = []
   for t in range(T):
-    print(t)
+    estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
+    estimated_vars_list.append([float(s) for s in env.estimated_vars])
     if tune:
       sim_env = NormalMAB(list_of_reward_mus=env.estimated_means, list_of_reward_vars=env.estimated_vars)
       pre_simulated_data = sim_env.generate_mc_samples(monte_carlo_reps, T)
@@ -80,24 +85,24 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
-    for j in range(nPatients):
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+    action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env)
-      env.step(action)
+    env.step(action)
 
-      # Compute regret
-      regret = mu_opt - env.list_of_reward_mus[action]
-      cumulative_regret += regret
+    # Compute regret
+    regret = mu_opt - env.list_of_reward_mus[action]
+    cumulative_regret += regret
 
-  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence}
+  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence, 
+          'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list}
 
 
-def run(policy_name, save=True, monte_carlo_reps=1):
+def run(policy_name, save=True, monte_carlo_reps=1000):
   """
 
   :return:
   """
-  replicates = 1
+  replicates = 96
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   results = []
@@ -107,15 +112,17 @@ def run(policy_name, save=True, monte_carlo_reps=1):
   for batch in range(num_batches):
     results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
     results += results_for_batch
-
+  # results = pool.map(episode_partial, range(1))
   rewards = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [d['zeta_sequence'] for d in results]
+  estimated_means = [d['estimated_means'] for d in results]
+  estimated_vars = [d['estimated_vars'] for d in results]
   
   # Save results
   if save:
     results = {'T': float(100), 'mean_regret': float(np.mean(rewards)), 'std_regret': float(np.std(rewards)),
                'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in rewards],
-               'zeta_sequences': zeta_sequences}
+               'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars}
 
     base_name = 'normalmab-10-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -128,10 +135,10 @@ def run(policy_name, save=True, monte_carlo_reps=1):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-#  run('eps-decay-fixed')
-  run('eps')
-  run('greedy')
+  # episode('eps-decay', np.random.randint(low=1, high=1000))
+  # run('eps-decay-fixed')
+  # run('eps')
+  # run('greedy')
   run('eps-decay')
 
 
