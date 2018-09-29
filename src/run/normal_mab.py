@@ -128,11 +128,11 @@ def run(policy_name, save=True, monte_carlo_reps=1):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
-#  run('eps-decay-fixed')
-  run('eps')
-  run('greedy')
-  run('eps-decay')
+  episode('eps', np.random.randint(low=1, high=1000))
+  # run('eps-decay-fixed', save=False)
+  # run('eps')
+  # run('greedy')
+  # run('eps-decay')
 
 
 

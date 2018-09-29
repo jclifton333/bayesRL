@@ -38,7 +38,7 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=100):
 
   bounds = {'zeta{}'.format(i): (0.0, 0.2) for i in range(10)}
   bo = BayesianOptimization(objective, bounds)
-  bo.maximize(init_points=5, n_iter=20, alpha=1e-4)
+  bo.maximize(init_points=10, n_iter=30, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(10)])
   return best_param
@@ -50,21 +50,44 @@ def plot_epsilon_sequences(fname):
   for param in results.values():
    vals = [policies.stepwise_linear_epsilon(100, t, param) for t in times]
    plt.plot(times, vals)
-   plt.savefig("bayes-opt-presimulated-normal-mab-1000.png")
+   plt.savefig("bayes-opt-presimulated-normal-mab-10000.png")
+
+
+def max_observed_epsilons(fname):
+  results = yaml.load(open(fname))
+  max_epsilons = []
+  for episode_results in results['zeta_sequences']:
+    observed_epsilon_sequence = []
+    for t, param in enumerate(episode_results):
+      eps = policies.stepwise_linear_epsilon(100, t, param)
+      observed_epsilon_sequence.append(eps)
+    max_epsilons.append(np.max(observed_epsilon_sequence))
+  plt.hist(max_epsilons)
+  plt.show()
 
 
 def plot_approximate_epsilon_sequences_from_sims(fname):
   results = yaml.load(open(fname))
   times = np.linspace(0, 100, 100)
 
-  time_slices = [5, 10, 50, 99]
-  for time_slice in time_slices:
-    params = [episode_results[time_slice] for episode_results in results['zeta_sequences']]
-    plt.figure()
-    for param in params:
-      vals = [policies.stepwise_linear_epsilon(100, t, param) for t in times]
-      plt.plot(times, vals)
-    plt.savefig("estimated-zeta-normal-mab-1000-timeslice-{}.png".format(time_slice))
+  for episode_results in results['zeta_sequences']:
+    observed_epsilon_sequence = []
+    for t, param in enumerate(episode_results):
+      eps = policies.stepwise_linear_epsilon(100, t, param)
+      observed_epsilon_sequence.append(eps)
+    plt.plot(times, observed_epsilon_sequence)
+  plt.savefig("observed-epsilons-zeta-normal-mab-1000.png")
+
+  # time_slices = [5, 10, 50, 99]
+  # for time_slice in time_slices:
+  #   params = [episode_results[time_slice] for episode_results in results['zeta_sequences']]
+  #   plt.figure()
+  #   for param in params:
+  #     vals = [policies.stepwise_linear_epsilon(100, t, param) for t in times]
+  #     plt.plot(times, vals)
+  #   plt.savefig("estimated-zeta-normal-mab-1000-timeslice-{}.png".format(time_slice))
+
+  return
 
 
 if __name__ == "__main__":
@@ -79,8 +102,12 @@ if __name__ == "__main__":
   # with open('bayes-opt-presimulated-normal-mab-1000.yml', 'w') as handle:
   #   yaml.dump(params_dict, handle)
 
-  # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-1000.yml")
-  plot_approximate_epsilon_sequences_from_sims("normalcb-eps-decay_180928_142928.yml")
+  # p = bayes_optimize_zeta(0, mc_rep=10000)
+  # print(p)
+
+  # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-10000.yml")
+  # plot_approximate_epsilon_sequences_from_sims("normalmab-10-eps-decay_180929_164335.yml")
+  max_observed_epsilons("normalmab-10-eps-decay_180929_164335.yml")
 
 
 
