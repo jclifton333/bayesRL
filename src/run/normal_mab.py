@@ -8,7 +8,6 @@ sys.path.append(project_dir)
 
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.policies import gittins_index_policies as gittins
-from src.policies import ucb_policies as ucb
 from src.policies import rollout
 from src.environments.Bandit import NormalMAB
 import src.policies.global_optimization as opt
@@ -81,7 +80,7 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
     tuning_function_parameter = np.ones(10)*0.1
   elif policy_name == 'ucb-tune':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
-    policy = ucb.normal_mab_ucb_policy
+    policy = tuned_bandit.normal_mab_ucb_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.05
     positive_zeta = True

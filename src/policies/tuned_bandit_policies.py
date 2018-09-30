@@ -38,17 +38,10 @@ def linear_cb_epsilon_greedy_policy(beta_hat, sampling_cov_list, context, tuning
 def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
                                        T, t, env):
   shrinkage = tuning_function(T, t, tuning_function_parameter)
-
-  # Sample from estimated sampling dbn
-  beta_hat_ = np.array(beta_hat).flatten()
-  sampling_cov_ = block_diag(sampling_cov_list[0], sampling_cov_list[1])
-  beta_tilde = np.random.multivariate_normal(beta_hat_, shrinkage * sampling_cov_)
-  beta_tilde = beta_tilde.reshape(np.array(beta_hat).shape)
-
-  # Estimate rewards and pull arm
-  estimated_rewards = np.dot(beta_tilde, context)
-  action = np.argmax(estimated_rewards)
-  return action
+  shrinkage = np.min((shrinkage, 1.0))
+  posterior_draw = env.sample_from_posterior(variance_shrinkage=shrinkage)
+  mu_hats = [np.dot(context, posterior_draw[a]['beta_draw']) for a in range(env.number_of_actions)]
+  return np.argmax(mu_hats)
 
 
 def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
@@ -60,6 +53,25 @@ def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls,
   else:
     action = greedy_action
   return action
+
+
+def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
+                      tuning_function_parameter, T, t, env):
+  ## alpha (percentile): decrease from a little bit smaller than 1 to 1/2 at T
+  ## scale and shift
+  alpha = tuning_function(T, t, tuning_function_parameter)/40 + 0.5
+  z = scipy.stats.norm.ppf(alpha)
+  action = np.argmax(estimated_means + z * standard_errors)
+  return action
+
+
+def mab_thompson_sampling_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
+                                 tuning_function_parameter, T, t, env):
+
+  shrinkage = tuning_function(T, t, tuning_function_parameter)
+  shrinkage = np.min((shrinkage, 1.0))
+  posterior_draw = env.sample_from_posterior(variance_shrinkage=shrinkage)
+  return np.argmax([posterior_draw[a]['mu_draw'] for a in range(env.number_of_actions)])
 
 
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):

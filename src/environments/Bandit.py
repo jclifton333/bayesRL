@@ -153,9 +153,11 @@ class NormalMAB(MAB):
       draws_dict[a] = {'mu_draw': mean_draw, 'var_draw': var_draw}
     return draws_dict
 
-  def sample_from_posterior(self):
+  def sample_from_posterior(self, variance_shrinkage=1):
     """
     Sample from normal-gamma posterior.
+
+    :param variance_shrinkage: number <= 1 for tuning exploration.
     :return:
     """
     draws_dict = {}
@@ -167,7 +169,7 @@ class NormalMAB(MAB):
       mu_post = self.posterior_params_dict[a]['mu_post']
 
       tau_draw = np.random.gamma(alpha_post, 1.0 / beta_post)
-      mu_given_tau_draw = np.random.normal(mu_post, np.sqrt(1.0 / (lambda_post * tau_draw)))
+      mu_given_tau_draw = np.random.normal(mu_post, variance_shrinkage * np.sqrt(1.0 / (lambda_post * tau_draw)))
       draws_dict[a] = {'mu_draw': mu_given_tau_draw, 'var_draw': 1.0 / tau_draw}
 
     return draws_dict
@@ -344,9 +346,47 @@ class LinearCB(Bandit):
     x = self.next_context()
     return {'Utility': u, 'New context': x}
 
-  def generate_mc_samples(self, mc_reps, time_horizon):
+  def generate_mc_samples(self, mc_reps, time_horizon, gen_model_params=None):
+    """
+
+    :param mc_reps:
+    :param time_horizon:
+    :param gen_model_params: None, or list of dictionary with keys reward_betas, reward_vars, context_max,
+      with lists corresponding to parameter values for each mc rep.
+    :return:
+    """
+    if gen_model_params is not None:
+      gen_model_params_provided = True
+
+      def reward_distribution(a, context, beta_list, var_list):
+        beta = beta_list[a]
+        var = var_list[a]
+        mean = np.dot(beta, context)
+        u = mean + np.random.normal(scale=np.sqrt(var))
+        return u
+
+      def context_distribution(context_max_):
+        return np.random.uniform(high=context_max_)
+    else:
+      gen_model_params_provided = False
+
+      def reward_distribution(a, context_, beta_list, var_list):
+        return self.expected_reward(a, context_) + self.reward_noise(a)
+
+      def context_distribution(context_max_):
+        return self.draw_context()
+
     results = []
     for rep in range(mc_reps):
+      if gen_model_params_provided:
+        beta_list = gen_model_params[rep]['reward_betas']
+        var_list = gen_model_params[rep]['reward_vars']
+        context_max = gen_model_params[rep]['context_max']
+      else:
+        beta_list = None
+        var_list = None
+        context_max = None
+
       each_rep_result = dict()
 
       # Initial pulls
@@ -361,7 +401,7 @@ class LinearCB(Bandit):
 
       for action in range(self.number_of_actions):
         for p in range(3):
-          context = self.draw_context()
+          context = context_distribution(context_max)
           reward = self.reward_dbn(action)
           linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action],
                                                         context, X_dot_y_list[action], reward)
@@ -387,7 +427,8 @@ class LinearCB(Bandit):
         context = self.next_context()
         contexts = np.vstack((contexts, context))
         opt_expected_reward = self.optimal_expected_reward(context)
-        rewards_t = np.array([self.expected_reward(a, context) + self.reward_noise(a) for a in range(self.number_of_actions)])
+        rewards_t = np.array([reward_distribution(a, context, beta_list, var_list)
+                              for a in range(self.number_of_actions)])
         rewards = np.vstack((rewards, rewards_t))
         estimated_context_mean += (context - estimated_context_mean)/(t+1)
         estimated_context_var = np.cov(contexts, rowvar=False)
@@ -471,6 +512,18 @@ class NormalUniformCB(LinearCB):
     self.posterior_context_params_dict['K_post'] += len(x)
     self.posterior_context_params_dict['b_pareto_post'] = np.max((self.max_x,
                                                                   self.posterior_context_params_dict['b_pareto_post']))
+
+  def sample_from_posterior(self):
+    # Sample from condtional model
+    draws_dict = super(NormalUniformCB, self).sample_from_posterior()
+
+    # Sample from context model
+    K_post = self.posterior_context_params_dict['K_post']
+    b_pareto_post = self.posterior_context_params_dict['b_pareto_post']
+    context_max = K_post * np.random.pareto(a=b_pareto_post)
+    draws_dict['context_max'] = context_max
+
+    return draws_dict
 
   def draw_context(self, context_mean=None, context_var=None):
     x = np.random.uniform(low=self.context_bounds[0], high=self.context_bounds[1], size=self.context_dimension-1)
