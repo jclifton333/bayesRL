@@ -27,7 +27,7 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
 
   np.random.seed(label)
 
-  # ToDo: Create policy class that encapsulates this behavior
+  # ToDo: Create factory function that encapsulates this behavior
   posterior_sample = False
   bootstrap_posterior = False
   positive_zeta = False
@@ -46,7 +46,7 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
-    # Estimated optimal for normal mab with high variance on bad arm
+    # Estimated optimal for normal mab with high variance on good arm
     tuning_function_parameter = np.array([0.2, 0.164, 0.2, 0.193, 0.189, 
                                           0.087, 0.069, 0.159, 0.09, 0.015])
   elif policy_name == 'eps-decay':
@@ -73,6 +73,11 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
     tune = True
     tuning_function_parameter = np.ones(10)*0.05
     positive_zeta = True
+  elif policy_name == 'ts-decay':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.mab_thompson_sampling_policy
+    tune = True
+    tuning_function_parameter = np.ones(10)*0.1
   elif policy_name == 'gittins':
     tuning_function = lambda a, b, c: None
     tuning_function_parameter = None
@@ -191,8 +196,8 @@ def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
 
 
 if __name__ == '__main__':
-  # episode('eps-decay-bootstrap-sample', np.random.randint(low=1, high=1000))
+  episode('ts-decay', np.random.randint(low=1, high=1000))
   # run('eps-decay-fixed')
   # run('eps')
   # run('greedy')
-  run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
+  # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)

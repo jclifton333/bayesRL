@@ -76,6 +76,8 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
   cumulative_regret = 0.0
   env.reset()
   tuning_parameter_sequence = []
+  rewards = []
+  actions = []
   for t in range(T):
     X = env.X
     estimated_context_mean = np.mean(X, axis=0)
@@ -104,9 +106,14 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
     res = env.step(action)
     # cumulative_regret += env.regret(action, x)
-    cumulative_regret += res['Utility']
 
-  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence}
+    actions.append(action)
+    u = res['Utility']
+    rewards.append(u)
+    cumulative_regret += u
+
+  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence,
+          'rewards': rewards, 'actions': actions}
 
 
 def run(policy_name, save=True):
