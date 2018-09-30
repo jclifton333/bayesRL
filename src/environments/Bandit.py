@@ -234,9 +234,21 @@ class LinearCB(Bandit):
     self.list_of_reward_vars = list_of_reward_vars
     self.X = np.zeros((0, self.context_dimension))
 
+    # Hyperparameters for normal-gamma model: https://en.wikipedia.org/wiki/Bayesian_linear_regression#Conjugate_prior_distribution
+    self.a0 = 0.001
+    self.b0 = 0.001
+    self.lambda0 = 1.0 / 10.0
+    self.Lambda_0 = self.lambda0 * np.eye(self.context_dimension)
+    self.Lambda_inv0 = 1.0 / self.lambda0 * np.eye(self.context_dimension)
+    self.posterior_params_dict = {a: {'a_post': self.a0, 'b_post': self.b0, 'Lambda_post': self.Lambda_0,
+                                      'beta_post': np.zeros(self.context_dimension),
+                                      'Lambda_inv_post': self.Lambda_inv0}
+                                  for a in range(self.number_of_actions)}
+
     # For updating linear model estimates incrementally
     self.beta_hat_list = [None]*self.number_of_actions
     self.Xprime_X_inv_list = [None]*self.number_of_actions
+    self.Xprime_X_list = [None]*self.number_of_actions
     self.X_list = [np.zeros((0, self.context_dimension)) for a in range(self.number_of_actions)]
     self.y_list = [np.zeros(0) for a in range(self.number_of_actions)]
     self.X_dot_y_list = [np.zeros(self.context_dimension) for a in range(self.number_of_actions)]
@@ -247,23 +259,13 @@ class LinearCB(Bandit):
     self.initial_pulls()
     self.beta_hat_list_initial = self.beta_hat_list[:]
     self.Xprime_X_inv_list_initial = self.Xprime_X_inv_list[:]
+    self.Xprime_X_list_initial = self.Xprime_X_list[:]
     self.X_list_initial = self.X_list[:]
     self.y_list_initial = self.y_list[:]
     self.X_dot_y_list_initial = self.X_dot_y_list[:]
     self.sampling_cov_list_initial = self.sampling_cov_list[:]
     self.sigma_hat_list_initial = self.sigma_hat_list[:]
     self.X_initial = copy.copy(self.X)
-
-    # Hyperparameters for normal-gamma model: https://en.wikipedia.org/wiki/Bayesian_linear_regression#Conjugate_prior_distribution
-
-    self.a0 = 0.001
-    self.b0 = 0.001
-    self.lambda0 = 1.0 / 10.0
-    self.Lambda_0 = self.lambda0 * np.eye(self.context_dimension)
-    self.Lambda_inv0 = 1.0 / self.lambda0 * np.eye(self.context_dimension)
-    self.posterior_params_dict = {a: {'a_post': self.a0, 'b_post': self.b0, 'Lambda_post': self.Lambda_0,
-                                      'beta_post': self.np.zeros(self.context_dimension),
-                                      'Lambda_inv_post': self.Lambda_inv0}}
 
   def update_posterior(self, a, x, y):
     """
@@ -316,8 +318,8 @@ class LinearCB(Bandit):
         self.step(a)
 
   def update_linear_model(self, a, x_new, y_new):
-    linear_model_results = la.update_linear_model(self.X_list[a], self.y_list[a], self.Xprime_X_inv_list[a], x_new,
-                                                  self.X_dot_y_list[a], y_new)
+    linear_model_results = la.update_linear_model(self.X_list[a], self.y_list[a], self.Xprime_X_list[a],
+                                                  self.Xprime_X_inv_list[a], x_new, self.X_dot_y_list[a], y_new)
     self.beta_hat_list[a] = linear_model_results['beta_hat']
     self.y_list[a] = linear_model_results['y']
     self.X_list[a] = linear_model_results['X']
@@ -325,12 +327,14 @@ class LinearCB(Bandit):
     self.X_dot_y_list[a] = linear_model_results['X_dot_y']
     self.sampling_cov_list[a] = linear_model_results['sample_cov']
     self.sigma_hat_list[a] = linear_model_results['sigma_hat']
+    self.Xprime_X_list[a] = linear_model_results['Xprime_X']
 
   def reset(self):
     super(LinearCB, self).reset()
     # Reset linear model info
     self.beta_hat_list = self.beta_hat_list_initial[:]
     self.Xprime_X_inv_list = self.Xprime_X_inv_list_initial[:]
+    self.Xprime_X_list = self.Xprime_X_list_initial[:]
     self.X_list = self.X_list_initial[:]
     self.y_list = self.y_list_initial[:]
     self.X_dot_y_list = self.X_dot_y_list_initial[:]
@@ -392,6 +396,7 @@ class LinearCB(Bandit):
       # Initial pulls
       # For updating linear model estimates incrementally
       beta_hat_list = [None] * self.number_of_actions
+      Xprime_X_list= [None] * self.number_of_actions
       Xprime_X_inv_list = [None] * self.number_of_actions
       X_list = [np.zeros((0, self.context_dimension)) for a in range(self.number_of_actions)]
       y_list = [np.zeros(0) for a in range(self.number_of_actions)]
@@ -412,10 +417,12 @@ class LinearCB(Bandit):
           X_dot_y_list[action] = linear_model_results['X_dot_y']
           sampling_cov_list[action] = linear_model_results['sample_cov']
           sigma_hat_list[action] = linear_model_results['sigma_hat']
+          Xprime_X_list[action] = linear_model_results['Xprime_X_list']
 
       initial_linear_model = {'beta_hat_list': beta_hat_list, 'y_list': y_list, 'X_list': X_list,
                               'Xprime_X_inv_list': Xprime_X_inv_list, 'X_dot_y_list': X_dot_y_list,
-                              'sampling_cov_list': sampling_cov_list, 'sigma_hat_list': sigma_hat_list}
+                              'sampling_cov_list': sampling_cov_list, 'sigma_hat_list': sigma_hat_list,
+                              'Xprime_X_list': Xprime_X_list}
 
       rewards = np.zeros((0, self.number_of_actions))
       regrets = np.zeros((0, self.number_of_actions))
