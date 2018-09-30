@@ -62,6 +62,11 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     policy = tuned_bandit.linear_cb_thompson_sampling_policy
     tune = False
     tuning_function_parameter = None
+  elif policy_name == 'ucb-tune':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tune_bandit.linear_cb_ucb_policy
+    tune = True
+    tuning_function_parameter = np.ones(10) * 0.025
   # elif policy_name == 'ts-shrink':
   #   tuning_function = tuned_bandit.expit_truncate
   #   policy = tuned_bandit.thompson_sampling_policy
