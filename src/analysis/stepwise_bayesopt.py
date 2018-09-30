@@ -66,6 +66,60 @@ def max_observed_epsilons(fname):
   plt.show()
 
 
+def plot_epsilons_and_estimated_means(fname):
+  results = yaml.load(open(fname))
+  sample_mean_diffs = []
+  epsilons = []
+  arm0_sample_vars = []
+
+  # epsilons_diff_1 = []
+  arm1_sample_vars_1 = []
+  # epsilons_diff_0 = []
+  arm1_sample_vars_0 = []
+  arm0_sample_vars_1 = []
+  arm0_sample_vars_0 = []
+
+  for episode_zetas, episode_means, episode_vars in \
+    zip(results['zeta_sequences'], results['estimated_means'], results['estimated_vars']):
+    param_0 = episode_zetas[80]
+    means_0 = episode_means[80]
+    var_arm1 = episode_vars[15][1]
+    var_arm0 = episode_vars[15][0]
+    diff = means_0[0] - means_0[1]
+    eps = policies.stepwise_linear_epsilon(100, 80, param_0)
+    epsilons.append(eps)
+    sample_mean_diffs.append(diff)
+
+    if diff > 0:
+      arm1_sample_vars_0.append(var_arm1)
+      arm0_sample_vars_0.append(var_arm0)
+    elif diff < 0:
+      arm1_sample_vars_1.append(var_arm1)
+      arm0_sample_vars_1.append(var_arm0)
+
+  print('var0 given diff > 0: {}'.format(np.mean(arm0_sample_vars_0)))
+  print('var1 given diff > 0: {}'.format(np.mean(arm1_sample_vars_0)))
+  print('var0 given diff < 0: {}'.format(np.mean(arm0_sample_vars_1)))
+  print('var1 given diff < 0: {}'.format(np.mean(arm1_sample_vars_1)))
+
+    # Look where arm 1 is incorrectly estimtaed best
+  #   if diff < 0:
+  #     sample_mean_diffs.append(diff)
+  #     eps = policies.stepwise_linear_epsilon(100, 0, param_0)
+  #     arm1_sample_vars_1.append(var_arm1)
+  #     epsilons_diff_1.append(eps)
+  #   elif diff > 0:
+  #     sample_mean_diffs.append(diff)
+  #     eps = policies.stepwise_linear_epsilon(100, 0, param_0)
+  #     arm1_sample_vars_0.append(var_arm1)
+  #     epsilons_diff_0.append(eps)
+
+  plt.scatter(sample_mean_diffs, epsilons)
+  # plt.scatter(arm1_sample_vars_1, epsilons_diff_1)
+  # plt.scatter(arm1_sample_vars_0, epsilons_diff_0)
+  plt.show()
+
+
 def plot_approximate_epsilon_sequences_from_sims(fname):
   results = yaml.load(open(fname))
   times = np.linspace(0, 100, 100)
@@ -107,7 +161,8 @@ if __name__ == "__main__":
 
   # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-10000.yml")
   # plot_approximate_epsilon_sequences_from_sims("normalmab-10-eps-decay_180929_164335.yml")
-  max_observed_epsilons("normalmab-10-eps-decay_180929_164335.yml")
+  # max_observed_epsilons("normalmab-10-eps-decay_180929_164335.yml")
+  plot_epsilons_and_estimated_means("normalmab-10-eps-decay_180929_212908.yml")
 
 
 

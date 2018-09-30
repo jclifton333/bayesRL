@@ -29,6 +29,8 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
   T = 100
 
   # ToDo: Create policy class that encapsulates this behavior
+  posterior_sample = False
+  positive_zeta = False
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.05  # Constant epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
@@ -52,6 +54,18 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.05
+  elif policy_name == 'eps-decay-posterior-sample':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.mab_epsilon_greedy_policy
+    tune = True
+    tuning_function_parameter = np.ones(10)*0.05
+    posterior_sample = True
+  elif policy_name == 'eps-decay-positive-zeta':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.mab_epsilon_greedy_policy
+    tune = True
+    tuning_function_parameter = np.ones(10)*0.05
+    positive_zeta = True
   elif policy_name == 'gittins':
     tuning_function = lambda a, b, c: None
     tuning_function_parameter = None
@@ -76,12 +90,34 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
   for t in range(T):
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
+
     if tune:
+      if posterior_sample:
+        reward_means = []
+        reward_vars = []
+        for rep in range(monte_carlo_reps):
+          draws = env.sample_from_posterior()
+          means_for_each_action = []
+          vars_for_each_action = []
+          for a in range(env.number_of_actions):
+            mean_a = draws[a]['mu_draw']
+            var_a = draws[a]['var_draw']
+            means_for_each_action.append(mean_a)
+            vars_for_each_action.append(var_a)
+          reward_means.append(means_for_each_action)
+          reward_vars.append(vars_for_each_action)
+      else:
+        reward_means = None
+        reward_vars = None
+
       sim_env = NormalMAB(list_of_reward_mus=env.estimated_means, list_of_reward_vars=env.estimated_vars)
-      pre_simulated_data = sim_env.generate_mc_samples(monte_carlo_reps, T)
+      pre_simulated_data = sim_env.generate_mc_samples(monte_carlo_reps, T, reward_means=reward_means,
+                                                       reward_vars=reward_vars)
+
       tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env,
-                                               {'pre_simulated_data': pre_simulated_data})
+                                               {'pre_simulated_data': pre_simulated_data},
+                                               positive_zeta=positive_zeta)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
@@ -135,8 +171,8 @@ def run(policy_name, save=True, monte_carlo_reps=1000):
 
 
 if __name__ == '__main__':
-  # episode('eps-decay', np.random.randint(low=1, high=1000))
+  # episode('eps-decay-positive-zeta', np.random.randint(low=1, high=1000))
   # run('eps-decay-fixed')
   # run('eps')
   # run('greedy')
-  run('eps-decay')
+  # run('eps-decay')

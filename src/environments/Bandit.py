@@ -82,9 +82,39 @@ class MAB(Bandit):
   def reward_dbn(self, a):
     pass
 
-  def generate_mc_samples(self, mc_reps, time_horizon):
+  def generate_mc_samples(self, mc_reps, time_horizon, reward_means=None, reward_vars=None):
+    """
+
+    :param mc_reps:
+    :param time_horizon:
+    :param reward_means: List of means for each arm, for each rep.  If None, use the ones in
+                         this environment.
+    :param reward_vars:
+    :return:
+    """
+
+    if reward_means is not None and reward_vars is not None:
+      normal_parameters_provided = True
+
+      def reward_distribution(a, mean_list, var_list):
+        mean = mean_list[a]
+        var = var_list[a]
+        return np.random.normal(loc=mean, scale=np.sqrt(var))
+    else:
+      normal_parameters_provided = False
+
+      def reward_distribution(a, mean_list, var_list):
+        return self.reward_dbn(a)
+
     results = []
     for rep in range(mc_reps):
+      if normal_parameters_provided:
+        mean_list = reward_means[rep]
+        var_list = reward_vars[rep]
+      else:
+        mean_list = None
+        var_list = None
+
       each_rep_result = dict()
       initial_model = {'sample_mean_list': copy.copy(self.estimated_means),
                        'number_of_pulls': copy.copy(self.number_of_pulls)}
@@ -93,7 +123,7 @@ class MAB(Bandit):
       regrets = np.zeros((0, self.number_of_actions))
 
       for t in range(time_horizon):
-        rewards_t = np.array([self.reward_dbn(a) for a in range(self.number_of_actions)])
+        rewards_t = np.array([reward_distribution(a, mean_list, var_list) for a in range(self.number_of_actions)])
         rewards = np.vstack((rewards, rewards_t))
 
       each_rep_result['rewards'] = rewards
@@ -108,29 +138,55 @@ class NormalMAB(MAB):
     self.list_of_reward_vars = list_of_reward_vars
 
     # Hyperparameters for conjugate normal model of mean and variance
-    self.tau0 = 1.0 / 10.0  # tau is inverse variance
+    self.lambda0 = 1.0 / 10.0  # lambda is inverse variance
     self.alpha0 = 10e-3
     self.beta0 = 10e-3
-
+    self.posterior_params_dict = {a: {'lambda_post': self.lambda0, 'alpha_post': self.alpha0, 'beta_post': self.beta0,
+                                      'mu_post': 0.0} for a in range(len(list_of_reward_mus))}
     MAB.__init__(self, list_of_reward_mus)
+
+  def sample_from_posterior(self):
+    """
+    Sample from normal-gamma posterior.
+    :return:
+    """
+    draws_dict = {}
+    for a in range(self.number_of_actions):
+      # Posterior parameters for this arm
+      alpha_post = self.posterior_params_dict[a]['alpha_post']
+      beta_post = self.posterior_params_dict[a]['beta_post']
+      lambda_post = self.posterior_params_dict[a]['lambda_post']
+      mu_post = self.posterior_params_dict[a]['mu_post']
+
+      tau_draw = np.random.gamma(alpha_post, 1.0 / beta_post)
+      mu_given_tau_draw = np.random.normal(mu_post, np.sqrt(1.0 / (lambda_post * tau_draw)))
+      draws_dict[a] = {'mu_draw': mu_given_tau_draw, 'var_draw': 1.0 / tau_draw}
+
+    return draws_dict
 
   def conjugate_bayes_mean_and_variance(self, a):
     """
-    Get bayes estimators of mean and variance from current list of rewards at each arm.
+    Get bayes estimators of mean and variance from current list of rewards at each arm, and update.
     :return:
     """
     rewards_at_arm = self.draws_from_each_arm[a]
     xbar = np.mean(rewards_at_arm)
     s_sq = np.var(rewards_at_arm)
     n = self.number_of_pulls[a]
-    post_mean = (n * xbar) / (self.tau0 + n)
+    post_mean = (n * xbar) / (self.lambda0 + n)
     post_alpha = self.alpha0 + n/2.0
-    post_beta = self.beta0 + (1/2.0) * (n*s_sq + (self.tau0 * n * xbar**2) / (self.tau0 + n))
+    post_beta = self.beta0 + (1/2.0) * (n*s_sq + (self.lambda0 * n * xbar**2) / (self.lambda0 + n))
+    post_lambda = self.lambda0 + n
     post_precision = post_alpha / post_beta
     post_var = 1 / post_precision
     self.estimated_means[a] = post_mean
     self.estimated_vars[a] = post_var
-    pdb.set_trace()
+
+    # Update posterior params  (needed for sampling from posterior)
+    self.posterior_params_dict[a]['lambda_post'] = post_lambda
+    self.posterior_params_dict[a]['alpha_post'] = post_alpha
+    self.posterior_params_dict[a]['beta_post'] = post_beta
+    self.posterior_params_dict[a]['post_mean'] = post_mean
 
   def reward_dbn(self, a):
     # utility is distributed as Normal(mu, var)
