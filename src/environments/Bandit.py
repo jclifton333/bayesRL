@@ -145,6 +145,14 @@ class NormalMAB(MAB):
                                       'mu_post': 0.0} for a in range(len(list_of_reward_mus))}
     MAB.__init__(self, list_of_reward_mus)
 
+  def sample_from_bootstrap(self):
+    draws_dict = {}
+    for a in range(self.number_of_actions):
+      rewards_at_arm = self.draws_from_each_arm[a]
+      mean_draw, var_draw = multiplier_bootstrap_mean_and_variance(rewards_at_arm)
+      draws_dict[a] = {'mu_draw': mean_draw, 'var_draw': var_draw}
+    return draws_dict
+
   def sample_from_posterior(self):
     """
     Sample from normal-gamma posterior.
@@ -244,6 +252,57 @@ class LinearCB(Bandit):
     self.sigma_hat_list_initial = self.sigma_hat_list[:]
     self.X_initial = copy.copy(self.X)
 
+    # Hyperparameters for normal-gamma model: https://en.wikipedia.org/wiki/Bayesian_linear_regression#Conjugate_prior_distribution
+
+    self.a0 = 0.001
+    self.b0 = 0.001
+    self.lambda0 = 1.0 / 10.0
+    self.Lambda_0 = self.lambda0 * np.eye(self.context_dimension)
+    self.Lambda_inv0 = 1.0 / self.lambda0 * np.eye(self.context_dimension)
+    self.posterior_params_dict = {a: {'a_post': self.a0, 'b_post': self.b0, 'Lambda_post': self.Lambda_0,
+                                      'beta_post': self.np.zeros(self.context_dimension),
+                                      'Lambda_inv_post': self.Lambda_inv0}}
+
+  def update_posterior(self, a, x, y):
+    """
+    Get bayes estimators of mean and variance from current list of rewards at each arm, and update.
+    :return:
+    """
+    new_Lambda_inv = la.sherman_woodbury(self.posterior_params_dict[a]['Lambda_inv_post'], x, x)
+    new_Lambda = self.posterior_params_dict[a]['Lambda_post'] + np.outer(x, x)
+    beta_hat = self.beta_hat_list[a]
+    Xprime_X = self.Xprime_X_list[a]
+    new_beta = np.dot(new_Lambda_inv, np.dot(Xprime_X, beta_hat))
+    n = self.X_list[a].shape[0]
+    new_a = self.a0 + n / 2.0
+    new_b = self.b0 + 0.5 * ( np.sum(self.y_list[a]**2) - np.dot(new_beta, np.dot(new_Lambda, new_beta)))
+
+    # Update posterior params  (needed for sampling from posterior)
+    self.posterior_params_dict[a]['Lambda_inv_post'] = new_Lambda_inv
+    self.posterior_params_dict[a]['Lambda_post'] = new_Lambda
+    self.posterior_params_dict[a]['a_post'] = new_a
+    self.posterior_params_dict[a]['b_post'] = new_b
+    self.posterior_params_dict[a]['beta_post'] = new_beta
+
+  def sample_from_posterior(self):
+    """
+    Sample from normal-gamma posterior.
+    :return:
+    """
+    draws_dict = {}
+    for a in range(self.number_of_actions):
+      # Posterior parameters for this arm
+      a_post = self.posterior_params_dict[a]['a_post']
+      b_post = self.posterior_params_dict[a]['b_post']
+      Lambda_inv_post = self.posterior_params_dict[a]['Lambda_inv_post']
+      beta_post = self.posterior_params_dict[a]['beta_post']
+
+      sigma_sq_draw = np.random.gamma(a_post, b_post)
+      beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post, sigma_sq_draw * Lambda_inv_post)
+      draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_draw}
+
+    return draws_dict
+
   def initial_pulls(self):
     """
     Pull each arm twice so we can fit the model.
@@ -281,6 +340,7 @@ class LinearCB(Bandit):
     u = super(LinearCB, self).step(a)
     self.X = np.vstack((self.X, self.curr_context))
     self.update_linear_model(a, self.curr_context, u)
+    self.update_posterior(a, self.curr_context, u)
     x = self.next_context()
     return {'Utility': u, 'New context': x}
 
@@ -397,9 +457,37 @@ class NormalUniformCB(LinearCB):
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
     # self.context_dimension = 2
 
+    # Hyperparameters for uniform-pareto model
+    # for contexts https://tminka.github.io/papers/minka-uniform.pdf
+    self.b_pareto_0 = 1.0
+    self.K0 = 1.0
+    self.max_X = np.max(self.X)
+    self.posterior_context_params_dict = {'K_post': self.X.size + self.K0,
+                                          'b_pareto_post': np.max((self.max_X, self.b_pareto_0))}
+
+  def update_posterior(self, a, x, y):
+    super(NormalUniformCB, self).update_posterior(a, x, y)
+    self.max_X = np.max((np.max(x), self.max_X))
+    self.posterior_context_params_dict['K_post'] += len(x)
+    self.posterior_context_params_dict['b_pareto_post'] = np.max((self.max_x,
+                                                                  self.posterior_context_params_dict['b_pareto_post']))
+
   def draw_context(self, context_mean=None, context_var=None):
     x = np.random.uniform(low=self.context_bounds[0], high=self.context_bounds[1], size=self.context_dimension-1)
     context = np.append([1.0], x)
     return context
 
 
+def multiplier_bootstrap_mean_and_variance(x):
+  """
+  Helper for bootstrapping bandit estimators.
+
+  :param x:
+  :return:
+  """
+  n = len(x)
+  weights = np.random.exponential(size=n)
+  weights_sum = np.sum(weights)
+  bootstrapped_mean = np.dot(weights, x) / weights_sum
+  bootstrapped_var = np.dot(weights, (x - bootstrapped_mean)**2) / weights_sum
+  return bootstrapped_mean, bootstrapped_var

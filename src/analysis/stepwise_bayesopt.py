@@ -124,23 +124,23 @@ def plot_approximate_epsilon_sequences_from_sims(fname):
   results = yaml.load(open(fname))
   times = np.linspace(0, 100, 100)
 
-  for episode_results in results['zeta_sequences']:
-    observed_epsilon_sequence = []
-    for t, param in enumerate(episode_results):
-      eps = policies.stepwise_linear_epsilon(100, t, param)
-      observed_epsilon_sequence.append(eps)
-    plt.plot(times, observed_epsilon_sequence)
-  plt.savefig("observed-epsilons-zeta-normal-mab-1000.png")
+  # for episode_results in results['zeta_sequences']:
+  #   observed_epsilon_sequence = []
+  #   for t, param in enumerate(episode_results):
+  #     eps = policies.stepwise_linear_epsilon(100, t, param)
+  #     observed_epsilon_sequence.append(eps)
+  #   plt.plot(times, observed_epsilon_sequence)
+  # plt.savefig("observed-epsilons-zeta-normal-mab-1000.png")
 
-  # time_slices = [5, 10, 50, 99]
-  # for time_slice in time_slices:
-  #   params = [episode_results[time_slice] for episode_results in results['zeta_sequences']]
-  #   plt.figure()
-  #   for param in params:
-  #     vals = [policies.stepwise_linear_epsilon(100, t, param) for t in times]
-  #     plt.plot(times, vals)
-  #   plt.savefig("estimated-zeta-normal-mab-1000-timeslice-{}.png".format(time_slice))
-
+  time_slices = [5, 10, 50, 99]
+  for time_slice in time_slices:
+    params = [episode_results[time_slice] for episode_results in results['zeta_sequences']]
+    plt.figure()
+    for param in params:
+      vals = [policies.stepwise_linear_epsilon(100, t, param) for t in times]
+      plt.plot(times, vals)
+    # plt.savefig("estimated-zeta-normal-mab-1000-timeslice-{}.png".format(time_slice))
+    plt.show()
   return
 
 
@@ -160,9 +160,9 @@ if __name__ == "__main__":
   # print(p)
 
   # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-10000.yml")
-  # plot_approximate_epsilon_sequences_from_sims("normalmab-10-eps-decay_180929_164335.yml")
+  plot_approximate_epsilon_sequences_from_sims("normalmab-10-eps-decay-posterior-sample_180930_054446.yml")
   # max_observed_epsilons("normalmab-10-eps-decay_180929_164335.yml")
-  plot_epsilons_and_estimated_means("normalmab-10-eps-decay_180929_212908.yml")
+  # plot_epsilons_and_estimated_means("normalmab-10-eps-decay_180929_212908.yml")
 
 
 

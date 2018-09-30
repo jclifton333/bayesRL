@@ -18,7 +18,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, save=True, monte_carlo_reps=1000):
+def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
   if save:
     base_name = 'normal-mab-{}-{}'.format(label, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -26,10 +26,10 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     filename = '{}_{}.yml'.format(prefix, suffix)
 
   np.random.seed(label)
-  T = 100
 
   # ToDo: Create policy class that encapsulates this behavior
   posterior_sample = False
+  bootstrap_posterior = False
   positive_zeta = False
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.05  # Constant epsilon
@@ -60,6 +60,13 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     tune = True
     tuning_function_parameter = np.ones(10)*0.05
     posterior_sample = True
+  elif policy_name == 'eps-decay-bootstrap-sample':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.mab_epsilon_greedy_policy
+    tune = True
+    tuning_function_parameter = np.ones(10)*0.05
+    posterior_sample = True
+    bootstrap_posterior = True
   elif policy_name == 'eps-decay-positive-zeta':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
@@ -87,6 +94,8 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
 
   estimated_means_list = []
   estimated_vars_list = []
+  actions_list = []
+  rewards_list = []
   for t in range(T):
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
@@ -96,7 +105,10 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
         reward_means = []
         reward_vars = []
         for rep in range(monte_carlo_reps):
-          draws = env.sample_from_posterior()
+          if bootstrap_posterior:
+            draws = env.sample_from_bootstrap()
+          else:
+            draws = env.sample_from_posterior()
           means_for_each_action = []
           vars_for_each_action = []
           for a in range(env.number_of_actions):
@@ -123,42 +135,50 @@ def episode(policy_name, label, save=True, monte_carlo_reps=1000):
     print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
     action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env)
-    env.step(action)
+    res = env.step(action)
+    u = res['Utility']
+    actions_list.append(int(action))
+    rewards_list.append(float(u))
 
     # Compute regret
     regret = mu_opt - env.list_of_reward_mus[action]
     cumulative_regret += regret
 
   return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence, 
-          'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list}
+          'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list,
+          'rewards_list': rewards_list, 'actions_list': actions_list}
 
 
-def run(policy_name, save=True, monte_carlo_reps=1000):
+def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
   """
 
   :return:
   """
-  replicates = 96
+  replicates = 1
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   results = []
-  episode_partial = partial(episode, policy_name, save=False,
+  episode_partial = partial(episode, policy_name, save=False, T=T,
                             monte_carlo_reps=monte_carlo_reps)
   num_batches = int(replicates / num_cpus)
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
-  # results = pool.map(episode_partial, range(1))
-  rewards = [np.float(d['cumulative_regret']) for d in results]
+
+  # for batch in range(num_batches):
+  #   results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+  #   results += results_for_batch
+  results = pool.map(episode_partial, range(1))
+  cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [d['zeta_sequence'] for d in results]
   estimated_means = [d['estimated_means'] for d in results]
   estimated_vars = [d['estimated_vars'] for d in results]
+  rewards = [d['rewards_list'] for d in results]
+  actions = [d['actions_list'] for d in results]
   
   # Save results
   if save:
-    results = {'T': float(100), 'mean_regret': float(np.mean(rewards)), 'std_regret': float(np.std(rewards)),
-               'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in rewards],
-               'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars}
+    results = {'T': float(100), 'mean_regret': float(np.mean(cumulative_regret)), 'std_regret': float(np.std(cumulative_regret)),
+               'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in cumulative_regret],
+               'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
+               'rewards': rewards, 'actions': actions}
 
     base_name = 'normalmab-10-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -171,8 +191,8 @@ def run(policy_name, save=True, monte_carlo_reps=1000):
 
 
 if __name__ == '__main__':
-  # episode('eps-decay-positive-zeta', np.random.randint(low=1, high=1000))
+  # episode('eps-decay-bootstrap-sample', np.random.randint(low=1, high=1000))
   # run('eps-decay-fixed')
   # run('eps')
   # run('greedy')
-  # run('eps-decay')
+  run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
