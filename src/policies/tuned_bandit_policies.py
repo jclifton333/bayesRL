@@ -54,7 +54,7 @@ def linear_cb_ucb_policy(beta_hat, sampling_cov_list, x, tuning_function,
   for a in range(len(beta_hat)):
     residual = env.y_list[a] - np.matual(env.X_list[a], beta_hat[a])
     res_multiply_X = np.multiply(env.X_list[a], residual.reshape(-1, 1))
-    Sigma = np.matual(res_multiply_X.T, res_multiply_X)
+    Sigma = np.matmul(res_multiply_X.T, res_multiply_X)
     omega = np.dot(env.curr_context, env.Xprime_X_inv_list[a])
     bound = np.dot(np.dot(omega, Sigma), omega)/np.sqrt(env.number_of_pulls[a])
     kesi = np.append(kesi, estimated_rewards[a] + z * bound)

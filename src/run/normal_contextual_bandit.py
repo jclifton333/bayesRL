@@ -23,8 +23,8 @@ import multiprocessing as mp
 def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
             context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], pre_simulate=True):
   np.random.seed(label)
-  T = 100
-  mc_replicates = 100
+  T = 1
+  mc_replicates = 10
 
   # ToDo: Create policy class that encapsulates this behavior
   if policy_name == 'eps':
@@ -64,7 +64,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     tuning_function_parameter = None
   elif policy_name == 'ucb-tune':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
-    policy = tune_bandit.linear_cb_ucb_policy
+    policy = tuned_bandit.linear_cb_ucb_policy
     tune = True
     tuning_function_parameter = np.ones(10) * 0.025
   # elif policy_name == 'ts-shrink':
@@ -132,7 +132,7 @@ def run(policy_name, save=True):
   list_of_reward_vars=[0.01, 100]
   context_mean=[1, 0, 1.1, 1, 0, 2, 5, 2, -2, -1]
 
-  replicates = 96
+  replicates = 16
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -168,9 +168,10 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', np.random.randint(low=1, high=1000))
+#  episode('eps-decay', np.random.randint(low=1, high=1000))
   # run('eps')
   # run('greedy')
   # run('eps-decay-fixed')
   # run('eps-decay')
   # run('uniform')
+  run('ucb-tune')
