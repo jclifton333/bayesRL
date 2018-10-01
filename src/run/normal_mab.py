@@ -173,10 +173,10 @@ def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
                             monte_carlo_reps=monte_carlo_reps)
   num_batches = int(replicates / num_cpus)
 
-  # for batch in range(num_batches):
-  #   results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-  #   results += results_for_batch
-  results = pool.map(episode_partial, range(1))
+  for batch in range(num_batches):
+    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+    results += results_for_batch
+  # results = pool.map(episode_partial, range(1))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [d['zeta_sequence'] for d in results]
   estimated_means = [d['estimated_means'] for d in results]

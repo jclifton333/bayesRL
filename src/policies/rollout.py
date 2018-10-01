@@ -143,6 +143,7 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
 
     # For updating linear model estimates incrementally
     beta_hat_list = initial_linear_model['beta_hat_list']
+    Xprime_X_list = initial_linear_model['Xprime_X_list']
     Xprime_X_inv_list = initial_linear_model['Xprime_X_inv_list']
     X_list = initial_linear_model['X_list']
     y_list = initial_linear_model['y_list']
@@ -169,20 +170,19 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
       regret_for_rep += reward
 
       # Update model
-      linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action], context,
-                                                    X_dot_y_list[action], reward)
+      linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_list[action],
+                                                    Xprime_X_inv_list[action], context, X_dot_y_list[action], reward)
       beta_hat_list[action] = linear_model_results['beta_hat']
       y_list[action] = linear_model_results['y']
       X_list[action] = linear_model_results['X']
       Xprime_X_inv_list[action] = linear_model_results['Xprime_X_inv']
+      Xprime_X_list[action] = linear_model_results['Xprime_X']
       X_dot_y_list[action] = linear_model_results['X_dot_y']
       sampling_cov_list[action] = linear_model_results['sample_cov']
       sigma_hat_list[action] = linear_model_results['sigma_hat']
 
     mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
   return mean_cumulative_regret
-
-
 
 
 def mHealth_rollout(tuning_function_parameter, policy, time_horizon, estimated_context_mean,

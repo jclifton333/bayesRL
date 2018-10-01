@@ -4,8 +4,8 @@ from bayes_opt import BayesianOptimization
 from scipy.optimize import basinhopping
 
 
-def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, rollout_function_kwargs,
-             positive_zeta=False):
+def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
+             rollout_function_kwargs, positive_zeta=False):
 
   # Assuming 10 params!
   def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):

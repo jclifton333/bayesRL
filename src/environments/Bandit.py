@@ -153,7 +153,7 @@ class NormalMAB(MAB):
       draws_dict[a] = {'mu_draw': mean_draw, 'var_draw': var_draw}
     return draws_dict
 
-  def sample_from_posterior(self, variance_shrinkage=1):
+  def sample_from_posterior(self, variance_shrinkage=1.0):
     """
     Sample from normal-gamma posterior.
 
@@ -254,6 +254,7 @@ class LinearCB(Bandit):
     self.X_dot_y_list = [np.zeros(self.context_dimension) for a in range(self.number_of_actions)]
     self.sampling_cov_list = [None]*self.number_of_actions
     self.sigma_hat_list = [0.0]*self.number_of_actions
+    self.max_X = -float("inf")
 
     # Get initial pulls and model; do this at initialization so we don't have to re-fit on initial obs every time
     self.initial_pulls()
@@ -279,7 +280,7 @@ class LinearCB(Bandit):
     new_beta = np.dot(new_Lambda_inv, np.dot(Xprime_X, beta_hat))
     n = self.X_list[a].shape[0]
     new_a = self.a0 + n / 2.0
-    new_b = self.b0 + 0.5 * ( np.sum(self.y_list[a]**2) - np.dot(new_beta, np.dot(new_Lambda, new_beta)))
+    new_b = self.b0 + 0.5 * (np.sum(self.y_list[a]**2) + np.dot(new_beta, np.dot(new_Lambda, new_beta)))
 
     # Update posterior params  (needed for sampling from posterior)
     self.posterior_params_dict[a]['Lambda_inv_post'] = new_Lambda_inv
@@ -288,7 +289,27 @@ class LinearCB(Bandit):
     self.posterior_params_dict[a]['b_post'] = new_b
     self.posterior_params_dict[a]['beta_post'] = new_beta
 
-  def sample_from_posterior(self):
+  # def sample_from_bootstrap(self, variance_shrinkage=1.0):
+  #   draws_dict = {}
+
+  #   # Bootstrap beta hats and variance estimates
+  #   for a in range(self.number_of_actions):
+  #     weights = np.random.exponential(size=self.X_list[a].shape[0])
+  #     # Posterior parameters for this arm
+  #     a_post = self.posterior_params_dict[a]['a_post']
+  #     b_post = self.posterior_params_dict[a]['b_post']
+  #     Lambda_inv_post = self.posterior_params_dict[a]['Lambda_inv_post']
+  #     beta_post = self.posterior_params_dict[a]['beta_post']
+
+  #     sigma_sq_draw = np.random.gamma(a_post, b_post)
+
+  #     beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post,
+  #                                                             variance_shrinkage * sigma_sq_draw * Lambda_inv_post)
+  #     draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_draw}
+
+  #   return draws_dict
+
+  def sample_from_posterior(self, variance_shrinkage=1.0):
     """
     Sample from normal-gamma posterior.
     :return:
@@ -302,7 +323,9 @@ class LinearCB(Bandit):
       beta_post = self.posterior_params_dict[a]['beta_post']
 
       sigma_sq_draw = np.random.gamma(a_post, b_post)
-      beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post, sigma_sq_draw * Lambda_inv_post)
+
+      beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post,
+                                                              variance_shrinkage * sigma_sq_draw * Lambda_inv_post)
       draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_draw}
 
     return draws_dict
@@ -328,6 +351,7 @@ class LinearCB(Bandit):
     self.sampling_cov_list[a] = linear_model_results['sample_cov']
     self.sigma_hat_list[a] = linear_model_results['sigma_hat']
     self.Xprime_X_list[a] = linear_model_results['Xprime_X']
+    self.max_X = np.max((self.max_X, np.max(x_new)))
 
   def reset(self):
     super(LinearCB, self).reset()
@@ -341,6 +365,7 @@ class LinearCB(Bandit):
     self.sampling_cov_list = self.sampling_cov_list_initial[:]
     self.sigma_hat_list = self.sigma_hat_list_initial[:]
     self.X = copy.copy(self.X_initial)
+    self.max_X = -float("inf")
 
   def step(self, a):
     u = super(LinearCB, self).step(a)
@@ -370,7 +395,8 @@ class LinearCB(Bandit):
         return u
 
       def context_distribution(context_max_):
-        return np.random.uniform(high=context_max_)
+        context = np.random.uniform(high=context_max_, size=self.context_dimension-1)
+        return np.append([1.0], context)
     else:
       gen_model_params_provided = False
 
@@ -408,7 +434,8 @@ class LinearCB(Bandit):
         for p in range(3):
           context = context_distribution(context_max)
           reward = self.reward_dbn(action)
-          linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action],
+          linear_model_results = la.update_linear_model(X_list[action], y_list[action],
+                                                        Xprime_X_list[action], Xprime_X_inv_list[action],
                                                         context, X_dot_y_list[action], reward)
           beta_hat_list[action] = linear_model_results['beta_hat']
           y_list[action] = linear_model_results['y']
@@ -417,7 +444,7 @@ class LinearCB(Bandit):
           X_dot_y_list[action] = linear_model_results['X_dot_y']
           sampling_cov_list[action] = linear_model_results['sample_cov']
           sigma_hat_list[action] = linear_model_results['sigma_hat']
-          Xprime_X_list[action] = linear_model_results['Xprime_X_list']
+          Xprime_X_list[action] = linear_model_results['Xprime_X']
 
       initial_linear_model = {'beta_hat_list': beta_hat_list, 'y_list': y_list, 'X_list': X_list,
                               'Xprime_X_inv_list': Xprime_X_inv_list, 'X_dot_y_list': X_dot_y_list,
@@ -501,28 +528,25 @@ class NormalCB(LinearCB):
 class NormalUniformCB(LinearCB):
   def __init__(self, list_of_reward_betas=[[0.1, -0.1], [0.2, 0.1]], context_mean=[1.0, 0.5], list_of_reward_vars=[[4], [4]],
                context_bounds=(0.0, 1.0)):
-    self.context_bounds=context_bounds
-    LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
-    # self.context_dimension = 2
-
+    self.context_bounds = context_bounds
     # Hyperparameters for uniform-pareto model
     # for contexts https://tminka.github.io/papers/minka-uniform.pdf
     self.b_pareto_0 = 1.0
     self.K0 = 1.0
-    self.max_X = np.max(self.X)
-    self.posterior_context_params_dict = {'K_post': self.X.size + self.K0,
-                                          'b_pareto_post': np.max((self.max_X, self.b_pareto_0))}
+    self.posterior_context_params_dict = {'K_post': self.K0,
+                                          'b_pareto_post': self.b_pareto_0}
+    LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
 
   def update_posterior(self, a, x, y):
     super(NormalUniformCB, self).update_posterior(a, x, y)
     self.max_X = np.max((np.max(x), self.max_X))
     self.posterior_context_params_dict['K_post'] += len(x)
-    self.posterior_context_params_dict['b_pareto_post'] = np.max((self.max_x,
+    self.posterior_context_params_dict['b_pareto_post'] = np.max((self.max_X,
                                                                   self.posterior_context_params_dict['b_pareto_post']))
 
-  def sample_from_posterior(self):
+  def sample_from_posterior(self, variance_shrinkage=1.0):
     # Sample from condtional model
-    draws_dict = super(NormalUniformCB, self).sample_from_posterior()
+    draws_dict = super(NormalUniformCB, self).sample_from_posterior(variance_shrinkage=variance_shrinkage)
 
     # Sample from context model
     K_post = self.posterior_context_params_dict['K_post']

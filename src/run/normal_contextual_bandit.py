@@ -28,6 +28,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
 
   # ToDo: Create policy class that encapsulates this behavior
   posterior_sample = False
+  bootstrap_posterior = False
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.1  # Constant epsilon
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
@@ -64,12 +65,34 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     policy = tuned_bandit.linear_cb_thompson_sampling_policy
     tune = False
     tuning_function_parameter = None
-  elif policy_name == 'ts-decay':
+  elif policy_name == 'ts-decay-posterior-sample':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.linear_cb_thompson_sampling_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.1
     posterior_sample = True
+  elif policy_name == 'ts-decay-bootstrap-sample':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.linear_cb_thompson_sampling_policy
+    tune = True
+    tuning_function_parameter = np.ones(10)*0.1
+    posterior_sample = True
+    bootstrap_posterior = True
+  elif policy_name == 'ts-decay':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.linear_cb_thompson_sampling_policy
+    tune = True
+    tuning_function_parameter = np.ones(10)*0.1
+  elif policy_name == 'ucb-tune':
+    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.linear_cb_ucb_policy
+    tune = True
+    tuning_function_parameter = np.ones(10) * 0.025
+  # elif policy_name == 'ts-shrink':
+  #   tuning_function = tuned_bandit.expit_truncate
+  #   policy = tuned_bandit.thompson_sampling_policy
+  #   tune = True
+  #   tuning_function_parameter = np.array([-2, 1])
   else:
     raise ValueError('Incorrect policy name')
 
@@ -92,7 +115,10 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
         if posterior_sample:
           gen_model_parameters = []
           for rep in range(mc_replicates):
-            draws = env.sample_from_posterior()
+            if bootstrap_posterior:
+              pass
+            else:
+              draws = env.sample_from_posterior()
             betas_for_each_action = []
             vars_for_each_action = []
             for a in range(env.number_of_actions):
@@ -108,7 +134,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
 
         sim_env = NormalUniformCB(list_of_reward_betas=env.beta_hat_list, list_of_reward_vars=env.sigma_hat_list,
                                   context_bounds=estimated_context_bounds)
-        pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T, gen_model_parameters=gen_model_parameters)
+        pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T, gen_model_params=gen_model_parameters)
         tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
                                                  tuning_function, tuning_function_parameter, T,
                                                  sim_env, mc_replicates,
