@@ -48,6 +48,7 @@ def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tun
 def linear_cb_ucb_policy(beta_hat, sampling_cov_list, x, tuning_function, 
                          tuning_function_parameter, T, t, env):
   alpha = tuning_function(T, t, tuning_function_parameter)/40 + 0.5
+  z = scipy.stats.norm.ppf(alpha)
   estimated_rewards = np.dot(beta_hat, env.curr_context) 
   kesi = []
   for a in range(len(beta_hat)):
@@ -56,7 +57,7 @@ def linear_cb_ucb_policy(beta_hat, sampling_cov_list, x, tuning_function,
     Sigma = np.matual(res_multiply_X.T, res_multiply_X)
     omega = np.dot(env.curr_context, env.Xprime_X_inv_list[a])
     bound = np.dot(np.dot(omega, Sigma), omega)/np.sqrt(env.number_of_pulls[a])
-    kesi = np.append(kesi, estimated_rewards[a])
+    kesi = np.append(kesi, estimated_rewards[a] + z * bound)
   
   action = np.argmax(kesi)
   
