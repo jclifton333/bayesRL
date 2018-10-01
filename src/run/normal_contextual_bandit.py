@@ -98,7 +98,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
 
   # env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
   #                list_of_reward_vars=list_of_reward_vars)
-  env = NormalUniformCB()
+  env = NormalUniformCB(list_of_reward_betas=[np.ones(10) + 0.05, np.ones(10)], list_of_reward_vars=[0.01, 25])
   cumulative_regret = 0.0
   env.reset()
   tuning_parameter_sequence = []
@@ -181,21 +181,18 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
   episode_partial = partial(episode, policy_name, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
                             list_of_reward_vars=list_of_reward_vars, mc_replicates=mc_replicates, T=T)
 
-  num_batches = int(replicates / num_cpus)
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
-
-  rewards = [np.float(d['cumulative_regret']) for d in results]
+  results = pool.map(episode_partial, range(replicates))
+  cumulative_rewards = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [d['zeta_sequence'] for d in results]
+  actions = [d['actions'] for d in results]
+  rewards = [d['rewards'] for d in results]
+
   # Save results
   if save:
-    results = {'mean_regret': float(np.mean(rewards)), 'std_regret': float(np.std(rewards)),
+    results = {'mean_regret': float(np.mean(cumulative_rewards)), 'std_regret': float(np.std(cumulative_rewards)),
                'beta_hat_list': [beta for beta in list_of_reward_betas],
-               'context_mean': [float(c) for c in context_mean], 'regret list': [float(r) for r in rewards],
-               'context_variance': [[float(context_var[i, j]) for j in range(context_var.shape[1])]
-                                    for i in range(context_var.shape[0])],
-               'reward_vars': list_of_reward_vars,
+               'context_mean': [float(c) for c in context_mean], 'regret list': [float(r) for r in cumulative_rewards],
+               'reward_vars': list_of_reward_vars, 'actions': actions, 'rewards': rewards,
                'zeta_sequences': zeta_sequences}
 
     base_name = 'normalcb-{}'.format(policy_name)
@@ -211,9 +208,11 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 if __name__ == '__main__':
   # episode('ucb-tune-posterior-sample', 0)
   # run('eps')
-  # run('greedy')
+  run('greedy', T=10)
   # run('eps-decay-fixed')
   # run('eps-decay')
   # run('uniform')
-  run('ts-decay-posterior-sample')
-  run('ucb-tune-posterior-sample')
+  # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
+  # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
+  # run('ts-decay-posterior-sample', T=10, mc_replicates=100)
+  # run('ucb-tune-posterior-sample', T=10, mc_replicates=100)

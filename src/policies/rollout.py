@@ -292,7 +292,7 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
-      action = policy(estimated_means, None, None, tuning_function,
+      action = policy(estimated_means, env.standard_errors, None, tuning_function,
                       tuning_function_parameter, time_horizon, t, env)
 
       # Get reward and regret

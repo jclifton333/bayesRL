@@ -73,17 +73,18 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
     tune = True
     tuning_function_parameter = np.ones(10)*0.05
     positive_zeta = True
-  elif policy_name == 'ts-decay':
+  elif policy_name == 'ts-decay-posterior-sample':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_thompson_sampling_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.1
-  elif policy_name == 'ucb-tune':
+    posterior_sample = True
+  elif policy_name == 'ucb-tune-posterior-sample':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.normal_mab_ucb_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.05
-    positive_zeta = True
+    posterior_sample = True
   elif policy_name == 'gittins':
     tuning_function = lambda a, b, c: None
     tuning_function_parameter = None
@@ -138,14 +139,15 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
                                                        reward_vars=reward_vars)
 
       tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
-                                               tuning_function_parameter, T, env,
+                                               tuning_function_parameter, T, env, monte_carlo_reps,
                                                {'pre_simulated_data': pre_simulated_data},
                                                positive_zeta=positive_zeta)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
-    print('time {} epsilon {}'.format(t, tuning_function(T, t, tuning_function_parameter)))
+    print('standard errors {}'.format(env.standard_errors))
+    print('estimated vars {}'.format(env.estimated_vars))
     action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                      tuning_function_parameter, T, t, env)
+                    tuning_function_parameter, T, t, env)
     res = env.step(action)
     u = res['Utility']
     actions_list.append(int(action))
@@ -165,18 +167,18 @@ def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
 
   :return:
   """
-  replicates = 1
+  replicates = 16
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
-  results = []
-  episode_partial = partial(episode, policy_name, save=False, T=T,
+  episode_partial = partial(episode, policy_name, T=T, save=False,
                             monte_carlo_reps=monte_carlo_reps)
-  num_batches = int(replicates / num_cpus)
+  # num_batches = int(replicates / num_cpus)
 
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
-  # results = pool.map(episode_partial, range(1))
+  # for batch in range(num_batches):
+  #   results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+  #   results += results_for_batch
+
+  results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [d['zeta_sequence'] for d in results]
   estimated_means = [d['estimated_means'] for d in results]
@@ -202,10 +204,11 @@ def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
 
 
 if __name__ == '__main__':
-  # episode('ts-decay', np.random.randint(low=1, high=1000))
+  # episode('ucb-tune-posterior-sample', np.random.randint(low=1, high=1000))
   # run('eps-decay-fixed')
   # run('eps')
   # run('greedy')
   # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
-  run('ts-decay-bootstrap-sample', T=5, monte_carlo_reps=100)
-  run('ucb-tune-bootstrap-sample', T=5, monte_carlo_reps=100)
+  # run('ts-decay-posterior-sample', T=10, monte_carlo_reps=100)
+  # run('eps', T=10, monte_carlo_reps=100)
+  run('ucb-tune-posterior-sample', T=10, monte_carlo_reps=100)
