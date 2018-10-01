@@ -135,8 +135,12 @@ def expit_epsilon_decay(T, t, zeta):
 def stepwise_linear_epsilon(T, t, zeta):
   J = len(zeta)
   interval = int(T/float(J))
-  summand = np.array([np.positive(T - t - j*interval) for j in range(J)])
-  return np.dot(summand, zeta)
+  if t == 0:
+    j = 0
+  else:
+    j = int(np.floor((T-t)/interval))
+  epsilon = sum(zeta[:j]) + ((T-t) - j*interval) * zeta[j] / interval
+  return epsilon
 
 
 

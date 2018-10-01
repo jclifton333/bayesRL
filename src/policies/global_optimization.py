@@ -16,7 +16,7 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
     lower_bound = 0.001
   else:
     lower_bound = 0.0
-  upper_bound = 1.5 / 550.0 
+  upper_bound = 0.2
 
   bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
   explore_ = {'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))}
