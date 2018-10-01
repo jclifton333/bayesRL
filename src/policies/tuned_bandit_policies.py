@@ -48,44 +48,19 @@ def linear_cb_thompson_sampling_policy(beta_hat, sampling_cov_list, context, tun
 def linear_cb_ucb_policy(beta_hat, sampling_cov_list, x, tuning_function, 
                          tuning_function_parameter, T, t, env):
   alpha = tuning_function(T, t, tuning_function_parameter)/40 + 0.5
-  X = np.delete(env.X, -1, 0)
-  # Get reward
-  x = copy.copy(env.curr_context)
   estimated_rewards = np.dot(beta_hat, env.curr_context) 
+  kesi = []
+  for a in range(len(beta_hat)):
+    residual = env.y_list[a] - np.matual(env.X_list[a], beta_hat[a])
+    res_multiply_X = np.multiply(env.X_list[a], residual.reshape(-1, 1))
+    Sigma = np.matual(res_multiply_X.T, res_multiply_X)
+    omega = np.dot(env.curr_context, env.Xprime_X_inv_list[a])
+    bound = np.dot(np.dot(omega, Sigma), omega)/np.sqrt(env.number_of_pulls[a])
+    kesi = np.append(kesi, estimated_rewards[a])
   
-  # Get UCB
-  q_hat_0 = estimated_rewards[0]
-  q_hat_1 = estimated_rewards[1]
-  b = env.X[-1,]
+  action = np.argmax(kesi)
   
-  B_0 = X[np.where(env.A==0),][0]
-  U_0 = env.U[np.where(env.A==0),][0]
-  omega_hat_0 = np.zeros([env.context_dimension, env.context_dimension])
-  Sigma_hat_0 = np.zeros([env.context_dimension, env.context_dimension])
-  for i in range( int(len(env.A)-sum(env.A)) ):
-    omega_hat_0 += np.outer(B_0[i],B_0[i].T) /(len(env.A)-sum(env.A))
-    Sigma_hat_0 += np.outer(B_0[i],B_0[i].T)*(U_0[i]-np.dot(B_0[i],beta_hat[0]))**2/(len(env.A)-sum(env.A))
-  omega_hat_inv0 = np.linalg.inv(omega_hat_0)
-  sigma_hat_0 = np.dot(np.dot(b, np.matmul(np.matmul(omega_hat_inv0, Sigma_hat_0),
-                        omega_hat_inv0)), b)
-  
-  B_1 = X[np.where(env.A==1),][0]
-  U_1 = env.U[np.where(env.A==1),][0]
-  omega_hat_1 = np.zeros([env.context_dimension, env.context_dimension])
-  Sigma_hat_1 = np.zeros([env.context_dimension, env.context_dimension])
-  for i in range( int(sum(env.A)) ):
-    omega_hat_1 += np.outer(B_1[i],B_1[i].T) /sum(env.A)
-    Sigma_hat_1 += np.outer(B_1[i],B_1[i].T)*(U_1[i]-np.dot(B_1[i],beta_hat[1]))**2/sum(env.A)
-  omega_hat_inv1 = np.linalg.inv(omega_hat_1)
-  sigma_hat_1 = np.dot(np.dot(b, np.matmul(np.matmul(omega_hat_inv1, Sigma_hat_1),
-                        omega_hat_inv1)), b)
-  
-  kexi_0 = q_hat_0 + scipy.stats.norm.ppf(alpha)*sigma_hat_0/np.sqrt(len(env.A))
-  kexi_1 = q_hat_1 + scipy.stats.norm.ppf(alpha)*sigma_hat_1/np.sqrt(len(env.A))        
-  
-  a = np.argmax([kexi_0, kexi_1])
-  
-  return a
+  return action
 
   
 
