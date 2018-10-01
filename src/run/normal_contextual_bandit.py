@@ -43,7 +43,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
-  elif policy_name == 'eps-decay':
+  elif policy_name == 'eps-decay-posterior-sample':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = True
@@ -173,7 +173,7 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
   list_of_reward_vars=[0.01, 100]
   context_mean=[1, 0, 1.1, 1, 0, 2, 5, 2, -2, -1]
 
-  replicates = 16
+  replicates = 96
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -208,11 +208,13 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 if __name__ == '__main__':
   # episode('ucb-tune-posterior-sample', 0)
   # run('eps')
-  run('greedy', T=10)
+  # run('greedy', T=10)
   # run('eps-decay-fixed')
   # run('eps-decay')
   # run('uniform')
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
-  # run('ts-decay-posterior-sample', T=10, mc_replicates=100)
-  # run('ucb-tune-posterior-sample', T=10, mc_replicates=100)
+  # print('ncb worked')
+  run('ts-decay-posterior-sample', T=100, mc_replicates=1000)
+  run('ucb-tune-posterior-sample', T=100, mc_replicates=1000)
+  run ('eps-decay-posterior-sample', T=100, mc_replicates=1000)

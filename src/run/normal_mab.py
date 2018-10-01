@@ -167,7 +167,7 @@ def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
 
   :return:
   """
-  replicates = 16
+  replicates = 96
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, policy_name, T=T, save=False,
@@ -208,7 +208,7 @@ if __name__ == '__main__':
   # run('eps-decay-fixed')
   # run('eps')
   # run('greedy')
-  # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
-  # run('ts-decay-posterior-sample', T=10, monte_carlo_reps=100)
-  # run('eps', T=10, monte_carlo_reps=100)
-  run('ucb-tune-posterior-sample', T=10, monte_carlo_reps=100)
+  # run('ts-decay-posterior-sample', T=100, monte_carlo_reps=1000)
+  run('ucb-tune-posterior-sample', T=100, monte_carlo_reps=1000)
+  run('eps-decay-posterior-sample', T=100, monte_carlo_reps=1000)
+
