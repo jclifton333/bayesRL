@@ -83,11 +83,12 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
     policy = tuned_bandit.linear_cb_thompson_sampling_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.1
-  elif policy_name == 'ucb-tune':
+  elif policy_name == 'ucb-tune-posterior-sample':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.linear_cb_ucb_policy
     tune = True
     tuning_function_parameter = np.ones(10) * 0.025
+    posterior_sample = True
   # elif policy_name == 'ts-shrink':
   #   tuning_function = tuned_bandit.expit_truncate
   #   policy = tuned_bandit.thompson_sampling_policy
@@ -209,11 +210,6 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
-<<<<<<< HEAD
-  episode('ts-decay', np.random.randint(low=1, high=1000))
-=======
-#  episode('eps-decay', np.random.randint(low=1, high=1000))
->>>>>>> 293ef9c770817661ef6190fa21b288bdb6496bb1
   # run('eps')
   # run('greedy')
   # run('eps-decay-fixed')
