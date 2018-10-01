@@ -21,10 +21,9 @@ import multiprocessing as mp
 
 
 def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], context_mean=np.array([0.0, 0.0]),
-            context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], pre_simulate=True):
+            context_var=np.array([[1.0, -0.2], [-0.2, 1.]]), list_of_reward_vars=[1, 1], T=100,
+            mc_replicates=1000, pre_simulate=True):
   np.random.seed(label)
-  T = 1
-  mc_replicates = 10
 
   # ToDo: Create policy class that encapsulates this behavior
   posterior_sample = False
@@ -163,7 +162,7 @@ def episode(policy_name, label, list_of_reward_betas=[[1.0, 1.0], [2.0, -2.0]], 
           'rewards': rewards, 'actions': actions}
 
 
-def run(policy_name, save=True):
+def run(policy_name, save=True, mc_replicates=1000, T=100):
   """
 
   :return:
@@ -180,7 +179,7 @@ def run(policy_name, save=True):
   pool = mp.Pool(processes=num_cpus)
 
   episode_partial = partial(episode, policy_name, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
-                            list_of_reward_vars=list_of_reward_vars)
+                            list_of_reward_vars=list_of_reward_vars, mc_replicates=mc_replicates, T=T)
 
   num_batches = int(replicates / num_cpus)
   for batch in range(num_batches):
@@ -210,9 +209,11 @@ def run(policy_name, save=True):
 
 
 if __name__ == '__main__':
+  # episode('ucb-tune-posterior-sample', 0)
   # run('eps')
   # run('greedy')
   # run('eps-decay-fixed')
   # run('eps-decay')
   # run('uniform')
-  run('ucb-tune')
+  run('ts-decay-posterior-sample')
+  run('ucb-tune-posterior-sample')

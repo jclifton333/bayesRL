@@ -202,8 +202,10 @@ def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
 
 
 if __name__ == '__main__':
-  episode('ts-decay', np.random.randint(low=1, high=1000))
+  # episode('ts-decay', np.random.randint(low=1, high=1000))
   # run('eps-decay-fixed')
   # run('eps')
   # run('greedy')
   # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
+  run('ts-decay-bootstrap-sample', T=5, monte_carlo_reps=100)
+  run('ucb-tune-bootstrap-sample', T=5, monte_carlo_reps=100)
