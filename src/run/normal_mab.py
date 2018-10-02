@@ -18,7 +18,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, T=50, monte_carlo_reps=1000, posterior_sample=False):
+def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False):
   np.random.seed(label)
 
   # ToDo: Create factory function that encapsulates this behavior
@@ -118,7 +118,7 @@ def episode(policy_name, label, T=50, monte_carlo_reps=1000, posterior_sample=Fa
 
 #  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
   # env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [140]])
-  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[1**2, 1**2])
+  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[std**2, std**2])
 
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
@@ -186,7 +186,7 @@ def episode(policy_name, label, T=50, monte_carlo_reps=1000, posterior_sample=Fa
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
 
-def run(policy_name, save=True, T=50, monte_carlo_reps=1000, posterior_sample=False):
+def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_sample=False):
   """
 
   :return:
@@ -194,7 +194,7 @@ def run(policy_name, save=True, T=50, monte_carlo_reps=1000, posterior_sample=Fa
   replicates = 96
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
-  episode_partial = partial(episode, policy_name, T=T, monte_carlo_reps=monte_carlo_reps,
+  episode_partial = partial(episode, policy_name, std=0.1, T=T, monte_carlo_reps=monte_carlo_reps,
                             posterior_sample=posterior_sample)
   num_batches = int(replicates / num_cpus)
 
@@ -216,9 +216,9 @@ def run(policy_name, save=True, T=50, monte_carlo_reps=1000, posterior_sample=Fa
     results = {'T': float(T), 'mean_regret': float(np.mean(cumulative_regret)), 'std_regret': float(np.std(cumulative_regret)),
                'regret list': [float(r) for r in cumulative_regret],
                'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
-               'rewards': rewards, 'actions': actions}
+               'rewards': rewards, 'actions': actions, 'std': std}
 
-    base_name = 'normalmab-postsample-{}-{}'.format(posterior_sample, policy_name)
+    base_name = 'normalmab-postsample-{}-std-{}-{}'.format(posterior_sample, std, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -237,10 +237,7 @@ if __name__ == '__main__':
   # run('ts-decay-posterior-sample', T=10, monte_carlo_reps=100)
   # run('eps', T=10, monte_carlo_reps=100)
   # run('ts-fixed', T=100, monte_carlo_reps=1000)
-  run('frequentist-ts-tuned', T=10, monte_carlo_reps=10, posterior_sample=True)
-  run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=True)
-  run('ucb-tune-posterior-sample', T=50, monte_carlo_reps=1000, posterior_sample=True)
-  run('frequentist-ts-tuned', T=50, monte_carlo_reps=1000, posterior_sample=False)
-  run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=False)
-  run('ucb-tune-posterior-sample', T=50, monte_carlo_reps=1000, posterior_sample=False)
+  run('frequentist-ts-tuned', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=True)
 
