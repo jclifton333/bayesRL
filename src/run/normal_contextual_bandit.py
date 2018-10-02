@@ -216,3 +216,4 @@ if __name__ == '__main__':
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
   # run('ts-decay-posterior-sample', T=10, mc_replicates=100)
   # run('ucb-tune-posterior-sample', T=10, mc_replicates=100)
+

@@ -243,3 +243,4 @@ if __name__ == '__main__':
   run('frequentist-ts-tuned', T=50, monte_carlo_reps=1000, posterior_sample=False)
   run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=False)
   run('ucb-tune-posterior-sample', T=50, monte_carlo_reps=1000, posterior_sample=False)
+
