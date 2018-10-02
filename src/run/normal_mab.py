@@ -18,17 +18,11 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
-  if save:
-    base_name = 'normal-mab-{}-{}'.format(label, policy_name)
-    prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
-    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-    filename = '{}_{}.yml'.format(prefix, suffix)
-
+def episode(policy_name, label, T=50, monte_carlo_reps=1000, posterior_sample=False):
   np.random.seed(label)
 
   # ToDo: Create factory function that encapsulates this behavior
-  posterior_sample = False
+  # posterior_sample = False
   bootstrap_posterior = False
   positive_zeta = False
   if policy_name == 'eps':
@@ -50,12 +44,15 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
     tuning_function_parameter = np.array([0.2, 0.164, 0.2, 0.193, 0.189, 
                                           0.087, 0.069, 0.159, 0.09, 0.015])
   elif policy_name == 'eps-decay':
-    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = True
-    tuning_function_parameter = np.ones(10)*0.05
+    tuning_function_parameter = np.array([0.05, 45, 2.5])
+    bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+    posterior_sample = True
   elif policy_name == 'eps-decay-posterior-sample':
-    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.05
@@ -67,24 +64,50 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
     tuning_function_parameter = np.ones(10)*0.05
     posterior_sample = True
     bootstrap_posterior = True
-  elif policy_name == 'eps-decay-positive-zeta':
-    tuning_function = tuned_bandit.stepwise_linear_epsilon
-    policy = tuned_bandit.mab_epsilon_greedy_policy
-    tune = True
-    tuning_function_parameter = np.ones(10)*0.05
-    positive_zeta = True
   elif policy_name == 'ts-decay-posterior-sample':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_thompson_sampling_policy
     tune = True
     tuning_function_parameter = np.ones(10)*0.1
     posterior_sample = True
-  elif policy_name == 'ucb-tune-posterior-sample':
+  elif policy_name == 'ts':
+    tuning_function = lambda a, b, c: 1.0
+    policy = tuned_bandit.mab_thompson_sampling_policy
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == 'ts-fixed':
     tuning_function = tuned_bandit.stepwise_linear_epsilon
+    policy = tuned_bandit.mab_thompson_sampling_policy
+    tune = False
+    tuning_function_parameter = np.array([0.8, 0.8, 0.8, 0.8, 0.0, 0.8, 0.0, 0.8, 0.8, 0.8])
+  elif policy_name == 'ucb-tune-posterior-sample':
+    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+    explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
+    tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.normal_mab_ucb_policy
     tune = True
-    tuning_function_parameter = np.ones(10)*0.05
+    tuning_function_parameter = np.array([1.0, 89.0, 5.0])
     posterior_sample = True
+  elif policy_name == 'frequentist-ts-fixed':
+    tuning_function = tuned_bandit.expit_epsilon_decay
+    policy = tuned_bandit.mab_frequentist_ts_policy
+    tune = False
+    tuning_function_parameter = np.array([0.8, 49.0, 2.5])
+    posterior_sample = True
+  elif policy_name == 'frequentist-ts':
+    tuning_function = lambda a, b, c: 1.0
+    policy = tuned_bandit.mab_frequentist_ts_policy
+    tune = False
+    tuning_function_parameter = None
+    posterior_sample = True
+  elif policy_name == 'frequentist-ts-tuned':
+    tuning_function = tuned_bandit.expit_epsilon_decay
+    policy = tuned_bandit.mab_frequentist_ts_policy
+    tune = True
+    tuning_function_parameter = np.array([0.8, 49.0, 2.5])
+    posterior_sample = True
+    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+    explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
   elif policy_name == 'gittins':
     tuning_function = lambda a, b, c: None
     tuning_function_parameter = None
@@ -94,7 +117,8 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
     raise ValueError('Incorrect policy name')
 
 #  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
-  env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [140]])
+  # env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [140]])
+  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[1**2, 1**2])
 
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
@@ -141,7 +165,7 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
       tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env, monte_carlo_reps,
                                                {'pre_simulated_data': pre_simulated_data},
-                                               positive_zeta=positive_zeta)
+                                               bounds, explore_, positive_zeta=positive_zeta)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
     print('standard errors {}'.format(env.standard_errors))
@@ -162,23 +186,24 @@ def episode(policy_name, label, T=100, save=True, monte_carlo_reps=1000):
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
 
-def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
+def run(policy_name, save=True, T=50, monte_carlo_reps=1000, posterior_sample=False):
   """
 
   :return:
   """
-  replicates = 16
+  replicates = 96
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
-  episode_partial = partial(episode, policy_name, T=T, save=False,
-                            monte_carlo_reps=monte_carlo_reps)
-  # num_batches = int(replicates / num_cpus)
+  episode_partial = partial(episode, policy_name, T=T, monte_carlo_reps=monte_carlo_reps,
+                            posterior_sample=posterior_sample)
+  num_batches = int(replicates / num_cpus)
 
-  # for batch in range(num_batches):
-  #   results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-  #   results += results_for_batch
+  results = []
+  for batch in range(num_batches):
+    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+    results += results_for_batch
 
-  results = pool.map(episode_partial, range(replicates))
+  # results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [d['zeta_sequence'] for d in results]
   estimated_means = [d['estimated_means'] for d in results]
@@ -188,12 +213,12 @@ def run(policy_name, save=True, T=100, monte_carlo_reps=1000):
   
   # Save results
   if save:
-    results = {'T': float(100), 'mean_regret': float(np.mean(cumulative_regret)), 'std_regret': float(np.std(cumulative_regret)),
-               'mus': [[0], [1]], 'vars':[[1], [140]], 'regret list': [float(r) for r in cumulative_regret],
+    results = {'T': float(T), 'mean_regret': float(np.mean(cumulative_regret)), 'std_regret': float(np.std(cumulative_regret)),
+               'regret list': [float(r) for r in cumulative_regret],
                'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
                'rewards': rewards, 'actions': actions}
 
-    base_name = 'normalmab-10-{}'.format(policy_name)
+    base_name = 'normalmab-postsample-{}-{}'.format(posterior_sample, policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -211,4 +236,10 @@ if __name__ == '__main__':
   # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
   # run('ts-decay-posterior-sample', T=10, monte_carlo_reps=100)
   # run('eps', T=10, monte_carlo_reps=100)
-  run('ucb-tune-posterior-sample', T=10, monte_carlo_reps=100)
+  # run('ts-fixed', T=100, monte_carlo_reps=1000)
+  run('frequentist-ts-tuned', T=10, monte_carlo_reps=10, posterior_sample=True)
+  run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', T=50, monte_carlo_reps=1000, posterior_sample=True)
+  run('frequentist-ts-tuned', T=50, monte_carlo_reps=1000, posterior_sample=False)
+  run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=False)
+  run('ucb-tune-posterior-sample', T=50, monte_carlo_reps=1000, posterior_sample=False)

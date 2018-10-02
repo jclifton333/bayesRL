@@ -117,7 +117,8 @@ class MAB(Bandit):
 
       each_rep_result = dict()
       initial_model = {'sample_mean_list': copy.copy(self.estimated_means),
-                       'number_of_pulls': copy.copy(self.number_of_pulls)}
+                       'number_of_pulls': copy.copy(self.number_of_pulls),
+                       'standard_error_list': copy.copy(self.standard_errors)}
 
       rewards = np.zeros((0, self.number_of_actions))
       regrets = np.zeros((0, self.number_of_actions))
@@ -196,7 +197,7 @@ class NormalMAB(MAB):
     self.posterior_params_dict[a]['lambda_post'] = post_lambda
     self.posterior_params_dict[a]['alpha_post'] = post_alpha
     self.posterior_params_dict[a]['beta_post'] = post_beta
-    self.posterior_params_dict[a]['post_mean'] = post_mean
+    self.posterior_params_dict[a]['mu_post'] = post_mean
 
   def reward_dbn(self, a):
     # utility is distributed as Normal(mu, var)

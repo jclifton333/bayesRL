@@ -280,9 +280,11 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
   pre_simulated_data = kwargs['pre_simulated_data']
   mean_cumulative_regret = 0.0
+  optimal_reward = np.max(env.list_of_reward_mus)
   for rep, rep_dict in enumerate(pre_simulated_data):
     initial_model = rep_dict['initial_model']
     estimated_means = initial_model['sample_mean_list']
+    standard_errors = initial_model['standard_error_list']
     number_of_pulls = initial_model['number_of_pulls']
 
     # Get obs sequences for this rep
@@ -290,20 +292,25 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
     regrets_sequence = rep_dict['regrets']
     regret_for_rep = 0.0
 
+    rewards_at_each_arm = [np.array([]) for _ in range(env.number_of_actions)]
+
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
-      action = policy(estimated_means, env.standard_errors, None, tuning_function,
+      action = policy(estimated_means, standard_errors, None, tuning_function,
                       tuning_function_parameter, time_horizon, t, env)
 
       # Get reward and regret
       reward = rewards_sequence[t, action]
       # regret = regrets_sequence[t, action]
+      rewards_at_each_arm[action] = np.append(rewards_at_each_arm[action], reward)
       number_of_pulls[action] += 1
-      regret_for_rep += reward
+      expected_reward = env.list_of_reward_mus[action]
+      regret_for_rep += (expected_reward - optimal_reward)
 
       # Update model
       sample_mean_at_action = (reward - estimated_means[action]) / number_of_pulls[action]
       estimated_means[action] = sample_mean_at_action
+      standard_errors[action] = np.sqrt(np.mean((rewards_at_each_arm[action] - sample_mean_at_action)**2))
 
     mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
   return mean_cumulative_regret
