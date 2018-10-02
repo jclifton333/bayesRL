@@ -26,7 +26,7 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
   bootstrap_posterior = False
   positive_zeta = False
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.05  # Constant epsilon
+    tuning_function = lambda a, b, c: 0.1  # Constant epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
@@ -88,6 +88,11 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
     tune = True
     tuning_function_parameter = np.array([1.0, 89.0, 5.0])
     posterior_sample = True
+  elif policy_name == 'ucb':
+    tuning_function = lambda a, b, c: 0.95
+    policy = tuned_bandit.normal_mab_ucb_policy
+    tune = False
+    tuning_function_parameter = None
   elif policy_name == 'frequentist-ts-fixed':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.mab_frequentist_ts_policy
@@ -240,4 +245,3 @@ if __name__ == '__main__':
   run('frequentist-ts-tuned', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
   run('eps-decay', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
   run('ucb-tune-posterior-sample', std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=True)
-
