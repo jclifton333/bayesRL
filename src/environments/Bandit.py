@@ -280,14 +280,14 @@ class LinearCB(Bandit):
     Xprime_X = self.Xprime_X_list[a]
     new_beta = np.dot(new_Lambda_inv, np.dot(Xprime_X, beta_hat))
     n = self.X_list[a].shape[0]
-    new_a = self.a0 + n / 2.0
-    new_b = self.b0 + 0.5 * (np.sum(self.y_list[a]**2) - np.dot(new_beta, np.dot(new_Lambda, new_beta)))
+    # new_a = self.a0 + (n / 2.0)
+    # new_b = self.b0 + 0.5 * (np.sum(self.y_list[a]**2) + np.dot(new_beta, np.dot(new_Lambda, new_beta)))
 
     # Update posterior params  (needed for sampling from posterior)
     self.posterior_params_dict[a]['Lambda_inv_post'] = new_Lambda_inv
     self.posterior_params_dict[a]['Lambda_post'] = new_Lambda
-    self.posterior_params_dict[a]['a_post'] = new_a
-    self.posterior_params_dict[a]['b_post'] = new_b
+    # self.posterior_params_dict[a]['a_post'] = new_a
+    # self.posterior_params_dict[a]['b_post'] = new_b
     self.posterior_params_dict[a]['beta_post'] = new_beta
 
   # def sample_from_bootstrap(self, variance_shrinkage=1.0):
@@ -318,17 +318,19 @@ class LinearCB(Bandit):
     draws_dict = {}
     for a in range(self.number_of_actions):
       # Posterior parameters for this arm
-      a_post = self.posterior_params_dict[a]['a_post']
-      b_post = self.posterior_params_dict[a]['b_post']
+      # a_post = self.posterior_params_dict[a]['a_post']
+      # b_post = self.posterior_params_dict[a]['b_post']
       Lambda_inv_post = self.posterior_params_dict[a]['Lambda_inv_post']
       beta_post = self.posterior_params_dict[a]['beta_post']
 
-      sigma_sq_draw = np.random.gamma(a_post, b_post)
-
+      # sigma_sq_draw = np.random.gamma(a_post, 1.0 / b_post)
+      # Just draw from the damn sampling dbn of sigmasqhat
+      sigma_sq_hat = self.sigma_hat_list[a]**2
+      n = self.X_list[a].shape[0]
+      sigma_sq_draw = np.random.gamma(n / 2.0, n / (2 * sigma_sq_hat))
       beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post,
                                                               variance_shrinkage * sigma_sq_draw * Lambda_inv_post)
       draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_draw}
-
     return draws_dict
 
   def initial_pulls(self):
@@ -550,7 +552,6 @@ class NormalCB(LinearCB):
     b_post_context = self.b0_context + (1/2.0) * (n*s_sq + (self.lambda0 * n * xbar**2) / (self.lambda0_context + n))
     post_lambda_context = self.lambda0_context + n
     post_precision = a_post_context / b_post_context
-    post_var = 1 / post_precision
 
     # Update posterior params  (needed for sampling from posterior)
     self.posterior_context_params_dict['lambda_post_context'] = post_lambda_context

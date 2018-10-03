@@ -158,6 +158,7 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
 #    print('time {} epsilosn {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     beta_hat = np.array(env.beta_hat_list)
     print(env.posterior_params_dict)
+    env.sample_from_posterior()
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
     res = env.step(action)
     cumulative_regret += -env.regret(action, x)
@@ -215,7 +216,7 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', 50)
+  episode('eps', 50)
   # run('eps')
 #  run('greedy', T=50)
 #  run('eps-decay-fixed', T=50)
