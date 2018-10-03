@@ -516,6 +516,15 @@ class NormalCB(LinearCB):
   def __init__(self, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[1, 1],
                context_mean=[1, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
     self.context_var = context_var
+
+    # Context prior params
+    self.a0_context = 0.001
+    self.b0_context = 0.001
+    self.lambda0_context = 1.0 / 10.0
+    self.posterior_context_params_dict = {'mu_post_context': np.zeros(len(context_mean)),
+                                          'a_post_context': self.a0_context, 'b_post_context': self.b0_context,
+                                          'lambda_post_context': self.lambda0_context}
+
     LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
 
   def draw_context(self, context_mean=None, context_var=None):
@@ -525,6 +534,44 @@ class NormalCB(LinearCB):
       context_var = self.context_var  
     return np.random.multivariate_normal(context_mean, context_var)
 
+  def update_posterior(self, a, x, y):
+    super(NormalCB, self).update_posterior(a, x, y)
+
+    # Update context posterior
+    xbar = np.mean(self.X, axis=0)
+    s_sq = np.mean(np.var(self.X, axis=0))
+    n = self.X.shape[0]
+    post_mean = (n * xbar) / (self.lambda0 + n)
+    a_post_context = self.a0_context + n/2.0
+    b_post_context = self.b0_context + (1/2.0) * (n*s_sq + (self.lambda0 * n * xbar**2) / (self.lambda0_context + n))
+    post_lambda_context = self.lambda0_context + n
+    post_precision = a_post_context / b_post_context
+    post_var = 1 / post_precision
+    self.estimated_means[a] = post_mean
+    self.estimated_vars[a] = post_var
+
+    # Update posterior params  (needed for sampling from posterior)
+    self.posterior_context_params_dict['lambda_post_context'] = post_lambda_context
+    self.posterior_context_params_dict['a_post_context'] = a_post_context
+    self.posterior_context_params_dict['b_post_context'] = b_post_context
+    self.posterior_context_params_dict['mu_post_context'] = post_mean
+
+  def sample_from_posterior(self, variance_shrinkage=1.0):
+    draws_dict = super(NormalCB, self).sample_from_posterior(variance_shrinkage=variance_shrinkage)
+
+    # Get posterior parameters
+    a_post_context = self.posterior_context_params_dict['a_post_context']
+    b_post_context = self.posterior_context_params_dict['b_post_context']
+    mu_post_context = self.posterior_context_params_dict['mu_post_context']
+    lambda_post_context = self.posterior_context_params_dict['lambda_post_context']
+
+    # Sample from posterior
+    tau_draw = np.random.gamma(a_post_context, 1.0 / b_post_context)
+    mu_var = variance_shrinkage / (lambda_post_context * tau_draw) * np.eye(self.context_dimension)
+    mu_given_tau_draw = np.random.multivariate_normal(mu_post_context, mu_var)
+    draws_dict = draws_dict.update({'mu_draw': mu_given_tau_draw, 'var_draw': 1.0 / tau_draw })
+
+    return draws_dict
 
 class NormalUniformCB(LinearCB):
   def __init__(self, list_of_reward_betas=[[0.1, -0.1], [0.2, 0.1]], context_mean=[1.0, 0.5], list_of_reward_vars=[[4], [4]],
