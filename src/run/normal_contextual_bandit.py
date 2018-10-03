@@ -215,13 +215,13 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 
 
 if __name__ == '__main__':
-#   episode('eps-decay', 0)
+  episode('eps-decay', 20)
 #  episode('eps',0)
 #   run('eps')
 #  run('greedy', T=50)
 #  run('eps-decay-fixed', T=50)
 #  run('eps', T=1000)
-  run('eps-decay', T=20)
+  # run('eps-decay', T=20)
 #  run('random', T=100)
 #  run('eps-decay', T=10)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
