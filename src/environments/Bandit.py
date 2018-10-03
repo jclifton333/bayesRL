@@ -222,7 +222,7 @@ class BernoulliMAB(MAB):
       
 
 class LinearCB(Bandit):
-  def __init__(self, context_mean, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[1, 1]):
+  def __init__(self, context_mean, list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]], list_of_reward_vars=[1, 1]):
     Bandit.__init__(self)
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
@@ -465,6 +465,8 @@ class LinearCB(Bandit):
         rewards_t = np.array([reward_distribution(a, context, beta_list, var_list)
                               for a in range(self.number_of_actions)])
         rewards = np.vstack((rewards, rewards_t))
+        regrets_t = np.array([self.regret(a, context) for a in range(self.number_of_actions)]) 
+        regrets = np.vstack((regrets, regrets_t))
         estimated_context_mean += (context - estimated_context_mean)/(t+1)
         estimated_context_var = np.cov(contexts, rowvar=False)
 
@@ -490,6 +492,7 @@ class LinearCB(Bandit):
     return self.expected_reward(a, context) - self.optimal_expected_reward(context)
 
   def expected_reward(self, a, context):
+#    pdb.set_trace()
     return np.dot(context, self.list_of_reward_betas[a])
 
   def optimal_expected_reward(self, context):
@@ -532,7 +535,7 @@ class NormalCB(LinearCB):
       context_mean = self.context_mean
     if context_var is None:
       context_var = self.context_var  
-    return np.random.multivariate_normal(context_mean, context_var)
+    return np.append([1.0], np.random.multivariate_normal(context_mean, context_var))
 
   def update_posterior(self, a, x, y):
     super(NormalCB, self).update_posterior(a, x, y)
@@ -571,7 +574,17 @@ class NormalCB(LinearCB):
     mu_given_tau_draw = np.random.multivariate_normal(mu_post_context, mu_var)
     draws_dict = draws_dict.update({'mu_draw': mu_given_tau_draw, 'var_draw': 1.0 / tau_draw })
 
+
+  def sample_from_sampling_dist(self, variance_shrinkage=1.0):
+    draws_dict = super(NormalCB, self).sample_from_posterior(variance_shrinkage=variance_shrinkage)
+    sample_mean = np.mean(self.X, axis=0)
+    sample_var = np.mean(np.std(self.X, axis=0)**2)
+    n = self.X.shape[0]
+    sample_se = np.sqrt(sample_var/n)*np.eye(self.context_dimension)
+    context_mean = np.random.multivariate_normal(sample_mean, sample_se)
+    draws_dict['context_mean'] = context_mean
     return draws_dict
+
 
 class NormalUniformCB(LinearCB):
   def __init__(self, list_of_reward_betas=[[0.1, -0.1], [0.2, 0.1]], context_mean=[1.0, 0.5], list_of_reward_vars=[[4], [4]],

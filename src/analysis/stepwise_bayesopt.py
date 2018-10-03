@@ -17,17 +17,20 @@ import yaml
 
 def bayes_optimize_zeta(seed, mc_rep=1000, T=50):
   np.random.seed(seed)
-
+  
+  env = NormalCB(list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
+            context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1])
   # env = NormalMAB(list_of_reward_mus=[0, 1], list_of_reward_vars=[1, 140])
-  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[1**2, 1**2])
+#  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[1**2, 1**2])
   # X = env.X
   # estimated_context_mean = np.mean(X, axis=0)
   # estimated_context_variance = np.cov(X, rowvar=False)
   # estimated_context_bounds = (np.min(X), np.max(X))
   # sim_env = NormalUniformCB(list_of_reward_betas=env.list_of_reward_betas, list_of_reward_vars=env.list_of_reward_vars,
   #                           context_bounds=env.context_bounds)
-
-  sim_env = NormalMAB(list_of_reward_mus=env.list_of_reward_mus, list_of_reward_vars=env.list_of_reward_vars)
+  sim_env = NormalCB(list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
+            context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1])
+#  sim_env = NormalMAB(list_of_reward_mus=env.list_of_reward_mus, list_of_reward_vars=env.list_of_reward_vars)
   pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T)
   rollout_function_kwargs = {'pre_simulated_data': pre_simulated_data}
 
@@ -35,10 +38,10 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50):
   #   zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
   def objective(zeta0, zeta1, zeta2):
     zeta = np.array([zeta0, zeta1, zeta2])
-    return rollout.mab_rollout_with_fixed_simulations(zeta, policies.mab_frequentist_ts_policy, T,
-                                                      policies.expit_epsilon_decay, sim_env, **rollout_function_kwargs)
-    # return normal_cb_rollout_with_fixed_simulations(zeta, linear_cb_epsilon_greedy_policy, T,
-    #                                                 stepwise_linear_epsilon, sim_env, **rollout_function_kwargs)
+#    return rollout.mab_rollout_with_fixed_simulations(zeta, policies.mab_frequentist_ts_policy, T,
+#                                                      policies.expit_epsilon_decay, sim_env, **rollout_function_kwargs)
+    return rollout.normal_cb_rollout_with_fixed_simulations(zeta, policies.linear_cb_epsilon_greedy_policy, T,
+                                                     policies.expit_epsilon_decay, sim_env, **rollout_function_kwargs)
 
   # bounds = {'zeta{}'.format(i): (0.0, 1.0) for i in range(10)}
   # explore_ = {'zeta{}'.format(i): [0.0] for i in range(10)}
@@ -59,7 +62,7 @@ def plot_epsilon_sequences(fname):
   for param in results.values():
    vals = [policies.expit_epsilon_decay(50, t, param) for t in times]
    plt.plot(times, vals)
-   plt.savefig("bayes-opt-presimulated-normal-mab-0.8max-1000.png")
+   plt.savefig("bayes-opt-presimulated-normal-cb-0.8max-1000.png")
 
 
 def max_observed_epsilons(fname):
