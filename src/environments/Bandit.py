@@ -534,7 +534,7 @@ class NormalCB(LinearCB):
     sample_var = np.mean(np.std(self.X, axis=0)**2)
     n = self.X.shape[0]
     sample_se = np.sqrt(sample_var/n)*np.eye(self.context_dimension)
-    mean = np.random.multivariate_normal(sample_mean, sample_se)
+    context_mean = np.random.multivariate_normal(sample_mean, sample_se)
     draws_dict['context_mean'] = context_mean
     return draws_dict
 

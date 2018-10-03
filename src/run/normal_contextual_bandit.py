@@ -157,7 +157,7 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
     x = copy.copy(env.curr_context)
 #    print('time {} epsilosn {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     beta_hat = np.array(env.beta_hat_list)
-    print(beta_hat, env.sample_mean, env.sample_se, env.sampling_cov_list)
+#    print(beta_hat, env.sample_mean, env.sample_se, env.sampling_cov_list)
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
     res = env.step(action)
     cumulative_regret += -env.regret(action, x)
@@ -195,7 +195,7 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
   zeta_sequences = [d['zeta_sequence'] for d in results]
   actions = [d['actions'] for d in results]
   rewards = [d['rewards'] for d in results]
-#  print(policy_name, 'mean_regrets', float(np.mean(cumulative_regrets)), 'std_rewards',float(np.std(cumulative_regrets))/np.sqrt(replicates))
+  print(policy_name, 'mean_regrets', float(np.mean(cumulative_regrets)), 'std_rewards',float(np.std(cumulative_regrets))/np.sqrt(replicates))
   # Save results
   if save:
     results = {'mean_regret': float(np.mean(cumulative_regrets)), 'std_regret': float(np.std(cumulative_regrets)),
@@ -217,11 +217,11 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 if __name__ == '__main__':
 #   episode('eps-decay', 0)
 #  episode('eps',0)
-#   run('eps')
+   run('eps')
 #  run('greedy', T=50)
 #  run('eps-decay-fixed', T=50)
 #  run('eps', T=1000)
-  run('eps-decay', T=20)
+#  run('eps-decay', T=20)
 #  run('random', T=100)
 #  run('eps-decay', T=10)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
