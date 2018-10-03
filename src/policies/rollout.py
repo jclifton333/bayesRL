@@ -166,8 +166,8 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
 
       # Get reward and regret
       reward = rewards_sequence[t, action]
-      # regret = regrets_sequence[t, action]
-      regret_for_rep += reward
+      regret = regrets_sequence[t, action]
+      regret_for_rep += regret
 
       # Update model
       linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_list[action],
@@ -305,7 +305,7 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
       rewards_at_each_arm[action] = np.append(rewards_at_each_arm[action], reward)
       number_of_pulls[action] += 1
       expected_reward = env.list_of_reward_mus[action]
-      regret_for_rep += (expected_reward - optimal_reward)
+      regret_for_rep += (expected_reward-optimal_reward)
 
       # Update model
       sample_mean_at_action = (reward - estimated_means[action]) / number_of_pulls[action]
