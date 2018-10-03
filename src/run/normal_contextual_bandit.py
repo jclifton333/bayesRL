@@ -121,8 +121,8 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
             if bootstrap_posterior:
               pass
             else:
-#              draws = env.sample_from_posterior()
-              draws = env.sample_from_sampling_dist()
+              draws = env.sample_from_posterior()
+              # draws = env.sample_from_sampling_dist()
             betas_for_each_action = []
             vars_for_each_action = []
             for a in range(env.number_of_actions):
@@ -131,7 +131,7 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
               betas_for_each_action.append(beta_a)
               vars_for_each_action.append(var_a)
             param_dict = {'reward_betas': betas_for_each_action, 'reward_vars': vars_for_each_action,
-                          'context_max': draws['context_mean']}
+                          'context_mean': draws['context_mu_draw'], 'context_var': draws['context_var_draw']}
 #                          'context_max': draws['context_max']}
             gen_model_parameters.append(param_dict)
         else:
@@ -157,7 +157,7 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
     x = copy.copy(env.curr_context)
 #    print('time {} epsilosn {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     beta_hat = np.array(env.beta_hat_list)
-#    print(beta_hat, env.sample_mean, env.sample_se, env.sampling_cov_list)
+    print(env.posterior_params_dict)
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
     res = env.step(action)
     cumulative_regret += -env.regret(action, x)
@@ -215,17 +215,11 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 
 
 if __name__ == '__main__':
-  episode('eps-decay', 20)
-#  episode('eps',0)
-   run('eps')
+  episode('eps-decay', 50)
+  # run('eps')
 #  run('greedy', T=50)
 #  run('eps-decay-fixed', T=50)
 #  run('eps', T=1000)
-<<<<<<< HEAD
-  # run('eps-decay', T=20)
-=======
-#  run('eps-decay', T=20)
->>>>>>> 9c49042a785ebfc27f4dff26c544570cd7d93e95
 #  run('random', T=100)
 #  run('eps-decay', T=10)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)

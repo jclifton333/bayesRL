@@ -281,7 +281,7 @@ class LinearCB(Bandit):
     new_beta = np.dot(new_Lambda_inv, np.dot(Xprime_X, beta_hat))
     n = self.X_list[a].shape[0]
     new_a = self.a0 + n / 2.0
-    new_b = self.b0 + 0.5 * (np.sum(self.y_list[a]**2) + np.dot(new_beta, np.dot(new_Lambda, new_beta)))
+    new_b = self.b0 + 0.5 * (np.sum(self.y_list[a]**2) - np.dot(new_beta, np.dot(new_Lambda, new_beta)))
 
     # Update posterior params  (needed for sampling from posterior)
     self.posterior_params_dict[a]['Lambda_inv_post'] = new_Lambda_inv
@@ -395,8 +395,8 @@ class LinearCB(Bandit):
         u = mean + np.random.normal(scale=np.sqrt(var))
         return u
 
-      def context_distribution(context_max_):
-        context = np.random.uniform(high=context_max_, size=self.context_dimension)
+      def context_distribution(context_mean_, context_var_):
+        context = np.random.multivariate_normal(context_mean_, context_var_ * np.eye(len(context_mean)))
         return context
     else:
       gen_model_params_provided = False
@@ -412,11 +412,12 @@ class LinearCB(Bandit):
       if gen_model_params_provided:
         beta_list = gen_model_params[rep]['reward_betas']
         var_list = gen_model_params[rep]['reward_vars']
-        context_max = gen_model_params[rep]['context_max']
+        context_mean = gen_model_params[rep]['context_mean']
+        context_var = gen_model_params[rep]['context_var']
       else:
         beta_list = None
         var_list = None
-        context_max = None
+        context_mean = context_var = None
 
       each_rep_result = dict()
 
@@ -433,7 +434,7 @@ class LinearCB(Bandit):
 
       for action in range(self.number_of_actions):
         for p in range(3):
-          context = context_distribution(context_max)
+          context = context_distribution(context_mean, context_var)
           reward = self.reward_dbn(action)
           linear_model_results = la.update_linear_model(X_list[action], y_list[action],
                                                         Xprime_X_list[action], Xprime_X_inv_list[action],
@@ -550,8 +551,6 @@ class NormalCB(LinearCB):
     post_lambda_context = self.lambda0_context + n
     post_precision = a_post_context / b_post_context
     post_var = 1 / post_precision
-    self.estimated_means[a] = post_mean
-    self.estimated_vars[a] = post_var
 
     # Update posterior params  (needed for sampling from posterior)
     self.posterior_context_params_dict['lambda_post_context'] = post_lambda_context
@@ -572,7 +571,9 @@ class NormalCB(LinearCB):
     tau_draw = np.random.gamma(a_post_context, 1.0 / b_post_context)
     mu_var = variance_shrinkage / (lambda_post_context * tau_draw) * np.eye(self.context_dimension)
     mu_given_tau_draw = np.random.multivariate_normal(mu_post_context, mu_var)
-    draws_dict = draws_dict.update({'mu_draw': mu_given_tau_draw, 'var_draw': 1.0 / tau_draw })
+    draws_dict['context_mu_draw'] = mu_given_tau_draw
+    draws_dict['context_var_draw'] = 1.0 / tau_draw
+    return draws_dict
 
 
   def sample_from_sampling_dist(self, variance_shrinkage=1.0):
