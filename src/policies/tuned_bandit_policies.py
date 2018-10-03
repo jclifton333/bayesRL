@@ -81,8 +81,8 @@ def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tun
                       tuning_function_parameter, T, t, env):
   ## alpha (percentile): decrease from a little bit smaller than 1 to 1/2 at T
   ## scale and shift
-  alpha = 0.5*tuning_function(T, t, tuning_function_parameter) + 0.5
-  z = scipy.stats.norm.ppf(alpha)
+  one_minus_alpha = 0.5*tuning_function(T, t, tuning_function_parameter) + 0.5
+  z = scipy.stats.norm.ppf(one_minus_alpha)
   action = np.argmax(estimated_means + z * standard_errors)
   return action
   
