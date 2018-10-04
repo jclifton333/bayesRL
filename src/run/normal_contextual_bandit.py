@@ -21,7 +21,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
+def episode(policy_name, label, n_patients=10, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
             mc_replicates=1000, pre_simulate=True):
   np.random.seed(label)
@@ -160,7 +160,8 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
 #                                  context_bounds=estimated_context_bounds)
         sim_env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
                            list_of_reward_vars=list_of_reward_vars)
-        pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T, gen_model_params=gen_model_parameters)
+        pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T, n_patients=n_patients,
+                                                         gen_model_params=gen_model_parameters)
         tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
                                                  tuning_function, tuning_function_parameter, T,
                                                  sim_env, mc_replicates,
@@ -173,18 +174,16 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
                                                                linear_model_results, T, t, estimated_context_mean,
                                                                estimated_context_variance, env)
 
-    
-    x = copy.copy(env.curr_context)
-    beta_hat = np.array([env.posterior_params_dict[a]['beta_post'] for a in range(env.number_of_actions)])
-    # print(env.posterior_params_dict)
-    action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
-    res = env.step(action)
-    cumulative_regret += -env.regret(action, x)
-    actions.append(action)
-    u = res['Utility']
-    rewards.append(u)
-#   cumulative_regret += u
-#    print(t, beta_hat[1])
+    for patient in range(n_patients):
+      x = copy.copy(env.curr_context)
+      beta_hat = np.array([env.posterior_params_dict[a]['beta_post'] for a in range(env.number_of_actions)])
+      # print(env.posterior_params_dict)
+      action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
+      res = env.step(action)
+      cumulative_regret += -env.regret(action, x)
+      actions.append(action)
+      u = res['Utility']
+      rewards.append(u)
 
   return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence,
           'rewards': rewards, 'actions': actions}
@@ -236,8 +235,8 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 
 if __name__ == '__main__':
   # episode('eps', 50)
-  # episode('eps-decay-fixed', 0, T=50)
-  run('eps-decay-fixed', T=50)
+  episode('eps-decay-fixed', 0, T=50)
+  # run('eps-decay-fixed', T=50)
   # run('eps', T=50)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)

@@ -378,7 +378,7 @@ class LinearCB(Bandit):
     x = self.next_context()
     return {'Utility': u, 'New context': x}
 
-  def generate_mc_samples(self, mc_reps, time_horizon, gen_model_params=None):
+  def generate_mc_samples(self, mc_reps, time_horizon, n_patients=10, gen_model_params=None):
     """
 
     :param mc_reps:
@@ -455,21 +455,28 @@ class LinearCB(Bandit):
                               'sampling_cov_list': sampling_cov_list, 'sigma_hat_list': sigma_hat_list,
                               'Xprime_X_list': Xprime_X_list}
 
-      rewards = np.zeros((0, self.number_of_actions))
-      regrets = np.zeros((0, self.number_of_actions))
-      contexts = np.zeros((0, self.context_dimension))
+      rewards = []
+      regrets = []
+      contexts = []
       estimated_context_mean = np.zeros(self.context_dimension)
       estimated_context_var = np.diag(np.ones(self.context_dimension))
 
       for t in range(time_horizon):
-        context = self.next_context()
-        contexts = np.vstack((contexts, context))
-        opt_expected_reward = self.optimal_expected_reward(context)
-        rewards_t = np.array([reward_distribution(a, context, beta_list, var_list)
-                              for a in range(self.number_of_actions)])
-        rewards = np.vstack((rewards, rewards_t))
-        regrets_t = np.array([self.regret(a, context) for a in range(self.number_of_actions)]) 
-        regrets = np.vstack((regrets, regrets_t))
+        rewards_block = np.zeros((n_patients, self.number_of_actions))
+        regrets_block = np.zeros((n_patients, self.number_of_actions))
+        contexts_block = np.zeros((n_patients, self.context_dimension))
+
+        for patient in range(n_patients):
+          context = self.next_context()
+          contexts_block[patient, :] = context
+          opt_expected_reward = self.optimal_expected_reward(context)
+          rewards_block[patient, :] = np.array([reward_distribution(a, context, beta_list, var_list)
+                                      for a in range(self.number_of_actions)])
+          regrets_block[patient, :] = np.array([self.regret(a, context) for a in range(self.number_of_actions)])
+
+        rewards.append(rewards_block)
+        regrets.append(regrets_block)
+        contexts.append(contexts_block)
         estimated_context_mean += (context - estimated_context_mean)/(t+1)
         estimated_context_var = np.cov(contexts, rowvar=False)
 
