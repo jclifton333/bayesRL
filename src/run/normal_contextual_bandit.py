@@ -13,6 +13,7 @@ from src.policies import global_optimization as opt
 from src.policies import rollout
 import copy
 import numpy as np
+import src.policies.linear_algebra as la
 from scipy.linalg import block_diag
 from functools import partial
 import datetime
@@ -26,7 +27,7 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
   np.random.seed(label)
 
   # ToDo: Create policy class that encapsulates this behavior
-  posterior_sample = False
+  posterior_sample = True
   bootstrap_posterior = False
   positive_zeta = False
   if policy_name == 'eps':
@@ -40,10 +41,10 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    tuning_function = lambda a, t, c: 0.5 / np.sqrt(t + 1)
+    tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
-    tuning_function_parameter = None
+    tuning_function_parameter = np.array([0.8, 46.38, 1.857])
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
@@ -103,10 +104,28 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
                 list_of_reward_vars=list_of_reward_vars)
 #  env = NormalUniformCB(list_of_reward_betas=[np.ones(10) + 0.05, np.ones(10)], list_of_reward_vars=[0.01, 25])
   cumulative_regret = 0.0
-  env.reset()
+  # env.reset()
   tuning_parameter_sequence = []
   rewards = []
   actions = []
+
+  # Using pre-simulated data
+  # data_for_episode = env.generate_mc_samples(1, T)
+  # rep_dict = data_for_episode[0]
+  # initial_linear_model = rep_dict['initial_linear_model']
+  # beta_hat_list = initial_linear_model['beta_hat_list']
+  # Xprime_X_list = initial_linear_model['Xprime_X_list']
+  # Xprime_X_inv_list = initial_linear_model['Xprime_X_inv_list']
+  # X_list = initial_linear_model['X_list']
+  # y_list = initial_linear_model['y_list']
+  # X_dot_y_list = initial_linear_model['X_dot_y_list']
+  # sampling_cov_list = initial_linear_model['sampling_cov_list']
+  # sigma_hat_list = initial_linear_model['sigma_hat_list']
+
+  # context_sequence = rep_dict['contexts']
+  # regrets_sequence = rep_dict['regrets']
+  # rewards_sequence = rep_dict['rewards']
+
   for t in range(T):
     X = env.X
     estimated_context_mean = np.mean(X, axis=0)
@@ -154,19 +173,19 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
                                                                linear_model_results, T, t, estimated_context_mean,
                                                                estimated_context_variance, env)
 
+    
     x = copy.copy(env.curr_context)
-#    print('time {} epsilosn {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
-    beta_hat = np.array(env.beta_hat_list)
-    print(env.posterior_context_params_dict)
-    env.sample_from_posterior()
+    beta_hat = np.array([env.posterior_params_dict[a]['beta_post'] for a in range(env.number_of_actions)])
+    # print(env.posterior_params_dict)
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
     res = env.step(action)
     cumulative_regret += -env.regret(action, x)
     actions.append(action)
     u = res['Utility']
     rewards.append(u)
-#    cumulative_regret += u
+#   cumulative_regret += u
 #    print(t, beta_hat[1])
+
   return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence,
           'rewards': rewards, 'actions': actions}
 
@@ -183,7 +202,7 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
   context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]])
   list_of_reward_vars=[1, 1]
 
-  replicates = 16
+  replicates = 96
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -216,13 +235,10 @@ def run(policy_name, save=True, mc_replicates=1000, T=100):
 
 
 if __name__ == '__main__':
-  episode('eps', 50)
-  # run('eps')
-#  run('greedy', T=50)
-#  run('eps-decay-fixed', T=50)
-#  run('eps', T=1000)
-#  run('random', T=100)
-#  run('eps-decay', T=10)
+  # episode('eps', 50)
+  # episode('eps-decay-fixed', 0, T=50)
+  run('eps-decay-fixed', T=50)
+  # run('eps', T=50)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
   # run('ts-decay-posterior-sample', T=10, mc_replicates=100)

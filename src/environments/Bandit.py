@@ -340,7 +340,7 @@ class LinearCB(Bandit):
     """
     self.initial_context()
     for a in range(self.number_of_actions):
-      for rep in range(2):
+      for rep in range(3):
         self.step(a)
 
   def update_linear_model(self, a, x_new, y_new):
@@ -406,7 +406,7 @@ class LinearCB(Bandit):
       def reward_distribution(a, context_, beta_list, var_list):
         return self.expected_reward(a, context_) + self.reward_noise(a)
 
-      def context_distribution(context_max_):
+      def context_distribution(context_mean_, context_var_):
         return self.draw_context()
 
     results = []
