@@ -33,7 +33,10 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50):
 #  sim_env = NormalMAB(list_of_reward_mus=env.list_of_reward_mus, list_of_reward_vars=env.list_of_reward_vars)
   pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T)
   rollout_function_kwargs = {'pre_simulated_data': pre_simulated_data}
+  ans  =rollout.normal_cb_rollout_with_fixed_simulations(None, policies.linear_cb_epsilon_greedy_policy, T,
+          lambda a, b, c: 0.05, sim_env, **rollout_function_kwargs)
 
+  print(ans)
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
   #   zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
   def objective(zeta0, zeta1, zeta2):
@@ -45,13 +48,13 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50):
 
   # bounds = {'zeta{}'.format(i): (0.0, 1.0) for i in range(10)}
   # explore_ = {'zeta{}'.format(i): [0.0] for i in range(10)}
-  explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [50.0, 99.0, 1.0], 'zeta2': [0.1, 5, 2.0]}
-  bounds = {'zeta0': (0.8, 2.0), 'zeta1': (20.0, 99.0), 'zeta2': (0.01, 5.0)}
+  explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
+  bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
   bo.maximize(init_points=10, n_iter=20, alpha=1e-4)
   best_param = bo.res['max']['max_params']
-  best_param = np.array([best_param['zeta{}'.format(i)] for i in range(10)])
+  best_param = np.array([best_param['zeta{}'.format(i)] for i in range(3)])
   return best_param
 
 
@@ -157,18 +160,18 @@ def plot_approximate_epsilon_sequences_from_sims(fname):
 
 
 if __name__ == "__main__":
-  num_processes = 4
-  num_replicates = num_processes
-  pool = mp.Pool(num_processes)
-  # params = []
-  # for batch in range(int(num_replicates / num_processes)):
-  #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
-  params = pool.map(bayes_optimize_zeta, range(num_processes))
-  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
-  with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
-    yaml.dump(params_dict, handle)
+  # num_processes = 4
+  # num_replicates = num_processes
+  # pool = mp.Pool(num_processes)
+  # # params = []
+  # # for batch in range(int(num_replicates / num_processes)):
+  # #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
+  # params = pool.map(bayes_optimize_zeta, range(num_processes))
+  # params_dict = {str(i): params[i].tolist() for i in range(len(params))}
+  # with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
+  #   yaml.dump(params_dict, handle)
 
-  # p = bayes_optimize_zeta(0, mc_rep=1000)
+  p = bayes_optimize_zeta(0, T=50, mc_rep=1000)
   # print(p)
 
   # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-low-var-1000.yml")
