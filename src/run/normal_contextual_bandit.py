@@ -157,7 +157,7 @@ def episode(policy_name, label, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9
     x = copy.copy(env.curr_context)
 #    print('time {} epsilosn {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     beta_hat = np.array(env.beta_hat_list)
-    print(env.posterior_params_dict)
+    print(env.posterior_context_params_dict)
     env.sample_from_posterior()
     action = policy(beta_hat, env.sampling_cov_list, x, tuning_function, tuning_function_parameter, T, t, env)
     res = env.step(action)

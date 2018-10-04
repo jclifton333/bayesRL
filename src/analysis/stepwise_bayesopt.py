@@ -157,18 +157,18 @@ def plot_approximate_epsilon_sequences_from_sims(fname):
 
 
 if __name__ == "__main__":
-  num_processes = 4
-  num_replicates = num_processes
-  pool = mp.Pool(num_processes)
-  # params = []
-  # for batch in range(int(num_replicates / num_processes)):
-  #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
-  params = pool.map(bayes_optimize_zeta, range(num_processes))
-  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
-  with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
-    yaml.dump(params_dict, handle)
+  # num_processes = 4
+  # num_replicates = num_processes
+  # pool = mp.Pool(num_processes)
+  # # params = []
+  # # for batch in range(int(num_replicates / num_processes)):
+  # #   params += pool.map(bayes_optimize_zeta, range(batch*num_processes, (batch+1)*num_processes))
+  # params = pool.map(bayes_optimize_zeta, range(num_processes))
+  # params_dict = {str(i): params[i].tolist() for i in range(len(params))}
+  # with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
+  #   yaml.dump(params_dict, handle)
 
-  # p = bayes_optimize_zeta(0, mc_rep=1000)
+  p = bayes_optimize_zeta(0, mc_rep=1000)
   # print(p)
 
   # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-low-var-1000.yml")

@@ -551,7 +551,6 @@ class NormalCB(LinearCB):
     a_post_context = self.a0_context + n/2.0
     b_post_context = self.b0_context + (1/2.0) * (n*s_sq + (self.lambda0 * n * xbar**2) / (self.lambda0_context + n))
     post_lambda_context = self.lambda0_context + n
-    post_precision = a_post_context / b_post_context
 
     # Update posterior params  (needed for sampling from posterior)
     self.posterior_context_params_dict['lambda_post_context'] = post_lambda_context
