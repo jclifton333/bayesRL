@@ -477,8 +477,8 @@ class LinearCB(Bandit):
         rewards.append(rewards_block)
         regrets.append(regrets_block)
         contexts.append(contexts_block)
-        estimated_context_mean += (context - estimated_context_mean)/(t+1)
-        estimated_context_var = np.cov(contexts, rowvar=False)
+        # estimated_context_mean += (context - estimated_context_mean)/(t+1)
+        # estimated_context_var = np.cov(contexts, rowvar=False)
 
       each_rep_result['contexts'] = contexts
       each_rep_result['rewards'] = rewards
