@@ -186,6 +186,8 @@ def episode(policy_name, label, n_patients=10, list_of_reward_betas=[[-10, 0.4, 
       rewards.append(u)
     print(beta_hat)
 
+    if t == 0:
+      break
   return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence,
           'rewards': rewards, 'actions': actions}
 
@@ -229,8 +231,8 @@ def run(policy_name, save=True, mc_replicates=1000, T=50):
 
 if __name__ == '__main__':
   # episode('eps', 50)
-  # episode('eps-decay', 0, T=10)
-  run('eps-decay', T=50)
+  episode('eps-decay', 0, T=50)
+  # run('eps-decay', T=50)
   # run('eps', T=50)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)

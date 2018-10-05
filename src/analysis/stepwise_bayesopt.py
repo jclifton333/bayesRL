@@ -15,11 +15,14 @@ import matplotlib.pyplot as plt
 import yaml
 
 
-def bayes_optimize_zeta(seed, mc_rep=1000, T=50):
+def bayes_optimize_zeta(seed, mc_rep=1000, T=50, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
+                        context_mean=np.array([[0.0, 0.0, 0.0]]), context_var=np.eye(3),
+                        list_of_reward_vars=[1.0, 1.0]):
+
   np.random.seed(seed)
   
-  env = NormalCB(list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
-            context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1])
+  sim_env = NormalCB(5, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
+            context_var=context_var, list_of_reward_vars=list_of_reward_vars)
   # env = NormalMAB(list_of_reward_mus=[0, 1], list_of_reward_vars=[1, 140])
 #  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[1**2, 1**2])
   # X = env.X
@@ -28,17 +31,15 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50):
   # estimated_context_bounds = (np.min(X), np.max(X))
   # sim_env = NormalUniformCB(list_of_reward_betas=env.list_of_reward_betas, list_of_reward_vars=env.list_of_reward_vars,
   #                           context_bounds=env.context_bounds)
-  sim_env = NormalCB(list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
-            context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1])
+  # sim_env = NormalCB(list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
+  #           context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1])
 #  sim_env = NormalMAB(list_of_reward_mus=env.list_of_reward_mus, list_of_reward_vars=env.list_of_reward_vars)
   pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T)
   rollout_function_kwargs = {'pre_simulated_data': pre_simulated_data}
-  ans  =rollout.normal_cb_rollout_with_fixed_simulations(None, policies.linear_cb_epsilon_greedy_policy, T,
-          lambda a, b, c: 0.05, sim_env, **rollout_function_kwargs)
 
-  print(ans)
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
   #   zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
+
   def objective(zeta0, zeta1, zeta2):
     zeta = np.array([zeta0, zeta1, zeta2])
 #    return rollout.mab_rollout_with_fixed_simulations(zeta, policies.mab_frequentist_ts_policy, T,
@@ -48,7 +49,7 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50):
 
   # bounds = {'zeta{}'.format(i): (0.0, 1.0) for i in range(10)}
   # explore_ = {'zeta{}'.format(i): [0.0] for i in range(10)}
-  explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
+  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
   bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
@@ -171,7 +172,15 @@ if __name__ == "__main__":
   # with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
   #   yaml.dump(params_dict, handle)
 
-  p = bayes_optimize_zeta(0, T=50, mc_rep=1000)
+  # p = bayes_optimize_zeta(0, T=50, mc_rep=1000)
+  num_initial_pulls_list = [5, 15, 25]
+  for num_initial_pulls in num_initial_pulls_list:
+    env = NormalCB(num_initial_pulls, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
+                   context_mean=np.array([0.0, 0.0, 0.0]), context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]),
+                   list_of_reward_vars=[1, 1])
+    p = bayes_optimize_zeta(0, T=50, mc_rep=1000, list_of_reward_betas=env.beta_hat_list,
+                            context_mean=env.estimated_context_mean[1:], context_var=env.estimated_context_cov[1:, 1:],
+                            list_of_reward_vars=np.array(env.sigma_hat_list)**2)
   # print(p)
 
   # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-low-var-1000.yml")

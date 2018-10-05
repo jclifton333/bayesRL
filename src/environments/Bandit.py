@@ -222,11 +222,12 @@ class BernoulliMAB(MAB):
       
 
 class LinearCB(Bandit):
-  def __init__(self, context_mean, list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]], list_of_reward_vars=[1, 1]):
+  def __init__(self, num_initial_pulls, context_mean, list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]], list_of_reward_vars=[1, 1]):
     Bandit.__init__(self)
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
     ## context_var: the covariance matrix
+    self.num_initial_pulls = num_initial_pulls
     self.context_mean = context_mean
     self.number_of_actions = len(list_of_reward_vars)
     self.context_dimension = len(list_of_reward_betas[0]) 
@@ -268,6 +269,8 @@ class LinearCB(Bandit):
     self.sampling_cov_list_initial = self.sampling_cov_list[:]
     self.sigma_hat_list_initial = self.sigma_hat_list[:]
     self.X_initial = copy.copy(self.X)
+    self.estimated_context_mean = np.mean(self.X, axis=0)
+    self.estimated_context_cov = np.cov(self.X, rowvar=False)
 
   def update_posterior(self, a, x, y):
     """
@@ -340,7 +343,7 @@ class LinearCB(Bandit):
     """
     self.initial_context()
     for a in range(self.number_of_actions):
-      for rep in range(3):
+      for rep in range(self.num_initial_pulls):
         self.step(a)
 
   def update_linear_model(self, a, x_new, y_new):
@@ -376,6 +379,8 @@ class LinearCB(Bandit):
     self.update_linear_model(a, self.curr_context, u)
     self.update_posterior(a, self.curr_context, u)
     x = self.next_context()
+    self.estimated_context_mean = np.mean(self.X, axis=0)
+    self.estimated_context_cov = np.cov(self.X, rowvar=False)
     return {'Utility': u, 'New context': x}
 
   def generate_mc_samples(self, mc_reps, time_horizon, n_patients=10, gen_model_params=None):
@@ -526,7 +531,7 @@ class LinearCB(Bandit):
 
 
 class NormalCB(LinearCB):
-  def __init__(self, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[1, 1],
+  def __init__(self, num_initial_pulls, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[1, 1],
                context_mean=[1, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
     self.context_var = context_var
 
@@ -538,7 +543,7 @@ class NormalCB(LinearCB):
                                           'a_post_context': self.a0_context, 'b_post_context': self.b0_context,
                                           'lambda_post_context': self.lambda0_context}
 
-    LinearCB.__init__(self, context_mean, list_of_reward_betas, list_of_reward_vars)
+    LinearCB.__init__(self, num_initial_pulls, context_mean, list_of_reward_betas, list_of_reward_vars)
 
   def draw_context(self, context_mean=None, context_var=None):
     if context_mean is None:
