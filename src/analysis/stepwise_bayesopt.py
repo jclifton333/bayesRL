@@ -160,6 +160,16 @@ def plot_approximate_epsilon_sequences_from_sims(fname):
   return
 
 
+def fixed_pulls(num_initial_pulls):
+  env = NormalCB(num_initial_pulls, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
+                 context_mean=np.array([0.0, 0.0, 0.0]), context_var=np.array([[1.0, 0, 0], [0, 1., 0], [0, 0, 1.]]),
+                 list_of_reward_vars=[1, 1])
+  p = bayes_optimize_zeta(0, T=50, mc_rep=1000, list_of_reward_betas=env.beta_hat_list,
+                          context_mean=env.estimated_context_mean[1:], context_var=env.estimated_context_cov[1:, 1:],
+                          list_of_reward_vars=np.array(env.sigma_hat_list) ** 2)
+  return {'num_initial_pulls': num_initial_pulls, 'theta_opt': p}
+
+
 if __name__ == "__main__":
   # num_processes = 4
   # num_replicates = num_processes
@@ -172,15 +182,23 @@ if __name__ == "__main__":
   # with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
   #   yaml.dump(params_dict, handle)
 
+  pulls_list = [5]*24 + [15]*24 + [25]*24 + [35]*24
+  pool = mp.Pool(96)
+  res = pool.map(fixed_pulls, pulls_list)
+
+  res_dict = {'num_initial_pulls': [d['num_initial_pulls'] for d in res], 'theta_opt': [d['theta_opt'] for d in res]}
+  with open('initial-pulls-params.yml', 'w') as handle:
+    yaml.dump(res_dict, handle)
+
   # p = bayes_optimize_zeta(0, T=50, mc_rep=1000)
-  num_initial_pulls_list = [5, 15, 25]
-  for num_initial_pulls in num_initial_pulls_list:
-    env = NormalCB(num_initial_pulls, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
-                   context_mean=np.array([0.0, 0.0, 0.0]), context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]),
-                   list_of_reward_vars=[1, 1])
-    p = bayes_optimize_zeta(0, T=50, mc_rep=1000, list_of_reward_betas=env.beta_hat_list,
-                            context_mean=env.estimated_context_mean[1:], context_var=env.estimated_context_cov[1:, 1:],
-                            list_of_reward_vars=np.array(env.sigma_hat_list)**2)
+  # num_initial_pulls_list = [5, 15, 25]
+  # for num_initial_pulls in num_initial_pulls_list:
+  #   env = NormalCB(num_initial_pulls, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
+  #                  context_mean=np.array([0.0, 0.0, 0.0]), context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]),
+  #                  list_of_reward_vars=[1, 1])
+  #   p = bayes_optimize_zeta(0, T=50, mc_rep=1000, list_of_reward_betas=env.beta_hat_list,
+  #                           context_mean=env.estimated_context_mean[1:], context_var=env.estimated_context_cov[1:, 1:],
+  #                           list_of_reward_vars=np.array(env.sigma_hat_list)**2)
   # print(p)
 
   # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-low-var-1000.yml")
