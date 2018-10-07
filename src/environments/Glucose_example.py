@@ -72,7 +72,7 @@ class Glucose_Approx(object):
 
     # Transition to next state
     x = np.concatenate(([1], self.current_state, self.last_state, [self.last_action], [action]))
-    glucose, food, activity = np.random.multivariate_normal(np.dot(self.bet_hat, x), cov=self.Sigma_hat)
+    glucose, food, activity = np.random.multivariate_normal(np.dot(self.beta_hat, x), cov=self.Sigma_hat)
 
     # Update current and last state and action info
     self.last_state = copy.copy(self.current_state)
