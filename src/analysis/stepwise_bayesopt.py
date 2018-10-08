@@ -21,7 +21,7 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50, list_of_reward_betas=[[-10, 0.4
 
   np.random.seed(seed)
   
-  sim_env = NormalCB(5, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
+  sim_env = NormalCB(1, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
             context_var=context_var, list_of_reward_vars=list_of_reward_vars)
   # env = NormalMAB(list_of_reward_mus=[0, 1], list_of_reward_vars=[1, 140])
 #  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[1**2, 1**2])
@@ -34,7 +34,7 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50, list_of_reward_betas=[[-10, 0.4
   # sim_env = NormalCB(list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
   #           context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1])
 #  sim_env = NormalMAB(list_of_reward_mus=env.list_of_reward_mus, list_of_reward_vars=env.list_of_reward_vars)
-  pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T)
+  pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T, n_patients=1)
   rollout_function_kwargs = {'pre_simulated_data': pre_simulated_data}
 
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
@@ -49,11 +49,11 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50, list_of_reward_betas=[[-10, 0.4
 
   # bounds = {'zeta{}'.format(i): (0.0, 1.0) for i in range(10)}
   # explore_ = {'zeta{}'.format(i): [0.0] for i in range(10)}
-  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
-  bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
+  bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=20, alpha=1e-4)
+  bo.maximize(init_points=10, n_iter=10, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(3)])
   return best_param
@@ -161,13 +161,14 @@ def plot_approximate_epsilon_sequences_from_sims(fname):
 
 
 def fixed_pulls(num_initial_pulls):
+  np.random.seed(num_initial_pulls)
   env = NormalCB(num_initial_pulls, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
                  context_mean=np.array([0.0, 0.0, 0.0]), context_var=np.array([[1.0, 0, 0], [0, 1., 0], [0, 0, 1.]]),
                  list_of_reward_vars=[1, 1])
-  p = bayes_optimize_zeta(0, T=50, mc_rep=1000, list_of_reward_betas=env.beta_hat_list,
+  p = bayes_optimize_zeta(num_initial_pulls, T=30, mc_rep=1000, list_of_reward_betas=env.beta_hat_list,
                           context_mean=env.estimated_context_mean[1:], context_var=env.estimated_context_cov[1:, 1:],
                           list_of_reward_vars=np.array(env.sigma_hat_list) ** 2)
-  return {'num_initial_pulls': num_initial_pulls, 'theta_opt': p}
+  return {'num_initial_pulls': num_initial_pulls, 'theta_opt': [float(param) for param in p]}
 
 
 if __name__ == "__main__":
@@ -182,13 +183,18 @@ if __name__ == "__main__":
   # with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
   #   yaml.dump(params_dict, handle)
 
-  pulls_list = [5]*24 + [15]*24 + [25]*24 + [35]*24
+  pulls_list = [1]*24 + [5]*24 + [15]*24 + [25]*24
   pool = mp.Pool(96)
   res = pool.map(fixed_pulls, pulls_list)
 
-  res_dict = {'num_initial_pulls': [d['num_initial_pulls'] for d in res], 'theta_opt': [d['theta_opt'] for d in res]}
-  with open('initial-pulls-params.yml', 'w') as handle:
+  res_dict = {1: [], 5: [], 15: [], 25: []}
+  for d in res:
+    initial_pulls_ = d['num_initial_pulls']
+    param_ = d['theta_opt']
+    res_dict[initial_pulls_].append(param_)
+  with open('initial-pulls-params-3.yml', 'w') as handle:
     yaml.dump(res_dict, handle)
+  print('dumped')
 
   # p = bayes_optimize_zeta(0, T=50, mc_rep=1000)
   # num_initial_pulls_list = [5, 15, 25]
