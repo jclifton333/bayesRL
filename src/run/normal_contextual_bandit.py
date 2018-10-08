@@ -21,7 +21,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, n_patients=10, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
+def episode(policy_name, label, n_patients=15, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
             mc_replicates=1000, pre_simulate=True):
   np.random.seed(label)
@@ -49,10 +49,10 @@ def episode(policy_name, label, n_patients=10, list_of_reward_betas=[[-10, 0.4, 
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = True
+    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
+    bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
     tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
     posterior_sample = True
-    bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
   elif policy_name == 'greedy':
     tuning_function = lambda a, b, c: 0.00  # Constant epsilon
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
@@ -231,8 +231,8 @@ def run(policy_name, save=True, mc_replicates=1000, T=50):
 
 if __name__ == '__main__':
   # episode('eps', 50)
-  episode('eps-decay', 0, T=50)
-  # run('eps-decay', T=50)
+  # episode('eps-decay', 0, T=50)
+  run('eps-decay', T=30)
   # run('eps', T=50)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
