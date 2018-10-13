@@ -481,7 +481,7 @@ def run(policy_name, save=True, mc_replicates=30, T=50):
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
-    np.save(filename, results)
+    np.save('{}_{}'.format(prefix, suffix), results)
     with open(filename, 'w') as outfile:
       yaml.dump(results, outfile)
 
