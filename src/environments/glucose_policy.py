@@ -431,9 +431,9 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
       tuning_function_parameter = bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
                                            T, env, mc_replicates, bounds, explore_, x_initials, sx_initials,
                                            number_of_value_iterations, gamma)
-      print("epsilon {}".format(tuning_function(T, t, tuning_function_parameter)))
+#      print("epsilon {}".format(tuning_function(T, t, tuning_function_parameter)))
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter]) 
-    print('time {}, tuning_function_parameter {}'.format(t, tuning_function_parameter)) 
+#    print('time {}, tuning_function_parameter {}'.format(t, tuning_function_parameter)) 
     optimal_actions = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, 
                               number_of_value_iterations=number_of_value_iterations)
     actions = policy(optimal_actions, tuning_function, tuning_function_parameter, T, t)
@@ -442,42 +442,46 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
 #    print('time {}: reward {}; action {}, glucose {}'.format(time, reward, action, x_initial[1]))
     rewards[t] = reward
     actions_array[:, t] = actions
-  print('cum_rewards {}'.format( sum(rewards)) )
+  print('cum_rewards {}, rewards {}'.format( sum(rewards), rewards) )
+#  print(type(rewards))
 #  plt.plot(rewards) 
 #  plt.show()
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions_array}
     
       
-def run(policy_name, save=True, mc_replicates=5, T=50):
+def run(policy_name, save=True, mc_replicates=30, T=50):
   """
 
   :return:
   """
 
-  replicates = 48
+#  replicates = 48
 #  num_cpus = int(mp.cpu_count())
-  num_cpus = 48
+  num_cpus = 4
+  replicates = num_cpus 
   results = []
   pool = mp.Pool(processes=num_cpus)
 
   episode_partial = partial(episode, policy_name, mc_replicates=mc_replicates, T=T)
 
   results = pool.map(episode_partial, range(replicates))
+#  pdb.set_trace()
 #  cumulative_regrets = [np.float(d['cumulative_regret']) for d in results]
-  zeta_sequences = [d['zeta_sequence'] for d in results]
-  actions = [d['actions'] for d in results]
-  cum_rewards = [d['cum_rewards'] for d in results]
-  rewards = [d['rewards'] for d in results]
+  zeta_sequences = [list(d['zeta_sequence']) for d in results]
+  actions = [list(d['actions']) for d in results]
+  cum_rewards = [float(d['cum_rewards']) for d in results]
+#  rewards = [list(d['rewards'].astype(float)) for d in results]
   print(policy_name, 'rewards', float(np.mean(cum_rewards)), 'se_rewards',float(np.std(cum_rewards))/np.sqrt(replicates))
   # Save results
   if save:
-    results = {'cum_rewards': cum_rewards, 'zeta_sequences': zeta_sequences, 'actions': actions, 'rewards':rewards}
+    results = {'cum_rewards': cum_rewards, 'zeta_sequences': zeta_sequences, 'actions': actions}#, 'rewards':rewards}
 
     base_name = 'mdp-glucose-{}'.format(policy_name)
-    prefix = os.path.join(project_dir, 'src', 'run', base_name)
+    prefix = os.path.join(project_dir, 'src', 'environments', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
+    np.save(filename, results)
     with open(filename, 'w') as outfile:
       yaml.dump(results, outfile)
 
@@ -488,9 +492,9 @@ if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=2)
-  run('eps-decay', T=15)
-  run('eps-fixed-decay', T=15)
-  run('eps', T=15)
+  run('eps-decay', T=2)
+  run('eps-fixed-decay', T=2)
+  run('eps', T=2)
 #  episode('eps', 0, T=50)
 #  episode('eps-fixed-decay', 0, T=50)
 #  num_processes = 4
