@@ -185,3 +185,4 @@ fabric.properties
 *.yml
 *.png
 *.DS_Store
+*.npy
