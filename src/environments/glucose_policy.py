@@ -368,8 +368,26 @@ def rollout_under_true_model(tuning_function_parameter, mdp_epsilon_policy,
   return mean_cumulative_reward
 
 
+def rollout_under_true_model_mHealth(tuning_function_parameter, mdp_epsilon_policy, 
+                             tuning_function, time_horizon=50, mc_replicates=10,
+                             gamma=0.9, number_of_value_iterations=0, nPatients=30):
+  env = Glucose(nPatients)
+  mean_cumulative_reward = 0
+  for rep in range(mc_replicates):
+    env.reset()
+    r = 0
+    for t in range(time_horizon):
+      optimal_action = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations)
+      action = mdp_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, time_horizon, t)
+      _, reward = env.step(action)
+      r += reward
+    
+    mean_cumulative_reward += (r - mean_cumulative_reward)/(rep+1)
+  return mean_cumulative_reward
+
+
 def bayesopt_under_true_model():
-  rollout_function = rollout_under_true_model  
+  rollout_function = rollout_under_true_model_mHealth
   policy = mdp_epsilon_policy    
   bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
   tuning_function = tuned_bandit.expit_epsilon_decay
@@ -420,8 +438,8 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
   ### current state features (not include current actions, since they are unknown) for all patients
   X, SX, _ = env.get_state_history_as_array()
   nx = X.shape[0]
-  x_initials = X[np.arange(1, nx, nx/env.nPatients), ] # an array
-  sx_initials = SX[np.arange(1, nx, nx/env.nPatients), ] # an array
+  x_initials = X[np.arange(1, nx, int(nx/env.nPatients)), ] # an array
+  sx_initials = SX[np.arange(1, nx, int(nx/env.nPatients)), ] # an array
 #  print(x_initial)
   rewards = np.zeros(T)
   actions_array = np.zeros((nPatients, T))
@@ -442,7 +460,7 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
 #    print('time {}: reward {}; action {}, glucose {}'.format(time, reward, action, x_initial[1]))
     rewards[t] = reward
     actions_array[:, t] = actions
-  print('cum_rewards {}, rewards {}'.format( sum(rewards), rewards) )
+#  print('cum_rewards {}, rewards {}'.format( sum(rewards), rewards) )
 #  print(type(rewards))
 #  plt.plot(rewards) 
 #  plt.show()
@@ -457,9 +475,9 @@ def run(policy_name, save=True, mc_replicates=30, T=50):
   """
 
 #  replicates = 48
-#  num_cpus = int(mp.cpu_count())
-  num_cpus = 4
-  replicates = num_cpus 
+  num_cpus = int(mp.cpu_count())
+#  num_cpus = 4
+  replicates = 24
   results = []
   pool = mp.Pool(processes=num_cpus)
 
@@ -492,9 +510,9 @@ if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=2)
-  run('eps-decay', T=2)
-  run('eps-fixed-decay', T=2)
-  run('eps', T=2)
+#  run('eps-decay', T=2)
+#  run('eps-fixed-decay', T=50)
+#  run('eps', T=50)
 #  episode('eps', 0, T=50)
 #  episode('eps-fixed-decay', 0, T=50)
 #  num_processes = 4
@@ -504,7 +522,7 @@ if __name__ == '__main__':
 #  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
 #  with open('bayes-opt-glucose.yml', 'w') as handle:
 #    yaml.dump(params_dict, handle)
-#  print(bayesopt_under_true_model())
+  print(bayesopt_under_true_model())
   elapsed_time = time.time() - start_time
   print("time {}".format(elapsed_time))
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
