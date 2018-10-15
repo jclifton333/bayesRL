@@ -420,9 +420,12 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
     rollout_function = mdp_glucose_mHealth_rollout
   elif policy_name == 'eps-fixed-decay':
-    tuning_function = tuned_bandit.expit_epsilon_decay
+    tuning_function = lambda a, b, c: 0.1/float(b+1)
     tune = False
-    tuning_function_parameter = np.array([0.1, 49. ,  2.5])
+    tuning_function_parameter = None
+#    tuning_function = tuned_bandit.expit_epsilon_decay
+#    tune = False
+#    tuning_function_parameter = np.array([0.1, 49. ,  2.5])
 
   policy = mdp_epsilon_policy    
   gamma = 0.9
@@ -468,7 +471,7 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
           'actions': actions_array}
     
       
-def run(policy_name, save=True, mc_replicates=30, T=50):
+def run(policy_name, save=True, mc_replicates=20, T=50):
   """
 
   :return:
@@ -510,9 +513,9 @@ if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=2)
-#  run('eps-decay', T=2)
-#  run('eps-fixed-decay', T=50)
-#  run('eps', T=50)
+  run('eps-decay', T=50)
+  run('eps-fixed-decay', T=50)
+  run('eps', T=50)
 #  episode('eps', 0, T=50)
 #  episode('eps-fixed-decay', 0, T=50)
 #  num_processes = 4
@@ -522,7 +525,7 @@ if __name__ == '__main__':
 #  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
 #  with open('bayes-opt-glucose.yml', 'w') as handle:
 #    yaml.dump(params_dict, handle)
-  print(bayesopt_under_true_model())
+#  print(bayesopt_under_true_model())
   elapsed_time = time.time() - start_time
   print("time {}".format(elapsed_time))
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)

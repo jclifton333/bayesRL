@@ -196,6 +196,7 @@ class Glucose(object):
     self.t += 1
 #    done = self.t == self.horizon
     x_list = []
+    mean_rewards_nPatients = 0 
     for i in range(self.nPatients):
 #      pdb.set_trace()
       x, reward = self.next_state_and_reward(actions[i], i)
@@ -207,7 +208,8 @@ class Glucose(object):
       self.S[i] = np.vstack((self.S[i], self.current_state[i]))
       self.SX[i] = np.vstack((self.SX[i], 
              np.concatenate(([1], self.current_state[i], self.last_state[i], [actions[i]]))))
-    return np.vstack(x_list), reward#, done
+      mean_rewards_nPatients += (reward - mean_rewards_nPatients)/(i+1)
+    return np.vstack(x_list), mean_rewards_nPatients#, done
 
   def get_current_SX(self):
     ## current state feature for all patients
