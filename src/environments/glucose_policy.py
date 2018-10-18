@@ -124,27 +124,45 @@ def fitted_q_step1_mHealth(env, gamma, regressor, number_of_value_iterations):
   current_sx = env.get_current_SX()
   # Fit one-step q fn
   reg = regressor()
-  reg.fit(Xp, target)
+  reg.fit(Xp[:,1:], target)
 
-  x0 = np.hstack((current_sx, np.zeros((env.nPatients,1))))
-  x1 = np.hstack((current_sx, np.ones((env.nPatients,1))))
+  x0 = np.hstack((current_sx[:,1:], np.zeros((env.nPatients,1))))
+  x1 = np.hstack((current_sx[:,1:], np.ones((env.nPatients,1))))
   q0, q1 = reg.predict(x0), reg.predict(x1)
   # Last entry of list gives optimal action at current state
   optimal_actions = np.argmax(np.vstack((q0, q1)), axis=0)
-  
   return optimal_actions
 
 
-#def reward_piecelinear_model():
-#  features = 
-#  target = np.hstack(env.R)
+def fitted_q_step1_mHealth_vanilla(env, times=100, sampling=False):
+  '''
+  :param env:
+  :param times:
+  :return: average rewards based on the new glucose draw from its distribution
+  '''
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  regr = condition_dist_of_next_state2(X, Sp1, sampling)
+  beta_hat = regr['beta_hat']
+  sigma_hat = regr['sigma_hat']
+  current_sx = env.get_current_SX()
+  x0 = np.hstack((current_sx, np.zeros((env.nPatients, 1))))
+  x1 = np.hstack((current_sx, np.ones((env.nPatients, 1))))
+  mean0 = np.dot(beta_hat, x0.T)
+  mean1 = np.dot(beta_hat, x1.T)
+  cov = sigma_hat*2*np.eye(env.nPatients)
+  glucose_new0 = np.mean(np.random.multivariate_normal(mean0, cov, size=times), axis=0) # new glucose for each patient under action 0
+  glucose_new1 = np.mean(np.random.multivariate_normal(mean1, cov, size=times), axis=0)
+  q0 = [env.reward_function(env.current_state[i], [glucose_new0[i]]) for i in range(env.nPatients)] # q-value for each patients under action 0
+  q1 = [env.reward_function(env.current_state[i], [glucose_new1[i]]) for i in range(env.nPatients)]
+  optimal_actions = np.argmax(np.vstack((q0, q1)), axis=0)
+  return optimal_actions
 
 
 def mdp_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, time_horizon,
                       t):
   epsilon = tuning_function(time_horizon, t, tuning_function_parameter)
   random_action_index = (np.random.rand(len(optimal_action)) < epsilon)
-  optimal_action[random_action_index] =  np.random.choice(2, size=sum(random_action_index))
+  optimal_action[random_action_index] = np.random.choice(2, size=sum(random_action_index))
   return optimal_action
 
 
@@ -175,7 +193,7 @@ def condition_dist_of_next_state(X, Y, env):
           'Xprime_X_inv': Xprime_X_inv, 'beta_hat': beta_hat.T}
 
 
-def condition_dist_of_next_state2(X, Y, env):
+def condition_dist_of_next_state2(X, Y, sampling=True):
   n, p = X.shape
   prob_food = 1 - sum(X[:,2]==0)/float(n)
   prob_activity = 1 - sum(X[:,3]==0)/float(n)
@@ -187,22 +205,23 @@ def condition_dist_of_next_state2(X, Y, env):
   mu_activity, sigma_activity = np.mean(X_activity), np.std(X_activity)
 
   y = Y[:,0]
-#  env.get_Xprime_X_inv()
-  Xprime_X_inv = np.linalg.inv(np.matmul(X.T, X))
-#  beta_hat1 = np.dot(Xprime_X_inv, np.dot(X.T, y))
-# 
   reg = LinearRegression(fit_intercept=False).fit(X, y)
   beta_hat = reg.coef_
-#  print(abs(beta_hat-beta_hat1))
+  #  print(abs(beta_hat-beta_hat1))
   y_hat = np.dot(X, beta_hat)
-  var_hat = np.sum((y-y_hat)**2) / (n-p)
-  
+  var_hat = np.sum((y - y_hat) ** 2) / (n - p)
+  if sampling == True:
+  #  env.get_Xprime_X_inv()
+    pdb.set_trace()
+    Xprime_X_inv = np.linalg.inv(np.matmul(X.T, X))
+#  beta_hat1 = np.dot(Xprime_X_inv, np.dot(X.T, y))
+
   ### Sampling distributions for each estimator
-  sampling_cov = var_hat * Xprime_X_inv
-  sampling_sigma_food = sigma_food/np.sqrt(n_effect_food)
-  sampling_sigma_activity = sigma_activity/np.sqrt(n_effect_activity)
-  sampling_prob_food = np.sqrt(prob_food*(1-prob_food)/n)
-  sampling_prob_activity = np.sqrt(prob_activity*(1-prob_activity)/n)
+    sampling_cov = var_hat * Xprime_X_inv
+    sampling_sigma_food = sigma_food/np.sqrt(n_effect_food)
+    sampling_sigma_activity = sigma_activity/np.sqrt(n_effect_activity)
+    sampling_prob_food = np.sqrt(prob_food*(1-prob_food)/n)
+    sampling_prob_activity = np.sqrt(prob_activity*(1-prob_activity)/n)
 #  R_sq = reg.score(X, y)
 #  env.get_Xprime_X_inv()
 #  
@@ -212,21 +231,22 @@ def condition_dist_of_next_state2(X, Y, env):
   # estimated sampling covariance matrix of beta_hat
 #  sampling_cov = np.kron(Sigma_hat, Xprime_X_inv)
   
-  return {'sigma_hat': np.sqrt(var_hat), #'R_sq': R_sq, #'Xprime_X_inv': Xprime_X_inv,  'reg': reg, 
+    return {'sigma_hat': np.sqrt(var_hat), #'R_sq': R_sq, #'Xprime_X_inv': Xprime_X_inv,  'reg': reg,
           'beta_hat':beta_hat, 'mu_food': mu_food, 'sigma_food':sigma_food, 'prob_food':prob_food, 
           'mu_activity':mu_activity, 'sigma_activity':sigma_activity, 'prob_activity':prob_activity,
           'sampling_cov':sampling_cov, 'sampling_sigma_food':sampling_sigma_food,
           'sampling_sigma_activity':sampling_sigma_activity,'sampling_prob_food':sampling_prob_food,
           'sampling_prob_activity':sampling_prob_activity,'n_effect_food':n_effect_food,'n_effect_activity':n_effect_activity}
+  return {'sigma_hat': np.sqrt(var_hat), 'beta_hat':beta_hat}
 
 
-def check_coef_converge(nPatients=100, T=20):  
+def check_coef_converge(nPatients=15, T=100):
   env = Glucose(nPatients)
   env.reset()
   for t in range(T):
     env.step(np.random.choice(2, size=nPatients))
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
-    regr = condition_dist_of_next_state2(X, Sp1, env)
+    regr = condition_dist_of_next_state2(X, Sp1)
     beta_hat = regr['beta_hat']
     sigma_hat, mu_food, sigma_food, prob_food, \
     mu_activity, sigma_activity, prob_activity = regr['sigma_hat'], \
@@ -280,7 +300,7 @@ def mdp_glucose_mHealth_rollout(tuning_function_parameter, mdp_epsilon_policy,
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   n, X_dim = X.shape
 #  S_dim = Sp1.shape[1]
-  regr = condition_dist_of_next_state2(X, Sp1, env)
+  regr = condition_dist_of_next_state2(X, Sp1)
   beta_hat = regr['beta_hat']
   sigma_hat = regr['sigma_hat']
   mu_food = regr['mu_food']
@@ -299,7 +319,7 @@ def mdp_glucose_mHealth_rollout(tuning_function_parameter, mdp_epsilon_policy,
 
   mean_cumulative_reward = 0
   for rep in range(mc_replicates):
-    ## Sample beta_hat and Sigma_hat from their corresponding sampling distributions.
+    ### Sample beta_hat and Sigma_hat from their corresponding sampling distributions.
     sample_beta_hat = np.random.multivariate_normal(beta_hat, sampling_cov)
     sample_sigma_hat = np.sqrt(chi2.rvs(df=n-X_dim, size=1)) * (sigma_hat)
     sample_prob_food = np.random.normal(prob_food, sampling_prob_food)
@@ -318,7 +338,8 @@ def mdp_glucose_mHealth_rollout(tuning_function_parameter, mdp_epsilon_policy,
     for t in range(time_horizon):
 #      if t==30:
 #      print(t, sim_env.current_state, sample_beta_hat)
-      optimal_actions = fitted_q_step1_mHealth(sim_env, gamma, RandomForestRegressor, number_of_value_iterations)
+      optimal_actions = fitted_q_step1_mHealth_vanilla(sim_env)
+#      optimal_actions = fitted_q_step1_mHealth(sim_env, gamma, RandomForestRegressor, number_of_value_iterations)
       actions = mdp_epsilon_policy(optimal_actions, tuning_function, tuning_function_parameter, time_horizon, t)
 #      print(t, action, sim_env.current_state[0])
       _, reward = sim_env.step(actions)
@@ -359,7 +380,8 @@ def rollout_under_true_model(tuning_function_parameter, mdp_epsilon_policy,
     env.reset()
     r = 0
     for t in range(time_horizon):
-      optimal_action = fitted_q_step1(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations)
+      optimal_action = fitted_q_step1_mHealth_vanilla(env)
+#      optimal_action = fitted_q_step1(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations)
       action = mdp_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, time_horizon, t)
       _, reward = env.step(action)
       r += reward
@@ -370,14 +392,15 @@ def rollout_under_true_model(tuning_function_parameter, mdp_epsilon_policy,
 
 def rollout_under_true_model_mHealth(tuning_function_parameter, mdp_epsilon_policy, 
                              tuning_function, time_horizon=50, mc_replicates=10,
-                             gamma=0.9, number_of_value_iterations=0, nPatients=30):
+                             gamma=0.9, number_of_value_iterations=0, nPatients=15):
   env = Glucose(nPatients)
   mean_cumulative_reward = 0
   for rep in range(mc_replicates):
     env.reset()
     r = 0
     for t in range(time_horizon):
-      optimal_action = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations)
+      optimal_action = fitted_q_step1_mHealth_vanilla(env)
+#      optimal_action = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations)
       action = mdp_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, time_horizon, t)
       _, reward = env.step(action)
       r += reward
@@ -386,7 +409,7 @@ def rollout_under_true_model_mHealth(tuning_function_parameter, mdp_epsilon_poli
   return mean_cumulative_reward
 
 
-def bayesopt_under_true_model():
+def bayesopt_under_true_model(T):
   rollout_function = rollout_under_true_model_mHealth
   policy = mdp_epsilon_policy    
   bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
@@ -394,7 +417,7 @@ def bayesopt_under_true_model():
   
   def objective(zeta0, zeta1, zeta2):
     zeta = np.array([zeta0, zeta1, zeta2])
-    return rollout_function(zeta, policy, tuning_function)
+    return rollout_function(zeta, policy, tuning_function, time_horizon=T)
   
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
   explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
@@ -406,7 +429,7 @@ def bayesopt_under_true_model():
   return best_param
 
 
-def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
+def episode(policy_name, label, mc_replicates=10, T=50, nPatients=15):
   np.random.seed(label)
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.05  # Constant epsilon
@@ -420,12 +443,13 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
     rollout_function = mdp_glucose_mHealth_rollout
   elif policy_name == 'eps-fixed-decay':
-    tuning_function = lambda a, b, c: 0.1/float(b+1)
+    #tuning_function = lambda a, b, c: 0.1/float(b+1)
+    #tune = False
+    #tuning_function_parameter = None
+    tuning_function = tuned_bandit.expit_epsilon_decay
     tune = False
-    tuning_function_parameter = None
-#    tuning_function = tuned_bandit.expit_epsilon_decay
-#    tune = False
-#    tuning_function_parameter = np.array([0.1, 49. ,  2.5])
+    tuning_function_parameter = np.array([ 2. ,17.40051652, 2.5])
+#    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
 
   policy = mdp_epsilon_policy    
   gamma = 0.9
@@ -454,24 +478,41 @@ def episode(policy_name, label, mc_replicates=2, T=50, nPatients=30):
                                            number_of_value_iterations, gamma)
 #      print("epsilon {}".format(tuning_function(T, t, tuning_function_parameter)))
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter]) 
-#    print('time {}, tuning_function_parameter {}'.format(t, tuning_function_parameter)) 
-    optimal_actions = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, 
-                              number_of_value_iterations=number_of_value_iterations)
+#    print('time {}, tuning_function_parameter {}'.format(t, tuning_function_parameter))
+    optimal_actions = fitted_q_step1_mHealth_vanilla(env)
+#    optimal_actions = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations)
+    print(optimal_actions)
     actions = policy(optimal_actions, tuning_function, tuning_function_parameter, T, t)
     x_initials, reward = env.step(actions)
     sx_initials = env.get_current_SX()
+    print(sx_initials[:,1])
 #    print('time {}: reward {}; action {}, glucose {}'.format(time, reward, action, x_initial[1]))
     rewards[t] = reward
     actions_array[:, t] = actions
+#    pdb.set_trace()
+    results = {'T':T, 'mc_replicates': mc_replicates, 't':t, 'cum_rewards': float(sum(rewards)), 
+               'rewards':list(rewards)}
+             #  'rewards': float(np.mean(cum_rewards)), 'se_rewards':float(np.std(cum_rewards)/np.sqrt(replicates)),
+               #'zeta_sequences': list(tuning_function_parameter)}#, 'actions': actions}#, 'rewards':rewards}
+
+    base_name = 'mdp-glucose-{}'.format(policy_name)
+    prefix = os.path.join(project_dir, 'src', 'environments', base_name)
+    suffix = nPatients
+    filename = '{}_{}.yml'.format(prefix, suffix)
+    #np.save('{}_{}'.format(prefix, suffix), results)
+#    with open(filename, 'a') as outfile:
+#      yaml.dump(results, outfile)
+    
 #  print('cum_rewards {}, rewards {}'.format( sum(rewards), rewards) )
 #  print(type(rewards))
-#  plt.plot(rewards) 
+#  plt.plot(rewards)
+#  plt.title(policy_name)
 #  plt.show()
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions_array}
     
       
-def run(policy_name, save=True, mc_replicates=20, T=50):
+def run(policy_name, save=True, mc_replicates=10, T=50):
   """
 
   :return:
@@ -496,7 +537,9 @@ def run(policy_name, save=True, mc_replicates=20, T=50):
   print(policy_name, 'rewards', float(np.mean(cum_rewards)), 'se_rewards',float(np.std(cum_rewards))/np.sqrt(replicates))
   # Save results
   if save:
-    results = {'cum_rewards': cum_rewards, 'zeta_sequences': zeta_sequences, 'actions': actions}#, 'rewards':rewards}
+    results = {'T':T, 'mc_replicates': mc_replicates, 'cum_rewards': cum_rewards, 
+               'rewards': float(np.mean(cum_rewards)), 'se_rewards':float(np.std(cum_rewards)/np.sqrt(replicates)),
+               'zeta_sequences': zeta_sequences, 'actions': actions}#, 'rewards':rewards}
 
     base_name = 'mdp-glucose-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)
@@ -512,12 +555,15 @@ def run(policy_name, save=True, mc_replicates=20, T=50):
 if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
-#  episode('eps-decay', 0, T=2)
-  run('eps-decay', T=50)
-  run('eps-fixed-decay', T=50)
-  run('eps', T=50)
-#  episode('eps', 0, T=50)
+#  episode('eps-decay', 0, T=5)
 #  episode('eps-fixed-decay', 0, T=50)
+  run('eps-decay', T=25)
+#  run('eps-fixed-decay', T=25)
+#  run('eps', T=25)
+#  episode('eps', 0, T=200)
+#  result = episode('eps', 0, T=50)
+  # print(result['actions'])
+ # episode('eps-fixed-decay', 1, T=50)
 #  num_processes = 4
 #  num_replicates = num_processes
 #  pool = mp.Pool(num_processes)
@@ -525,7 +571,7 @@ if __name__ == '__main__':
 #  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
 #  with open('bayes-opt-glucose.yml', 'w') as handle:
 #    yaml.dump(params_dict, handle)
-#  print(bayesopt_under_true_model())
+#  print(bayesopt_under_true_model(T=25))
   elapsed_time = time.time() - start_time
   print("time {}".format(elapsed_time))
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)

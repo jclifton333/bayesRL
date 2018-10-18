@@ -70,12 +70,12 @@ class Glucose(object):
     last_glucose = s_prev[0]
 
     # Reward from this timestep
-    r1 = (new_glucose < 70) * (-0.005 * new_glucose**2 + 0.95 * new_glucose - 45) + \
-          (new_glucose >= 70) * (-0.00017 * new_glucose**2 + 0.02167 * new_glucose - 0.5)
+    r1 = (new_glucose < 70) * (-0.005 * new_glucose ** 2 + 0.95 * new_glucose - 45) + \
+         (new_glucose >= 70) * (-0.00017 * new_glucose ** 2 + 0.02167 * new_glucose - 0.5)
 
     # Reward from previous timestep
-    r2 = (last_glucose < 70)*(-0.005*last_glucose**2 + 0.95*last_glucose - 45) + \
-         (last_glucose >= 70)*(-0.00017*last_glucose**2 + 0.02167*last_glucose - 0.5)
+    r2 = (last_glucose < 70) * (-0.005 * last_glucose ** 2 + 0.95 * last_glucose - 45) + \
+         (last_glucose >= 70) * (-0.00017 * last_glucose ** 2 + 0.02167 * last_glucose - 0.5)
     return r1 + r2
 
   def generate_food_and_activity(self):
@@ -154,6 +154,7 @@ class Glucose(object):
     self.current_state[i] = np.array([glucose, food, activity]).reshape(1,3)[0]
     self.last_action[i] = action
     reward = self.reward_function(self.last_state[i], self.current_state[i])
+    #current_x = np.concatenate()
     return x, reward
 
   @staticmethod
