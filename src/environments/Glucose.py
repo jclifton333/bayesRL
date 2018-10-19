@@ -33,8 +33,8 @@ class Glucose(object):
   HYPERGLYCEMIC = np.array([200, 0, 30, 200, 0, 0, 78, 0])
 
   def __init__(self, nPatients=1, COEF = np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4]), SIGMA_NOISE = 5, 
-               prob_food = 0.2, MU_FOOD = 0, SIGMA_FOOD = 10, 
-               prob_activity = 0.2, MU_ACTIVITY = 0, SIGMA_ACTIVITY = 10, 
+               prob_food = 0.6, MU_FOOD = 0, SIGMA_FOOD = 10, 
+               prob_activity = 0.6, MU_ACTIVITY = 0, SIGMA_ACTIVITY = 10, 
                x_initials=None, sx_initials=None):
     self.R = [[]]*nPatients  # List of rewards at each time step
     self.A = [[]]*nPatients  # List of actions at each time step
@@ -76,8 +76,22 @@ class Glucose(object):
     # Reward from previous timestep
     r2 = (last_glucose < 70) * (-0.005 * last_glucose ** 2 + 0.95 * last_glucose - 45) + \
          (last_glucose >= 70) * (-0.00017 * last_glucose ** 2 + 0.02167 * last_glucose - 0.5)
-    return r1 + r2
+    return r1# + r2
+  
+  @staticmethod
+  def reward_funciton_mHealth(glucose_news):
+    """
 
+    :param glucose_news: an array of new glucose values for all patients (dim: times by nPatients)
+    :return:
+    """
+    r = np.zeros(glucose_news.shape)
+    ind = (glucose_news < 70) 
+    r[ind] = -0.005 * glucose_news[ind] ** 2 + 0.95 * glucose_news[ind] - 45
+    r[~ind] = -0.00017 * glucose_news[~ind] ** 2 + 0.02167 * glucose_news[~ind] - 0.5
+    
+    return np.mean(r, axis=0)
+  
   def generate_food_and_activity(self):
     """
 

@@ -133,6 +133,19 @@ plt.plot(eps)
 acts = np.vstack(doc['actions'])
 plt.hist(acts[:,-5:])
 
+
+with open("mdp-glucose-eps-decay_181019_123855.yml", 'r') as f:
+  doc = yaml.load(f)
+eps = []
+T = len(doc['zeta_sequences'][0])
+for t in range(T):
+  zeta = doc['zeta_sequences'][3][t]
+  eps.append(expit_epsilon_decay(T, t, zeta))
+plt.plot(eps)
+acts = np.vstack(doc['actions'])
+plt.hist(acts[:,-5:])
+
+
 ### T=25 ###
 with open("mdp-glucose-eps-decay_181015_235425.yml", 'r') as f:
   doc = yaml.load(f)
@@ -144,4 +157,20 @@ for t in range(T):
 plt.plot(eps)
 acts = np.vstack(doc['actions'])
 plt.hist(acts[:,-5:])
+
+
+with open("mdp-glucose-eps-decay_181019_115551.yml", 'r') as f:
+  doc = yaml.load(f)
+eps = []
+T = len(doc['zeta_sequences'][0])
+for t in range(T):
+  zeta = doc['zeta_sequences'][9][t]
+  eps.append(expit_epsilon_decay(T, t, zeta))
+plt.plot(eps)
+acts = np.vstack(doc['actions'])
+plt.hist(acts[:,-5:])
+
+
+
+
 

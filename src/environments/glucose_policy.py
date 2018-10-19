@@ -42,7 +42,7 @@ def maximize_q_function_at_x(q_fn, x, env):
   q0, q1 = q_fn(x0.reshape(1, -1)), q_fn(x1.reshape(1, -1))
   return np.max([q0, q1]), np.argmax([q0, q1])
 
-
+ 
 def maximize_q_function_at_block(q_fn, X, env):
   """
 
@@ -149,11 +149,11 @@ def fitted_q_step1_mHealth_vanilla(env, times=100, sampling=False):
   x1 = np.hstack((current_sx, np.ones((env.nPatients, 1))))
   mean0 = np.dot(beta_hat, x0.T)
   mean1 = np.dot(beta_hat, x1.T)
-  cov = sigma_hat*2*np.eye(env.nPatients)
-  glucose_new0 = np.mean(np.random.multivariate_normal(mean0, cov, size=times), axis=0) # new glucose for each patient under action 0
-  glucose_new1 = np.mean(np.random.multivariate_normal(mean1, cov, size=times), axis=0)
-  q0 = [env.reward_function(env.current_state[i], [glucose_new0[i]]) for i in range(env.nPatients)] # q-value for each patients under action 0
-  q1 = [env.reward_function(env.current_state[i], [glucose_new1[i]]) for i in range(env.nPatients)]
+  cov = sigma_hat**2*np.eye(env.nPatients)
+  sample_glucose_new0 = np.random.multivariate_normal(mean0, cov, size=times)
+  sample_glucose_new1 = np.random.multivariate_normal(mean1, cov, size=times)
+  q0 = env.reward_funciton_mHealth(sample_glucose_new0)
+  q1 = env.reward_funciton_mHealth(sample_glucose_new1)
   optimal_actions = np.argmax(np.vstack((q0, q1)), axis=0)
   return optimal_actions
 
@@ -212,7 +212,7 @@ def condition_dist_of_next_state2(X, Y, sampling=True):
   var_hat = np.sum((y - y_hat) ** 2) / (n - p)
   if sampling == True:
   #  env.get_Xprime_X_inv()
-    pdb.set_trace()
+#    pdb.set_trace()
     Xprime_X_inv = np.linalg.inv(np.matmul(X.T, X))
 #  beta_hat1 = np.dot(Xprime_X_inv, np.dot(X.T, y))
 
@@ -319,16 +319,21 @@ def mdp_glucose_mHealth_rollout(tuning_function_parameter, mdp_epsilon_policy,
 
   mean_cumulative_reward = 0
   for rep in range(mc_replicates):
+    '''
+    # check again the following sample sigma's
+    '''
     ### Sample beta_hat and Sigma_hat from their corresponding sampling distributions.
     sample_beta_hat = np.random.multivariate_normal(beta_hat, sampling_cov)
-    sample_sigma_hat = np.sqrt(chi2.rvs(df=n-X_dim, size=1)) * (sigma_hat)
+    sample_sigma_hat = np.sqrt(chi2.rvs(df=n-X_dim, size=1)/(n-X_dim)) * (sigma_hat)
     sample_prob_food = np.random.normal(prob_food, sampling_prob_food)
     sample_mu_food = np.random.normal(mu_food, sampling_sigma_food)
-    sample_sigma_food  = np.sqrt(chi2.rvs(df=n_effect_food, size=1) )* sigma_food
+    sample_sigma_food  = np.sqrt(chi2.rvs(df=n_effect_food-1, size=1)/(n_effect_food-1) )* sigma_food
     sample_prob_activity = np.random.normal(prob_activity, sampling_prob_activity)
     sample_mu_activity = np.random.normal(mu_activity, sampling_sigma_activity)
-    sample_sigma_activity = np.sqrt(chi2.rvs(df=n_effect_activity, size=1) )* sigma_activity
-    
+    sample_sigma_activity = np.sqrt(chi2.rvs(df=n_effect_activity-1, size=1)/(n_effect_activity-1) )* sigma_activity
+    '''
+    # check again the x_initials and sx_initials
+    '''
     sim_env = Glucose(env.nPatients, COEF = sample_beta_hat, SIGMA_NOISE = sample_sigma_hat, 
                prob_food =sample_prob_food, MU_FOOD = sample_mu_food, SIGMA_FOOD = sample_sigma_food, 
                prob_activity = sample_prob_activity, MU_ACTIVITY = sample_mu_activity, 
@@ -557,9 +562,9 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=5)
 #  episode('eps-fixed-decay', 0, T=50)
-  run('eps-decay', T=25)
+#  run('eps-decay', T=25)
 #  run('eps-fixed-decay', T=25)
-#  run('eps', T=25)
+  run('eps',save=False, T=50)
 #  episode('eps', 0, T=200)
 #  result = episode('eps', 0, T=50)
   # print(result['actions'])
