@@ -4,26 +4,6 @@ from abc import ABCMeta, abstractmethod
 ABC = ABCMeta('ABC', (object, ), {'__slots__': ()})
 
 
-def generate_two_stage_data(policy_1, policy_2, x1_dbn, x2_dbn, y_dbn, n_patient):
-  """
-
-  :param policy_1: returns actions A1 given initial covariates X1
-  :param policy_2: returns actions given history (X1, A1, X2)
-  :param x1_dbn: Function that draws from distribution of initial covariates
-  :param x2_dbn: Function that draws from conditional distribution of covariates given X1 and action
-  :param y_dbn:  Function that draws from conditional distribution of reward given history (X1, A1, X2, A2)
-  :param n_patient:
-  :return:
-  """
-
-  x1 = x1_dbn(n_patient)
-  actions_1 = policy_1(x1)
-  x2 = x2_dbn(x1, actions_1)
-  actions_2 = policy_2(x1, actions_1, x2)
-  y = y_dbn(x1, actions_1, x2, actions_2)
-  return {'y': y, 'x1': x1, 'actions_1': actions_1, 'x2': x2, 'actions_2': actions_2}
-
-
 class TwoStage(ABC):
   def __init__(self, n_patients, policy1, policy2):
     self.n_patients = n_patients
@@ -60,22 +40,52 @@ class TwoStage(ABC):
 
 
 class SimpleTwoStage(TwoStage):
-  def __init__(self, n_patients, policy1, policy2, x1_mean=np.zeros(3), x1_cov=np.eye(3)):
+  def __init__(self, n_patients, policy1, policy2)
+    """
+    
+    :param n_patients: 
+    :param policy1: 
+    :param policy2: 
+    """
     TwoStage.__init__(n_patients, policy1, policy2)
-    self.x1_mean = x1_mean
-    self.x1_cov = x1_cov
+
+    # Generative model parameters
+    self.x1_mean = np.zeros(3)
+    self.x1_cov = np.eye(3)
+    self.B2_0 = np.array([[1, 2, 3],   # (x2 | x_1, a_1) mean = B2_0.x_1 + a_1 * B2_1.x_1
+                         [-1, 2, 0]])
+    self.B2_1 = np.array([[1, 0, 0],
+                          [0, 1, 0]])
+    self.x2_cov = np.eye(2)
+    self.B_reward_0 = np.array([[1, 0],  # y mean is defined similarly to x2_mean
+                                [1, 0]])
+    self.B_reward_1 = np.array([[1, -1],
+                                [-2, 3]])
+    self.y_std = 1.0
 
   def x1_dbn(self):
     x1 = np.random.multivariate_normal(mean=self.x1_mean, cov=self.x1_cov, size=self.n_patients)
     return x1
 
   def x2_dbn(self, x1, action):
-    pass
+    x1_times_action = np.multiply(x1, action)
+    x2_means = np.dot(self.B2_0, x1)
+    x2_means += np.dot(self.B2_1, x1_times_action)
+    x2 = np.array([
+      np.random.multivariate_normal(x2_mean, self.x2_cov) for x2_mean in x2_means
+    ])
+    return x2
 
   def y_dbn(self, x1, action1, x2, action2):
-    pass
+    x2_times_action = np.multiply(x2, action2)
+    y_means = np.dot(self.B_reward_0, x2)
+    y_means += np.dot(self.B_reward_1, x2_times_action)
+    y = np.array([
+      np.random.normal(y_mean, self.y_std) for y_mean in y_means
+    ])
+    return y
 
-# Complicated generative model
+# ToDo: Implement ComplicatedTwoStage
 
 
 
