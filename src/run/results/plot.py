@@ -10,6 +10,9 @@ action=0: regret=0.3
 """
 import yaml
 import os
+from scipy.special import expit
+import matplotlib.pyplot as plt
+import numpy as np
 
 def expit_epsilon_decay(T, t, zeta):
   return zeta[0] * expit(zeta[2]*(T - t - zeta[1]))
@@ -113,3 +116,61 @@ os.chdir('/Users/lili/Documents/labproject2017/aistat/bayesRL/src/run')
 with open("normalcb-eps_181003_015127.yml", 'r') as f:
   doc = yaml.load(f)
 plt.plot(doc['beta_hat_list'][0][0])
+
+
+##### Plots for MDP analysis #####
+os.chdir("/Users/lili/Documents/labproject2017/aistat/bayesRL/src/environments")
+
+### T=50 ###
+with open("mdp-glucose-eps-decay_181015_232725.yml", 'r') as f:
+  doc = yaml.load(f)
+eps = []
+T = len(doc['zeta_sequences'][0])
+for t in range(T):
+  zeta = doc['zeta_sequences'][3][t]
+  eps.append(expit_epsilon_decay(T, t, zeta))
+plt.plot(eps)
+acts = np.vstack(doc['actions'])
+plt.hist(acts[:,-5:])
+
+
+with open("mdp-glucose-eps-decay_181019_123855.yml", 'r') as f:
+  doc = yaml.load(f)
+eps = []
+T = len(doc['zeta_sequences'][0])
+for t in range(T):
+  zeta = doc['zeta_sequences'][3][t]
+  eps.append(expit_epsilon_decay(T, t, zeta))
+plt.plot(eps)
+acts = np.vstack(doc['actions'])
+plt.hist(acts[:,-5:])
+
+
+### T=25 ###
+with open("mdp-glucose-eps-decay_181015_235425.yml", 'r') as f:
+  doc = yaml.load(f)
+eps = []
+T = len(doc['zeta_sequences'][0])
+for t in range(T):
+  zeta = doc['zeta_sequences'][9][t]
+  eps.append(expit_epsilon_decay(T, t, zeta))
+plt.plot(eps)
+acts = np.vstack(doc['actions'])
+plt.hist(acts[:,-5:])
+
+
+with open("mdp-glucose-eps-decay_181019_115551.yml", 'r') as f:
+  doc = yaml.load(f)
+eps = []
+T = len(doc['zeta_sequences'][0])
+for t in range(T):
+  zeta = doc['zeta_sequences'][9][t]
+  eps.append(expit_epsilon_decay(T, t, zeta))
+plt.plot(eps)
+acts = np.vstack(doc['actions'])
+plt.hist(acts[:,-5:])
+
+
+
+
+
