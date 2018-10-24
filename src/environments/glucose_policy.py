@@ -158,12 +158,12 @@ def fitted_q_step1_mHealth_vanilla(env, times=100, sampling=False):
   return optimal_actions
 
 
-def mdp_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, time_horizon,
+def mdp_epsilon_policy(optimal_actions, tuning_function, tuning_function_parameter, time_horizon,
                       t):
   epsilon = tuning_function(time_horizon, t, tuning_function_parameter)
-  random_action_index = (np.random.rand(len(optimal_action)) < epsilon)
-  optimal_action[random_action_index] = np.random.choice(2, size=sum(random_action_index))
-  return optimal_action
+  random_action_index = (np.random.rand(len(optimal_actions)) < epsilon)
+  optimal_actions[random_action_index] = np.random.choice(2, size=sum(random_action_index))
+  return optimal_actions
 
 
 def condition_dist_of_next_state(X, Y, env):
