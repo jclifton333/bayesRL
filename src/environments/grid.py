@@ -85,7 +85,7 @@ class Gridworld(object):
         else:
             return 1
 
-    def __init__(self, time_horizon=1000, maxT=15, gamma=0.9, transitionMatrices=None):#, hardmax, epsilon=0.1, fixUpTo=None):
+    def __init__(self, time_horizon=1000, maxT=6, gamma=0.9, transitionMatrices=None):#, hardmax, epsilon=0.1, fixUpTo=None):
         '''
         Parameters
         ----------
@@ -174,7 +174,7 @@ class Gridworld(object):
         s = self.current_state
         self.current_state = np.random.choice(range(Gridworld.NUM_STATE), 1, p=prob)[0]
         reward = self.reward(self.current_state)
-        if self.t == self.maxT or self.current_state == Gridworld.TERMINAL:
+        if self.t == self.maxT or self.current_state == Gridworld.TERMINAL or self.counter == self.time_horizon:
             done = True
         else:
             done = False

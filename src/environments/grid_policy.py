@@ -69,7 +69,7 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=15, alpha=1e-4)
+  bo.maximize(init_points=5, n_iter=5, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param
@@ -85,6 +85,7 @@ def rollout_under_true_model(tuning_function_parameter, mdp_grid_epsilon_policy,
     while env.counter < env.time_horizon:
       s = env.reset()
       actions =[]
+      r_each_Episode = 0
       for t in range(env.maxT):
         update_transitionMatrices = env.posterior_mean_model()
         mdp = Gridworld(transitionMatrices=update_transitionMatrices)
@@ -92,16 +93,18 @@ def rollout_under_true_model(tuning_function_parameter, mdp_grid_epsilon_policy,
         optimal_action = np.argmax(Q[s, ])
         action = mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
                                          env.time_horizon, env.counter, env)   
-#        print(optimal_action)
         s, reward, done = env.step(action)
         actions.append(action)
         r += reward
+        r_each_Episode += reward
         if done:
 #          if t < env.maxT:
 #            print(t, actions)
           break
+      print(r_each_Episode)
     
     mean_cumulative_reward += (r - mean_cumulative_reward)/(rep+1)
+  print(mean_cumulative_reward)
   return mean_cumulative_reward
 
 def bayesopt_under_true_model(T):
@@ -119,7 +122,7 @@ def bayesopt_under_true_model(T):
   explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [75.0, 75.0, 1.0, 75.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=15, alpha=1e-4)
+  bo.maximize(init_points=5, n_iter=5, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param
@@ -128,7 +131,7 @@ def bayesopt_under_true_model(T):
 def episode(policy_name, label, mc_replicates=10, T=1000):
   np.random.seed(label)
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.1  # Constant epsilon
+    tuning_function = lambda a, b, c: 0.0  # Constant epsilon
     tune = False
     tuning_function_parameter = None
   elif policy_name == "eps-decay":
@@ -150,13 +153,13 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   policy = mdp_grid_epsilon_policy    
   gamma = 0.9
   env = Gridworld(time_horizon=T)
-  r = 0
   time_horizon = T
   tuning_parameter_sequence = []
   rewards = []
   actions = []
   nEpi = 0
   while env.counter < env.time_horizon:
+    r = 0
     s = env.reset()
     for t in range(env.maxT):
       if tune:
@@ -164,6 +167,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
                                              time_horizon, env, mc_replicates, bounds, explore_, gamma)
         tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter]) 
       update_transitionMatrices = env.posterior_mean_model()
+#      print(env.counter, sum(sum(sum(abs(update_transitionMatrices - env.transitionMatrices)))))
       mdp = Gridworld(transitionMatrices=update_transitionMatrices)
       _, _, Q = policy_iteration(mdp)
       optimal_action = np.argmax(Q[s, ])
@@ -174,11 +178,13 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
       actions.append(action)
       r += reward
       if done:
-#        if t < env.maxT:
+        print(env.counter, r)
+        if t < env.maxT:
 #          print(t)
-#          nEpi += 1 # the number of episodes where the agent gets the terminal state in less than maxT time steps
+          nEpi += 1 # the number of episodes where the agent gets the terminal state in less than maxT time steps
         break
-#  print(nEpi)
+  print(nEpi)
+  print(sum(rewards))
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions}
     
@@ -226,12 +232,12 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
 if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
-#  episode('eps-decay', 0, T=100)
+#  episode('eps-decay', 0, T=1)
 #  episode('eps-fixed-decay', 0, T=1000)
-#  run('eps-decay', T=25)
-  run('eps-fixed-decay', save=False, T=150)
-  run('eps', save=False, T=150)
-#  episode('eps', 0, T=200)
+#  run('eps-decay', T=150)
+#  run('eps-fixed-decay', save=False, T=150)
+#  run('eps', save=False, T=30)
+#  episode('eps', 0, T=50)
 #  result = episode('eps', 0, T=1000)
 #  print(result['cum_rewards'])
  # episode('eps-fixed-decay', 1, T=50)
@@ -242,7 +248,7 @@ if __name__ == '__main__':
 #  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
 #  with open('bayes-opt-glucose.yml', 'w') as handle:
 #    yaml.dump(params_dict, handle)
-#  print(bayesopt_under_true_model(T=150))
+  print(bayesopt_under_true_model(T=50))
   elapsed_time = time.time() - start_time
   print("time {}".format(elapsed_time))
   
