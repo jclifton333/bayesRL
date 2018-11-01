@@ -85,7 +85,7 @@ class Gridworld(object):
         else:
             return 1
 
-    def __init__(self, time_horizon=1000, maxT=7, gamma=0.9, transitionMatrices=None):#, hardmax, epsilon=0.1, fixUpTo=None):
+    def __init__(self, time_horizon=1000, maxT=10, gamma=0.9, transitionMatrices=None):#, hardmax, epsilon=0.1, fixUpTo=None):
         '''
         Parameters
         ----------
