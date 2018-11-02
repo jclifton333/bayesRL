@@ -85,7 +85,7 @@ class Gridworld(object):
         else:
             return 1
 
-    def __init__(self, time_horizon=1000, maxT=10, gamma=0.9, transitionMatrices=None):#, hardmax, epsilon=0.1, fixUpTo=None):
+    def __init__(self, time_horizon=1000, maxT=10, gamma=0.9, transitionMatrices=None, reward_mat=None):#, hardmax, epsilon=0.1, fixUpTo=None):
         '''
         Parameters
         ----------
@@ -103,6 +103,10 @@ class Gridworld(object):
         self.rewardMatrices = np.zeros((Gridworld.NUM_ACTION, Gridworld.NUM_STATE, Gridworld.NUM_STATE))
         self.posterior_alpha = np.ones((16, 4, 4)) #Initialize posterior, actually it's also the prior
         self.time_horizon = time_horizon
+        if reward_mat is not None:
+            self.reward_fn = self.convert_to_reward_function(reward_mat)
+        else:
+            self.reward_fn = self.reward
         
         # Construct transition and reward arrays
         if self.transitionMatrices is None:
@@ -113,40 +117,40 @@ class Gridworld(object):
                     for a in range(Gridworld.NUM_ACTION):
                         s_next = self.transition(s, a)
                         self.transitionMatrices[a, s, s_next] = 1
-                        self.rewardMatrices[a, s, s_next] = self.reward(s_next)
+                        self.rewardMatrices[a, s, s_next] = self.reward_fn(s_next)
                 elif s in Gridworld.TERMINAL:
                     for a in range(Gridworld.NUM_ACTION):
                         s_next = s
                         self.transitionMatrices[a, s, s_next] = 1
-                        self.rewardMatrices[a, s, s_next] = self.reward(s_next)
+                        self.rewardMatrices[a, s, s_next] = self.reward_fn(s_next)
                 else:
                     for a in range(Gridworld.NUM_ACTION):
                         adjacent_states = self.adjacent(s)
                         uniform_transition_prob = 0.2
                         self.transitionMatrices[a, s, adjacent_states[a]] = 0.4
-                        self.rewardMatrices[a, s, adjacent_states[a]] = self.reward(adjacent_states[a])
+                        self.rewardMatrices[a, s, adjacent_states[a]] = self.reward_fn(adjacent_states[a])
     #                    uniform_transition_prob = 1.0 / len(adjacent_states)
 #                        pdb.set_trace()
                         adjacent_states.remove(adjacent_states[a])
                         for s_next in adjacent_states:
                             self.transitionMatrices[a, s, s_next] += uniform_transition_prob
-                            self.rewardMatrices[a, s, s_next] = self.reward(s_next)
+                            self.rewardMatrices[a, s, s_next] = self.reward_fn(s_next)
         else:
           # Construct rewardMatrices under an known transitionMatrices
             for s in range(Gridworld.NUM_STATE):
                 if s in Gridworld.PATH:
                     for a in range(Gridworld.NUM_ACTION):
                         s_next = self.transition(s, a)
-                        self.rewardMatrices[a, s, s_next] = self.reward(s_next)
+                        self.rewardMatrices[a, s, s_next] = self.reward_fn(s_next)
                 elif s in Gridworld.TERMINAL:
                     for a in range(Gridworld.NUM_ACTION):
                         s_next = s
-                        self.rewardMatrices[a, s, s_next] = self.reward(s_next)
+                        self.rewardMatrices[a, s, s_next] = self.reward_fn(s_next)
                 else:
                     for a in range(Gridworld.NUM_ACTION):
                         adjacent_states = self.adjacent(s)
                         for s_next in adjacent_states:
-                            self.rewardMatrices[a, s, s_next] = self.reward(s_next)
+                            self.rewardMatrices[a, s, s_next] = self.reward_fn(s_next)
  
         #Create transition dictionary of form {s_0 : {a_0: [( P(s_0 -> s_0), s_0, reward), ( P(s_0 -> s_1), s_1, reward), ...], a_1:...}, s_1:{...}, ...}
         self.mdpDict= {}
@@ -197,6 +201,15 @@ class Gridworld(object):
                     transitionMatrices[a, s, self.adjacent(s)[s_adj]] += adj_transition[s, a, s_adj]
 #        self.transitionMatrices = transitionMatrices
         return transitionMatrices
+    
+    def convert_to_reward_function(self, matrix):
+        '''
+        matrix: matrix of rewards for each state s.
+        :return: a function which takes in a state as input and outputs reward according to matrix.
+        '''
+        def reward_fn(s):
+            return matrix[s]
+        return reward_fn
       
     def posterior_mean_model(self):
         # Use posterior mean as transition probability, to get the estimated model for doing policy iteration
