@@ -30,7 +30,7 @@ def mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_par
 
 def mdp_grid_rollout(tuning_function_parameter, mdp_grid_epsilon_policy, 
                              time_horizon, tuning_function, env, 
-                             gamma, mc_replicates):
+                             gamma, mc_replicates, reward_mat):
   mean_cumulative_reward = 0
   nS, nA, nAdj = env.posterior_alpha.shape
   transition_prob = np.zeros((nS, nA, nAdj))
@@ -41,14 +41,14 @@ def mdp_grid_rollout(tuning_function_parameter, mdp_grid_epsilon_policy,
         transition_prob[i, j, :] = np.random.dirichlet(env.posterior_alpha[i, j, :])
     transitionMatrices = env.convert_to_transitionMatrices(transition_prob)
 #    transitionMatrices = env.transitionMatrices
-    sim_env = Gridworld(transitionMatrices=transitionMatrices, time_horizon=time_horizon)
+    sim_env = Gridworld(transitionMatrices=transitionMatrices, time_horizon=time_horizon, reward_mat=reward_mat)
     r = 0
     while sim_env.counter < sim_env.time_horizon:  
 #      print(sim_env.counter)
       s = sim_env.reset()
       for t in range(sim_env.maxT):
         update_transitionMatrices = sim_env.posterior_mean_model()
-        mdp = Gridworld(transitionMatrices=update_transitionMatrices, time_horizon=time_horizon)
+        mdp = Gridworld(transitionMatrices=update_transitionMatrices, time_horizon=time_horizon, reward_mat=reward_mat)
         _, _, Q = policy_iteration(mdp)
         optimal_action = np.argmax(Q[s, ])
         action = mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
@@ -63,12 +63,12 @@ def mdp_grid_rollout(tuning_function_parameter, mdp_grid_epsilon_policy,
   return mean_cumulative_reward
 
 def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
-             bounds, explore_, gamma):
+             bounds, explore_, gamma,reward_mat=None):
 
   def objective(zeta0, zeta1, zeta2):
     zeta = np.array([zeta0, zeta1, zeta2])
     return rollout_function(zeta, policy, time_horizon, tuning_function, 
-                            env, gamma, mc_replicates)
+                            env, gamma, mc_replicates,reward_mat)
 
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds)
@@ -161,6 +161,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   posterior_alphas = []
   nEpi = 0
   r = 0
+  reward_mat = []
   while env.counter < env.time_horizon:
 #    print(env.counter, r)
     s = env.reset()
