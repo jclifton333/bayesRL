@@ -106,21 +106,43 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
   return np.argmax(sampling_dbn_draws)
 
 
-def glucose_one_step_policy(env):
+def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, time_horizon, t):
+  """
+  Assuming epsilon-greedy exploration.
+
+  :param env:
+  :param tuning_function:
+  :param tuning_function_parameter:
+  :param time_horizon:
+  :param t:
+  :return:
+  """
   # Get features and response
   X, R = env.X, env.R
   X_flat = np.zeros((0, env.X[0].shape[1]))
   R_flat = np.zeros(0)
   for X_i, R_i in zip(X, R):
     X_flat = np.vstack((X_flat, X_i[:-1, :]))
-    R_flat = np.append((R_flat, R_i[:-1]))
+    R_flat = np.append(R_flat, R_i[:-1])
 
   # One-step FQI
   m = RandomForestRegressor()
   m.fit(X_flat, R_flat)
 
-  # Get argmax of fitted function
-  return
+  # Get argmax of fitted function at current state
+  epsilon = tuning_function(time_horizon, t, tuning_function_parameter)
+  action = np.zeros(0)
+  for X_i in X:
+    x_i = X_i[-1, :]
+    action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i)),
+                          m.predict(env.get_state_at_action(1, x_i))])
+    if np.random.random() < epsilon:
+      action_i = np.append(action, action_i)
+    else:
+      action_i = int(np.random.choice(2))
+    action = np.append(action, action_i)
+
+  return action
 
 
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):

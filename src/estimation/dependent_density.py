@@ -86,7 +86,7 @@ def posterior_predictive_transition(trace, model, shared_x, new_x):
   """
   shared_x.set_value(new_x)
   pp_sample = pm.sample_ppc(trace, model=model, samples=1)
-  return pp_sample
+  return pp_sample, shared_x
 
 
 

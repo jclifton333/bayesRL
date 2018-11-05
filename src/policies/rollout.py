@@ -15,6 +15,7 @@ from scipy.linalg import block_diag
 import src.policies.linear_algebra as la
 from src.environments.Bandit import NormalCB
 from src.environments.Glucose import Glucose
+from src.estimation.dependent_density import posterior_predictive_transition
 import src.policies.tuned_bandit_policies as tuned_bandit
 
 
@@ -323,15 +324,17 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
   return mean_cumulative_regret
 
 
-def glucose_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
-  n_rep, n_patient = kwargs['n_rep'], kwargs['n_patient']
+def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
+  n_rep, n_patient, x_shared, model_, trace_ = \
+    kwargs['n_rep'], kwargs['n_patient'], kwargs['x_shared'], kwargs['model'], kwargs['trace']
   mean_cumulative_reward = 0.0
   for rep in range(n_rep):
     rewards = 0.0
-    sim_env = Glucose(n_patient)
+    # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
+      y_new, x_shared = posterior_predictive_transition(trace_, model_, x_shared, x)
       action = policy(env, tuning_function, tuning_function_parameter, time_horizon, t)
-      _, r = sim_env.step(action)
+      # _, r = sim_env.step(action)
       rewards += (r - rewards) / (t + 1.0)
     mean_cumulative_reward += (rewards - mean_cumulative_reward) / (rep + 1.0)
   return mean_cumulative_reward

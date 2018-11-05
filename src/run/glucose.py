@@ -36,12 +36,12 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
     y = Sp1[:, 0]
     model_, trace_ = dd.dependent_density_regression(X, y)
 
-    if tune:
-      tuning_function_parameter = opt.bayesopt(rollout.mHealth_rollout, policy, tuning_function,
-                                               tuning_function_parameter,
-                                               T, estimated_context_mean,
-                                               estimated_context_variance, env, nPatients,
-                                               points_per_grid_dimension, monte_carlo_reps)
+    tuning_function_parameter = opt.bayesopt(rollout.mHealth_rollout, policy, tuning_function,
+                                             tuning_function_parameter,
+                                             T, estimated_context_mean,
+                                             estimated_context_variance, env, nPatients,
+                                             points_per_grid_dimension, monte_carlo_reps)
+
     # print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     for j in range(nPatients):
       x = copy.copy(env.curr_context)
