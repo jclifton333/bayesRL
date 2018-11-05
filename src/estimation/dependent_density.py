@@ -63,7 +63,7 @@ def dependent_density_regression(X, y):
 
   print('ready to go')
 
-  SAMPLES = 20000
+  SAMPLES = 1
   BURN = 10000
 
   with model:
@@ -85,8 +85,9 @@ def posterior_predictive_transition(trace, model, shared_x, new_x):
   :return:
   """
   shared_x.set_value(new_x)
-  pp_sample = pm.sample_posterior_predictive(trace, model=model, samples=1)
+  pp_sample = pm.sample_ppc(trace, model=model, samples=1)
   return pp_sample
+
 
 
 
@@ -135,7 +136,6 @@ def posterior_predictive_transition(trace, model, shared_x, new_x):
 #     trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
 #   return
-
 
 if __name__ == '__main__':
   # n_patients = 20
