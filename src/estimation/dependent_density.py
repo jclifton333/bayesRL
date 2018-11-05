@@ -2,11 +2,18 @@
 Attempting to replicate dependent density regression example,
 https://docs.pymc.io/notebooks/dependent_density_regression.html
 """
+import sys
+import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
 
 import pymc3 as pm
 import numpy as np
 import pandas as pd
 from theano import shared, tensor as tt
+from src.environments.Glucose import Glucose
 
 SEED = 972915 # from random.org; for reproducibility
 np.random.seed(SEED)
@@ -100,4 +107,13 @@ def dependent_density_regression(X, y):
 
 
 if __name__ == '__main__':
-  main()
+  n_patients = 20
+  env = Glucose(nPatients=n_patients)
+
+  # Take random actions to get some data
+  env.step(np.random.choice(2, size=n_patients))
+  X_, Sp1 = env.get_state_transitions_as_x_y_pair()
+  y_ = Sp1[:, 0]
+  pdb.set_trace()
+  # Do the do
+  dependent_density_regression(X_, y_)
