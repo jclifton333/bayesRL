@@ -325,15 +325,31 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
 
 def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
-  n_rep, n_patient, x_shared, model_, trace_ = \
-    kwargs['n_rep'], kwargs['n_patient'], kwargs['x_shared'], kwargs['model'], kwargs['trace']
+  n_rep, x_shared, model_, trace_ = \
+    kwargs['n_rep'], kwargs['x_shared'], kwargs['model'], kwargs['trace']
   mean_cumulative_reward = 0.0
   for rep in range(n_rep):
     rewards = 0.0
+    X_rep = [X_i[-1, :] for X_i in env.X]
+    R_rep = None
+    current_x = X_rep
     # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
-      y_new, x_shared = posterior_predictive_transition(trace_, model_, x_shared, x)
-      action = policy(env, tuning_function, tuning_function_parameter, time_horizon, t)
+      action = policy(X_rep, R_rep, tuning_function, tuning_function_parameter, time_horizon, t)
+
+      # Get next state
+      glucose, x_shared = posterior_predictive_transition(trace_, model_, x_shared, current_x)
+      food, activity = np.zeros(0), np.zeros(0)
+      current_x = []
+      for patient in range(env.nPatients):
+        food_patient, activity_patient = env.generate_food_and_activity()  # ToDo: This should be estimated, not given!
+        food = np.append(food, food_patient)
+        activity = np.append(activity, activity_patient)
+        x_patient = np.array([1.0, glucose, food, activity, X_rep[patient][-1, 1], X_rep[patient][-1, 2],
+                              X_rep[patient][-1, 3], X_rep[patient][-1, -1], action[patient]])
+        X_rep[patient] = np.vstack((X_rep[patient], x_patient))
+        current_x.append(x_patient)
+
       # _, r = sim_env.step(action)
       rewards += (r - rewards) / (t + 1.0)
     mean_cumulative_reward += (rewards - mean_cumulative_reward) / (rep + 1.0)
