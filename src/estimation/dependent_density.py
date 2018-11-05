@@ -33,21 +33,29 @@ def dependent_density_regression(X, y):
   n, p = X.shape
   K = 20
   X = np.column_stack((np.ones(n), X))
-  X_for_model = shared(X, broadcastable=(False, True))
+  # X_for_model = shared(X, broadcastable=(False, True))
 
   # Specify model
   with pm.Model() as model:
     # Dirichlet priors
-    beta = pm.Normal('beta', mu=np.zeros(p + 1), sd=5.0*np.ones(p + 1), shape=K)
-    v = norm_cdf(np.dot(X_for_model, beta))
+    beta = pm.Normal('beta', 0.0, 5.0, shape=(p + 1, K))
+    v = norm_cdf(tt.dot(X, beta))
     w = pm.Deterministic('w', stick_breaking(v))
 
-    # Linear model
-    theta = pm.Normal('theta', mu=np.zeros(p + 1), sd=10.0*np.ones(p + 1), shape=K)
-    mu_ = pm.Deterministic('mu', np.dot(X_for_model, theta))
+  print('dirichlet prior')
 
+  with model:
+    # Linear model
+    theta = pm.Normal('theta', 0.0, 10.0, shape=(p + 1, K))
+    mu_ = pm.Deterministic('mu', tt.dot(X, theta))
+
+  print('linear model')
+
+  with model:
     tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
     obs = pm.NormalMixture('obs', w, mu_, tau=tau, observed=y)
+
+  print('ready to go')
 
   SAMPLES = 20000
   BURN = 10000
@@ -107,13 +115,15 @@ def dependent_density_regression(X, y):
 
 
 if __name__ == '__main__':
-  n_patients = 20
-  env = Glucose(nPatients=n_patients)
+  # n_patients = 20
+  # env = Glucose(nPatients=n_patients)
 
-  # Take random actions to get some data
-  env.step(np.random.choice(2, size=n_patients))
-  X_, Sp1 = env.get_state_transitions_as_x_y_pair()
-  y_ = Sp1[:, 0]
-  pdb.set_trace()
+  # # Take random actions to get some data
+  # env.step(np.random.choice(2, size=n_patients))
+  # X_, Sp1 = env.get_state_transitions_as_x_y_pair()
+
+  X_ = np.random.multivariate_normal(np.zeros(3), np.eye(3), size=10)
+  y_ = np.random.normal(np.zeros(10))
+  # y_ = Sp1[:, 0]
   # Do the do
   dependent_density_regression(X_, y_)
