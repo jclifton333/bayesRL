@@ -323,7 +323,8 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
   return mean_cumulative_regret
 
 
-def glucose_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep, n_patient):
+def glucose_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
+  n_rep, n_patient = kwargs['n_rep'], kwargs['n_patient']
   mean_cumulative_reward = 0.0
   for rep in range(n_rep):
     rewards = 0.0

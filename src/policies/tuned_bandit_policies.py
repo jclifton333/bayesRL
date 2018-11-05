@@ -10,6 +10,7 @@ sys.path.append(project_dir)
 
 import scipy.integrate as integrate
 from scipy.stats import norm
+from sklearn.ensemble import RandomForestRegressor
 from scipy.linalg import block_diag
 from scipy.special import expit
 import scipy.stats
@@ -103,6 +104,23 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
   sampling_dbn_draws = np.array([np.random.normal(mu, shrinkage * se) for mu, se in zip(estimated_means,
                                                                                         standard_errors)])
   return np.argmax(sampling_dbn_draws)
+
+
+def glucose_one_step_policy(env):
+  # Get features and response
+  X, R = env.X, env.R
+  X_flat = np.zeros((0, env.X[0].shape[1]))
+  R_flat = np.zeros(0)
+  for X_i, R_i in zip(X, R):
+    X_flat = np.vstack((X_flat, X_i[:-1, :]))
+    R_flat = np.append((R_flat, R_i[:-1]))
+
+  # One-step FQI
+  m = RandomForestRegressor()
+  m.fit(X_flat, R_flat)
+
+  # Get argmax of fitted function
+  return
 
 
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):
