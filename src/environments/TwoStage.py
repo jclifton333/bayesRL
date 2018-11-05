@@ -40,27 +40,26 @@ class TwoStage(ABC):
 
 
 class SimpleTwoStage(TwoStage):
-  def __init__(self, n_patients, policy1, policy2)
+  def __init__(self, n_patients, policy1, policy2, x1_mean=np.zeros(3), x1_cov=np.eye(3),
+                      B2_0=np.array([[1, 2, 3], [-1, 2, 0]]), B2_1=np.array([[1,0,0],[0,1,0]]), x2_cov=np.eye(2),
+                      B_reward_0=np.array([[1, 0], [1, 0]]), B_reward_1=np.array([[1, -1], [-2, 3]])):
     """
-    
-    :param n_patients: 
-    :param policy1: 
-    :param policy2: 
+
+    :param n_patients:
+    :param policy1:
+    :param policy2:
     """
     TwoStage.__init__(n_patients, policy1, policy2)
 
     # Generative model parameters
-    self.x1_mean = np.zeros(3)
-    self.x1_cov = np.eye(3)
-    self.B2_0 = np.array([[1, 2, 3],   # (x2 | x_1, a_1) mean = B2_0.x_1 + a_1 * B2_1.x_1
-                         [-1, 2, 0]])
-    self.B2_1 = np.array([[1, 0, 0],
-                          [0, 1, 0]])
+    self.x1_mean = x1_mean
+    self.x1_cov = x1_cov
+    self.B2_0 = B2_0
+    self.B2_1 = B2_1
+
     self.x2_cov = np.eye(2)
-    self.B_reward_0 = np.array([[1, 0],  # y mean is defined similarly to x2_mean
-                                [1, 0]])
-    self.B_reward_1 = np.array([[1, -1],
-                                [-2, 3]])
+    self.B_reward_0 = B_reward_0  # y mean is defined similarly to x2_mean
+    self.B_reward_1 = B_reward_1
     self.y_std = 1.0
 
   def x1_dbn(self):
@@ -85,7 +84,16 @@ class SimpleTwoStage(TwoStage):
     ])
     return y
 
-# ToDo: Implement ComplicatedTwoStage
 
+class ComplicatedTwoStage(TwoStage):
+  def __init__(self, n_patients, policy1, policy2):
+    TwoStage.__init__(n_patients, policy1, policy2)
 
+  def x1_dbn(self):
+    pass
 
+  def x2_dbn(self, x1, action):
+    pass
+
+  def y_dbn(self, x1, action1, x2, action2):
+    pass
