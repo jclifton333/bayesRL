@@ -330,27 +330,35 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
   mean_cumulative_reward = 0.0
   for rep in range(n_rep):
     rewards = 0.0
-    X_rep = [X_i[-1, :] for X_i in env.X]
-    R_rep = None
-    current_x = X_rep
+    X_rep = env.X
+    R_rep = env.R
+    current_x = [np.array([X_i[-1, :]]) for X_i in env.X]
     # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
-      action = policy(env, X_rep, R_rep, tuning_function, tuning_function_parameter, time_horizon, t)
+      if t > 0:
+        action = policy(env, X_rep, R_rep, tuning_function, tuning_function_parameter, time_horizon, t)
+      else:
+        action = np.random.binomial(1, 0.3, size=env.nPatients)
 
       # Get next state
-      glucose, x_shared = posterior_predictive_transition(trace_, model_, x_shared, current_x)
-      food, activity = np.zeros(0), np.zeros(0)
-      current_x = []
+      glucose, food, activity = np.zeros(0), np.zeros(0), np.zeros(0)
+      new_current_x = []
+      rewards_t = 0.0
       for patient in range(env.nPatients):
+        glucose_patient, x_shared = posterior_predictive_transition(trace_, model_, x_shared, current_x[patient])
         food_patient, activity_patient = env.generate_food_and_activity()  # ToDo: This should be estimated, not given!
         food = np.append(food, food_patient)
         activity = np.append(activity, activity_patient)
         x_patient = np.array([1.0, glucose, food, activity, X_rep[patient][-1, 1], X_rep[patient][-1, 2],
                               X_rep[patient][-1, 3], X_rep[patient][-1, -1], action[patient]])
         X_rep[patient] = np.vstack((X_rep[patient], x_patient))
-        current_x.append(x_patient)
+        new_current_x.append(x_patient)
+        glucose_patient = glucose[patient]
+        rewards_t += (glucose_patient < 70) * (-0.005 * glucose_patient ** 2 + 0.95 * glucose_patient - 45) + \
+         (glucose_patient >= 70) * (-0.00017 * glucose_patient ** 2 + 0.02167 * glucose_patient - 0.5)
 
+      current_x = new_current_x
       # _, r = sim_env.step(action)
-      rewards += (r - rewards) / (t + 1.0)
+      rewards += (rewards_t - rewards) / (t + 1.0)
     mean_cumulative_reward += (rewards - mean_cumulative_reward) / (rep + 1.0)
   return mean_cumulative_reward

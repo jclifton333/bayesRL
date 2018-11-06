@@ -9,15 +9,16 @@ import datetime
 import numpy as np
 import src.policies.rollout as rollout
 import src.estimation.dependent_density as dd
+import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies
 import yaml
 from theano import shared, tensor as tt
 
 
-def episode(policy_name, label, save=False, monte_carlo_reps=100):
+def episode(label, save=False, monte_carlo_reps=100):
   if save:
-    base_name = 'glucose-{}-{}'.format(label, policy_name)
+    base_name = 'glucose-{}-{}'.format(label)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -42,7 +43,7 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
     X = shared(X)
     y = Sp1[:, 0]
     model_, trace_ = dd.dependent_density_regression(X, y)
-    kwargs = {'n_reps': monte_carlo_reps, 'x_shared': X, 'model': model_, 'trace': trace_}
+    kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X, 'model': model_, 'trace': trace_}
 
     tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                              tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
@@ -58,3 +59,7 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
         yaml.dump(results, outfile)
 
   return cumulative_reward
+
+
+if __name__ == '__main__':
+  episode(0, save=False, monte_carlo_reps=100)
