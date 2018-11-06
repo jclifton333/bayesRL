@@ -48,16 +48,21 @@ def npb_diagnostics():
   hyperglycemic_0 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 0, 0]])
   hyperglycemic_1 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 1, 0]])
 
-  # Posterior predictive plots
+  # Histograms
   PPD_SAMPLES = 500
-  X.set_value(hyperglycemic_0)
-  pp_sample_0 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
-  X.set_value(hyperglycemic_1)
-  pp_sample_1 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
-  plt.hist(pp_sample_0)
-  plt.hist(pp_sample_1)
+  # X.set_value(hyperglycemic_0)
+  # pp_sample_0 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
+  # X.set_value(hyperglycemic_1)
+  # pp_sample_1 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
+  # plt.hist(pp_sample_0)
+  # plt.hist(pp_sample_1)
+  # plt.show()
+
+  x_vals = np.array([[1.0, g, 0, 33, g, 0, 0, 0, 0] for g in np.linspace(50, 200, 20)])
+  X.set_value(x_vals)
+  pp_sample = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)
+  plt.plot(np.linspace(50, 200, 20), np.mean(pp_sample['obs'], axis=0))
   plt.show()
-  pdb.set_trace()
   return
 
 
