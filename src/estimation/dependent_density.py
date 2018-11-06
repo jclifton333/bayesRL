@@ -64,8 +64,8 @@ def dependent_density_regression(X, y):
   print('ready to go')
 
   SAMPLES = 1
-  # BURN = 10000
-  BURN = 1
+  BURN = 10000
+  # BURN = 1
 
   with model:
     step = pm.Metropolis()

@@ -13,10 +13,55 @@ import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies
 import yaml
+import pymc3 as pm
+import matplotlib.pyplot as plt
 from theano import shared, tensor as tt
 
 
-def episode(label, save=False, monte_carlo_reps=100):
+def npb_diagnostics():
+  n_patients = 20
+  T = 10
+  env = Glucose(nPatients=n_patients)
+  cumulative_reward = 0.0
+  env.reset()
+
+  # Collect data with random policy
+  for t in range(T):
+    # Get posterior
+    # X, Sp1 = env.get_state_transitions_as_x_y_pair()
+    # X = shared(X)
+    # y = Sp1[:, 0]
+    # model_, trace_ = dd.dependent_density_regression(X, y)
+    action = np.random.binomial(1, 0.3, n_patients)
+    env.step(action)
+
+  # Get posterior
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  X = shared(X)
+  y = Sp1[:, 0]
+  model_, trace_ = dd.dependent_density_regression(X, y)
+
+  # ToDo: diagnostics
+  # Test states
+  hypoglycemic_0 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 0, 0]])
+  hypoglycemic_1 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 1, 0]])
+  hyperglycemic_0 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 0, 0]])
+  hyperglycemic_1 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 1, 0]])
+
+  # Posterior predictive plots
+  PPD_SAMPLES = 500
+  X.set_value(hyperglycemic_0)
+  pp_sample_0 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
+  X.set_value(hyperglycemic_1)
+  pp_sample_1 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
+  plt.hist(pp_sample_0)
+  plt.hist(pp_sample_1)
+  plt.show()
+  pdb.set_trace()
+  return
+
+
+def episode(label, save=False, monte_carlo_reps=1):
   if save:
     base_name = 'glucose-{}-{}'.format(label)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -62,4 +107,5 @@ def episode(label, save=False, monte_carlo_reps=100):
 
 
 if __name__ == '__main__':
-  episode(0, save=False, monte_carlo_reps=100)
+  # episode(0, save=False, monte_carlo_reps=100)
+  npb_diagnostics()
