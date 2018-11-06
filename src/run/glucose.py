@@ -10,6 +10,7 @@ import numpy as np
 import src.policies.rollout as rollout
 import src.estimation.dependent_density as dd
 from src.environments.Glucose import Glucose
+import src.policies.tuned_bandit_policies as policies
 from theano import shared, tensor as tt
 
 
@@ -24,9 +25,13 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
   n_patients = 20
   T = 10
 
+  tuning_function = policies.expit_epsilon_decay
+  policy = policies.glucose_one_step_policy
+  # ToDo: check these
+  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
+  bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
   env = Glucose(nPatients=n_patients)
   cumulative_regret = 0.0
-  nPatients = 10
   env.reset()
 
   for t in range(T):
@@ -35,12 +40,10 @@ def episode(policy_name, label, save=False, monte_carlo_reps=100):
     X = shared(X)
     y = Sp1[:, 0]
     model_, trace_ = dd.dependent_density_regression(X, y)
+    kwargs = {'n_reps': monte_carlo_reps, 'x_shared': X, 'model': model_, 'trace': trace_}
 
-    tuning_function_parameter = opt.bayesopt(rollout.mHealth_rollout, policy, tuning_function,
-                                             tuning_function_parameter,
-                                             T, estimated_context_mean,
-                                             estimated_context_variance, env, nPatients,
-                                             points_per_grid_dimension, monte_carlo_reps)
+    tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
+                                             tuning_function_parameter, T, env, None, {}, bounds, explore_)
 
     # print('time {} epsilon {}'.format(t, tuning_function(T,t,tuning_function_parameter)))
     for j in range(nPatients):
