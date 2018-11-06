@@ -335,7 +335,7 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
     current_x = X_rep
     # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
-      action = policy(X_rep, R_rep, tuning_function, tuning_function_parameter, time_horizon, t)
+      action = policy(env, X_rep, R_rep, tuning_function, tuning_function_parameter, time_horizon, t)
 
       # Get next state
       glucose, x_shared = posterior_predictive_transition(trace_, model_, x_shared, current_x)
