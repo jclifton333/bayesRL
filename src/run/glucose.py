@@ -6,6 +6,8 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 import datetime
+import time
+import multiprocessing as mp
 import numpy as np
 import src.policies.rollout as rollout
 import src.estimation.dependent_density as dd
@@ -19,7 +21,8 @@ from theano import shared, tensor as tt
 
 
 def npb_diagnostics():
-  n_patients = 20
+  np.random.seed(3)
+  n_patients = 1
   T = 10
   env = Glucose(nPatients=n_patients)
   cumulative_reward = 0.0
@@ -66,7 +69,7 @@ def npb_diagnostics():
   return
 
 
-def episode(label, save=False, monte_carlo_reps=1):
+def episode(label, save=False, monte_carlo_reps=10):
   if save:
     base_name = 'glucose-{}-{}'.format(label)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -74,8 +77,8 @@ def episode(label, save=False, monte_carlo_reps=1):
     filename = '{}_{}.yml'.format(prefix, suffix)
 
   np.random.seed(label)
-  n_patients = 20
-  T = 10
+  n_patients = 10
+  T = 20
 
   tuning_function = policies.expit_epsilon_decay
   policy = policies.glucose_one_step_policy
@@ -86,19 +89,21 @@ def episode(label, save=False, monte_carlo_reps=1):
   env = Glucose(nPatients=n_patients)
   cumulative_reward = 0.0
   env.reset()
+  env.step(np.random.binomial(1, 0.3, n_patients))
 
   for t in range(T):
     # Get posterior
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
-    X = shared(X)
+    X_ = shared(X)
     y = Sp1[:, 0]
-    model_, trace_ = dd.dependent_density_regression(X, y)
-    kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X, 'model': model_, 'trace': trace_}
+    model_, trace_ = dd.dependent_density_regression(X_, y)
+    kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_}
 
-    tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
-                                             tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
+    # tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
+    #                                          tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
-    action = policy(env, env.X, env.R, tuning_function, tuning_function_parameter, T, t)
+    X = [x[:-1, :] for x in env.X]
+    action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t)
     _, r = env.step(action)
     cumulative_reward += r
 
@@ -108,9 +113,29 @@ def episode(label, save=False, monte_carlo_reps=1):
       with open(filename, 'w') as outfile:
         yaml.dump(results, outfile)
 
-  return cumulative_reward
+  return {'cumulative reward': cumulative_reward}
+
+
+def run():
+  replicates = 24
+  num_cpus = replicates
+  pool = mp.Pool(processes=num_cpus)
+
+  results = pool.map(episode, range(replicates))
+
+  base_name = 'npb-glucose'
+  prefix = os.path.join(project_dir, 'src', 'run', base_name)
+  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+  filename = '{}_{}.yml'.format(prefix, suffix)
+  with open(filename, 'w') as outfile:
+    yaml.dump(results, outfile)
+
+  return
 
 
 if __name__ == '__main__':
-  # episode(0, save=False, monte_carlo_reps=100)
-  npb_diagnostics()
+  t0 = time.time()
+  reward = episode(0, save=False, monte_carlo_reps=10)
+  t1 = time.time()
+  print('time: {} reward: {}'.format(t1 - t0, reward))
+  # npb_diagnostics()
