@@ -99,8 +99,8 @@ def episode(label, save=False, monte_carlo_reps=10):
     model_, trace_ = dd.dependent_density_regression(X_, y)
     kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_}
 
-    # tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
-    #                                          tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
+    tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
+                                             tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
     X = [x[:-1, :] for x in env.X]
     action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t)
@@ -113,7 +113,7 @@ def episode(label, save=False, monte_carlo_reps=10):
       with open(filename, 'w') as outfile:
         yaml.dump(results, outfile)
 
-  return {'cumulative reward': cumulative_reward}
+  return {'cumulative reward': float(cumulative_reward)}
 
 
 def run():
@@ -127,8 +127,11 @@ def run():
   prefix = os.path.join(project_dir, 'src', 'run', base_name)
   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
   filename = '{}_{}.yml'.format(prefix, suffix)
+  results = [d['cumulative_reward'] for d in results]
+  results_to_save = {'mean': float(np.mean(results)),
+                     'se': float(np.std(results) / np.sqrt(len(results)))}
   with open(filename, 'w') as outfile:
-    yaml.dump(results, outfile)
+    yaml.dump(results_to_save, outfile)
 
   return
 
