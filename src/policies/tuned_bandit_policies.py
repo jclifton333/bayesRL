@@ -134,8 +134,8 @@ def glucose_one_step_policy(env, X, R, tuning_function, tuning_function_paramete
   action = np.zeros(0)
   for X_i in X:
     x_i = X_i[-1, :]
-    action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i)),
-                          m.predict(env.get_state_at_action(1, x_i))])
+    action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)),
+                          m.predict(env.get_state_at_action(1, x_i).reshape(1, -1))])
     if np.random.random() < epsilon:
       action_i = np.append(action, action_i)
     else:
