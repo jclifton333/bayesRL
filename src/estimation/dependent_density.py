@@ -137,7 +137,7 @@ def posterior_predictive_transition(trace, model, shared_x, new_x, compare_=None
   :return:
   """
   shared_x.set_value(new_x)
-  if compare is None:
+  if compare_ is None:
     pp_sample = pm.sample_ppc(trace, model=model, samples=1)
   else:
     pp_sample = pm.sample_ppc_w(trace, 1, model, weights=compare_.weight.sort_index(ascending=True))

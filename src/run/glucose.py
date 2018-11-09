@@ -23,7 +23,7 @@ from theano import shared, tensor as tt
 def npb_diagnostics():
   np.random.seed(3)
   n_patients = 1
-  T = 10
+  T = 20
   env = Glucose(nPatients=n_patients)
   cumulative_reward = 0.0
   env.reset()
@@ -79,7 +79,7 @@ def episode(label, stacked=False, save=False, monte_carlo_reps=10):
 
   np.random.seed(label)
   n_patients = 10
-  T = 20
+  T = 1
 
   tuning_function = policies.expit_epsilon_decay
   policy = policies.glucose_one_step_policy
@@ -97,7 +97,7 @@ def episode(label, stacked=False, save=False, monte_carlo_reps=10):
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     X_ = shared(X)
     y = Sp1[:, 0]
-    model_, trace_, compare_ = dd.dependent_density_regression(X_, y, stacked=stacked)
+    model_, trace_, compare_ = dd.dependent_density_regression(X_, y, stack=stacked)
     kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_, 'compare': compare_}
 
     # tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
@@ -139,7 +139,7 @@ def run():
 
 if __name__ == '__main__':
   # t0 = time.time()
-  reward = episode(0, stacked=True, save=False, monte_carlo_reps=10)
+  # reward = episode(0, stacked=True, save=False, monte_carlo_reps=10)
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  # npb_diagnostics()
+  npb_diagnostics()
