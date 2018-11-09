@@ -1,4 +1,4 @@
-from Bandit import NormalMAB
+import Bandit
 import numpy as np
 import bayes_opt
 from src.policies import tuned_bandit_policies as tuned_bandit
@@ -8,7 +8,7 @@ def lm_expit_epsilon_decay(T, t, zeta, R, delta):
   return zeta[0] * expit(np.dot(zeta[1:9]),covari)
 
 def mab_rollout(tuning_function_parameter, mab_epsilon_policy, 
-                             time_horizon, tuning_function, bandit, 
+                             time_horizon, tuning_function, env, 
                              gamma, mc_reps, est_means, std_errs):
   mean_cumulative_reward = 0
   R = std_errs[1]/std_errs[0]
@@ -18,13 +18,13 @@ def mab_rollout(tuning_function_parameter, mab_epsilon_policy,
   for rep in range(mc_reps):
     r = 0
     for j in range(time_horizon):
-      a = mab_epsilon_policy(est_means, std_errs, 1, expit_wrapper, tuning_function_parameter, T, t, bandit)
-      r += gamma**j*bandit.reward_dbn(a)      
+      a = mab_epsilon_policy(est_means, std_errs, 1, expit_wrapper, tuning_function_parameter, T, t, env)
+      r += gamma**j*env.reward_dbn(a)
     mean_cumulative_reward += (r - mean_cumulative_reward)/(rep+1)
 #    print(rep, r, mean_cumulative_reward)
   return mean_cumulative_reward
 
-def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
+def mab_bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
              bounds, explore_, gamma, est_means, std_errs):
 
   def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
@@ -41,49 +41,52 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   return best_param
 
 def episode(policy_name, label, mc_replicates=10, T=1000):
-  np.random.seed(label)
-  if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.0  # Constant epsilon
-    tune = False
-    tuning_function_parameter = None
-  elif policy_name == "eps-decay":
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    tune = True
-    tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
-    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
-    rollout_function = mdp_grid_rollout
-  elif policy_name == 'eps-fixed-decay':
+  #np.random.seed(label)
+  #if policy_name == 'eps':
+  #  tuning_function = lambda a, b, c: 0.0  # Constant epsilon
+  #  tune = False
+  #  tuning_function_parameter = None
+  #elif policy_name == "eps-decay":
+  #  tuning_function = tuned_bandit.expit_epsilon_decay
+  #  tune = True
+  #  tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
+  #  bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+  #  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+  #  rollout_function = mdp_grid_rollout
+  #elif policy_name == 'eps-fixed-decay':
     #tuning_function = lambda a, b, c: 0.1/float(b+1)
     #tune = False
     #tuning_function_parameter = None
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    tune = False
-    tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
+  #  tuning_function = tuned_bandit.expit_epsilon_decay
+  #  tune = False
+  #  tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
 #    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
 
-  policy = mdp_grid_epsilon_policy    
+  policy = tuned_bandit.mab_epsilon_greedy_policy
+  tuning_function = lm_expit_epsilon_decay
+  tuning_function_parameter = np.array()
+  bounds = {'zeta0': (0.05,2.0),'zeta1': (-1,1),'zeta2': (-1,1),'zeta3': (-1,1),'zeta4': (-1,1),'zeta5': (-1,1),'zeta6': (-1,1),'zeta7': (-1,1), 'zeta8': (-1,1)}
+  explore_ = {''}
   gamma = 0.9
-  env = Gridworld(time_horizon=T)
+  env = Bandit.NormalMAB()
   time_horizon = T
+  tune = True
   tuning_parameter_sequence = []
   rewards = []
   actions = []
   posterior_alphas = []
-  nEpi = 0
   r = 0
-  reward_mat = []
-  while env.counter < env.time_horizon:
+  est_means = []
+  std_errs = []
+  for i = 1:time_horizon:
 #    print(env.counter, r)
-    s = env.reset()
     acts=[]
     for t in range(env.maxT):
 #      print(env.counter, t, sum(rewards))
-      if tune:
-        tuning_function_parameter = bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
-                                             time_horizon, env, mc_replicates, bounds, explore_, gamma)
+      if tune and i > 5:
+        tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
+                                             time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, std_errs)
         tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter]) 
-      update_transitionMatrices = env.posterior_mean_model()
 #      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
       print("###########")
 #      print(env.counter, update_transitionMatrices[1,:4,:], env.transitionMatrices[1,:4,:])
@@ -91,12 +94,8 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
 #      print(env.counter, sum(sum(abs(update_transitionMatrices[2,[3,7,10],:] - env.transitionMatrices[2,[3,7,10],:]))))
 #      print(env.counter, sum(sum(sum(abs(update_transitionMatrices - env.transitionMatrices)))))
       
-      mdp = Gridworld(transitionMatrices=update_transitionMatrices, time_horizon=time_horizon)
-      _, _, Q = policy_iteration(mdp)
-      optimal_action = np.argmax(Q[s, ])
-      action = mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
-                                       env.time_horizon, env.counter, env)
-      s, reward, done = env.step(action)
+      action = policy(est_means, std_errs, 0, tuning_function, tuning_function_parameter, T,t,env)
+      reward = env.step(action)
       rewards.append(reward)
       acts.append(action)
       actions.append(action)
