@@ -42,9 +42,9 @@ def npb_diagnostics():
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   X = shared(X)
   y = Sp1[:, 0]
-  model_, trace_ = dd.dependent_density_regression(X, y)
+  model_, trace_, compare_ = dd.dependent_density_regression(X, y, stack=True)
+  print(compare_)
 
-  # ToDo: diagnostics
   # Test states
   hypoglycemic_0 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 0, 0]])
   hypoglycemic_1 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 1, 0]])
@@ -63,7 +63,8 @@ def npb_diagnostics():
 
   x_vals = np.array([[1.0, g, 0, 33, g, 0, 0, 0, 0] for g in np.linspace(50, 200, 20)])
   X.set_value(x_vals)
-  pp_sample = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)
+  pp_sample = \
+    pm.sample_ppc_w(trace_, PPD_SAMPLES, model_, weights=compare_.weight.sort_index(ascending=True))
   plt.plot(np.linspace(50, 200, 20), np.mean(pp_sample['obs'], axis=0))
   plt.show()
   return
@@ -99,8 +100,8 @@ def episode(label, stacked=False, save=False, monte_carlo_reps=10):
     model_, trace_, compare_ = dd.dependent_density_regression(X_, y, stacked=stacked)
     kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_, 'compare': compare_}
 
-    tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
-                                             tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
+    # tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
+    #                                          tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
     X = [x[:-1, :] for x in env.X]
     action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t)
@@ -113,7 +114,7 @@ def episode(label, stacked=False, save=False, monte_carlo_reps=10):
       with open(filename, 'w') as outfile:
         yaml.dump(results, outfile)
 
-  return {'cumulative reward': float(cumulative_reward)}
+  return {'cumulative_reward': float(cumulative_reward)}
 
 
 def run():
@@ -137,8 +138,8 @@ def run():
 
 
 if __name__ == '__main__':
-  t0 = time.time()
-  reward = episode(0, save=False, monte_carlo_reps=10)
-  t1 = time.time()
-  print('time: {} reward: {}'.format(t1 - t0, reward))
+  # t0 = time.time()
+  reward = episode(0, stacked=True, save=False, monte_carlo_reps=10)
+  # t1 = time.time()
+  # print('time: {} reward: {}'.format(t1 - t0, reward))
   # npb_diagnostics()

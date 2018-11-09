@@ -44,13 +44,14 @@ def normal_bayesian_regression(X, y):
   """
   n, p = X.shape.eval()
   with pm.Model() as model:
-    beta = pm.Normal('beta', 0.0, 5.0, shape=p)
+    # beta = pm.Normal('beta', 0.0, 5.0, shape=p)
+    beta = pm.Normal('beta', 0.0, 5.0, shape=3)
     tau = pm.Gamma('tau', 0.001, 0.001, shape=1)
-    mu_ = pm.Deterministic('mu', tt.dot(X, beta))
+    mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
-  SAMPLES = 1
-  BURN = 1
+  SAMPLES = 1000
+  BURN = 10000
 
   with model:
     # ToDo: different algo (conjugate?)
@@ -91,8 +92,8 @@ def dependent_density_regression(X, y, stack=False):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  SAMPLES = 1
-  BURN = 1
+  SAMPLES = 1000
+  BURN = 10000
   # BURN = 1
 
   with model:
