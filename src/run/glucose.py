@@ -69,9 +69,9 @@ def npb_diagnostics():
   return
 
 
-def episode(label, save=False, monte_carlo_reps=10):
+def episode(label, stacked=False, save=False, monte_carlo_reps=10):
   if save:
-    base_name = 'glucose-{}-{}'.format(label)
+    base_name = 'glucose-stacked={}-{}'.format(stacked, label)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -96,8 +96,8 @@ def episode(label, save=False, monte_carlo_reps=10):
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     X_ = shared(X)
     y = Sp1[:, 0]
-    model_, trace_ = dd.dependent_density_regression(X_, y)
-    kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_}
+    model_, trace_, compare_ = dd.dependent_density_regression(X_, y, stacked=stacked)
+    kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_, 'compare': compare_}
 
     tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                              tuning_function_parameter, T, env, None, kwargs, bounds, explore_)

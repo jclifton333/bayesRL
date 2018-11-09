@@ -60,7 +60,7 @@ def normal_bayesian_regression(X, y):
   return model, trace
 
 
-def dependent_density_regression(X, y):
+def dependent_density_regression(X, y, stack=False):
   n, p = X.shape.eval()
   K = 20
   # X = shared(np.column_stack((np.ones(n), X)))
@@ -99,7 +99,17 @@ def dependent_density_regression(X, y):
     step = pm.Metropolis()
     trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
-  return model, trace
+  if stack:
+    model_p, trace_p = normal_bayesian_regression(X, y)
+    compare_ = pm.compare({model_p: trace_p, model: trace}, method='BB-pseudo-BMA')
+    models = [model, model_p]
+    traces = [trace, trace_p]
+  else:
+    models = model
+    traces = trace
+    compare_ = None
+
+  return models, traces, compare_
 
 
 def stack_parametric_and_nonparametric_dependent_densities(X, y):
@@ -113,7 +123,7 @@ def stack_parametric_and_nonparametric_dependent_densities(X, y):
   return combined_ppd
 
 
-def posterior_predictive_transition(trace, model, shared_x, new_x):
+def posterior_predictive_transition(trace, model, shared_x, new_x, compare_=None):
   """
   Sample from estimated transition density at x, using posterior predictive density as the estimated transition
   density.
@@ -122,10 +132,14 @@ def posterior_predictive_transition(trace, model, shared_x, new_x):
   :param model:
   :param shared_x:
   :param new_x:
+  :param compare_: compare object (needed if multiple traces/models given!) or None
   :return:
   """
   shared_x.set_value(new_x)
-  pp_sample = pm.sample_ppc(trace, model=model, samples=1)
+  if compare is None:
+    pp_sample = pm.sample_ppc(trace, model=model, samples=1)
+  else:
+    pp_sample = pm.sample_ppc_w(trace, 1, model, weights=compare_.weight.sort_index(ascending=True))
   return pp_sample, shared_x
 
 
