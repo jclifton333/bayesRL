@@ -35,6 +35,31 @@ def stick_breaking(v):
                             axis=1)
 
 
+def normal_bayesian_regression(X, y):
+  """
+
+  :param X:
+  :param y:
+  :return:
+  """
+  n, p = X.shape.eval()
+  with pm.Model() as model:
+    beta = pm.Normal('beta', 0.0, 5.0, shape=p)
+    tau = pm.Gamma('tau', 0.001, 0.001, shape=1)
+    mu_ = pm.Deterministic('mu', tt.dot(X, beta))
+    obs = pm.Normal('obs', mu_, tau=tau, observed=y)
+
+  SAMPLES = 1
+  BURN = 1
+
+  with model:
+    # ToDo: different algo (conjugate?)
+    step = pm.NUTS()
+    trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
+
+  return model, trace
+
+
 def dependent_density_regression(X, y):
   n, p = X.shape.eval()
   K = 20
@@ -44,8 +69,10 @@ def dependent_density_regression(X, y):
   # Specify model
   with pm.Model() as model:
     # Dirichlet priors
+    # alpha = pm.Normal('alpha', 0.0, 5.0, shape=K)
     beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
     v = norm_cdf(tt.dot(X, beta))
+    # v = norm_cdf(alpha + tt.dot(X, beta))
     w = pm.Deterministic('w', stick_breaking(v))
 
   print('dirichlet prior')
@@ -63,8 +90,9 @@ def dependent_density_regression(X, y):
 
   print('ready to go')
 
+  # ToDo: can samples be 1 if we want multiple ppd samples??
   SAMPLES = 1
-  BURN = 10000
+  BURN = 1
   # BURN = 1
 
   with model:
@@ -72,6 +100,17 @@ def dependent_density_regression(X, y):
     trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
   return model, trace
+
+
+def stack_parametric_and_nonparametric_dependent_densities(X, y):
+  model_p, trace_p = normal_bayesian_regression(X, y)
+  model_np, trace_np = dependent_density_regression(X, y)
+
+  compare_ = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')
+  combined_ppd = pm.sample_ppc_w([trace_p, trace_np], 1, [model_p, model_np],
+                                 weights=compare_.weight.sort_index(ascending=True))
+
+  return combined_ppd
 
 
 def posterior_predictive_transition(trace, model, shared_x, new_x):
@@ -151,8 +190,9 @@ if __name__ == '__main__':
   # y_ = Sp1[:, 0]
 
   # Fit model
-  m, t = dependent_density_regression(X_, y_)
+  # m, t = dependent_density_regression(X_, y_)
+  compare = stack_parametric_and_nonparametric_dependent_densities(X_, y_)
 
   # Posterior predictive transition
-  new_x_ = np.array([np.random.multivariate_normal(np.zeros(3), np.eye(3))])
-  posterior_predictive_transition(t, m, X_, new_x_)
+  # new_x_ = np.array([np.random.multivariate_normal(np.zeros(3), np.eye(3))])
+  # posterior_predictive_transition(t, m, X_, new_x_)
