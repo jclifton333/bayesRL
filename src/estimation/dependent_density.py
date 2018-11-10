@@ -100,8 +100,11 @@ def dependent_density_regression(X, y, stack=False):
     step = pm.Metropolis()
     trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
+  model.name = 'nonparametric'
+
   if stack:
     model_p, trace_p = normal_bayesian_regression(X, y)
+    model_p.name = 'parametric'
     compare_ = pm.compare({model_p: trace_p, model: trace}, method='BB-pseudo-BMA')
     models = [model, model_p]
     traces = [trace, trace_p]
