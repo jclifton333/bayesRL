@@ -19,7 +19,7 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=15)
+  bo.maximize(init_points=2, n_iter=2)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param
