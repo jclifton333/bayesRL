@@ -42,17 +42,20 @@ def mab_bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_hori
 
 def episode(policy_name, label, mc_replicates=10, T=1000):
   #np.random.seed(label)
-  #if policy_name == 'eps':
-  #  tuning_function = lambda a, b, c: 0.0  # Constant epsilon
-  #  tune = False
-  #  tuning_function_parameter = None
-  #elif policy_name == "eps-decay":
-  #  tuning_function = tuned_bandit.expit_epsilon_decay
-  #  tune = True
-  #  tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
-  #  bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-  #  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
-  #  rollout_function = mdp_grid_rollout
+  if policy_name == 'eps':
+    tuning_function = lambda a, b, c: 0.0  # Constant epsilon
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == "eps-decay":
+    tuning_function = tuned_bandit.expit_epsilon_decay
+    tune = True
+    #tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
+    #bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+    #explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+    tuning_function_parameter = np.concatenate([0.05],np.random.uniform(-0.5,0.5,8))
+    bounds = {'zeta0': (0.05,2.0),'zeta1': (-1,1),'zeta2': (-1,1),'zeta3': (-1,1),'zeta4': (-1,1),'zeta5': (-1,1),'zeta6': (-1,1),'zeta7': (-1,1), 'zeta8': (-1,1)}
+    explore_ = {'zeta0': [0.05,1.0],'zeta1': [0,0],'zeta2': [0,0],'zeta3': [0,0],'zeta4': [0,0],'zeta5': [0,0],'zeta6': [0,0],'zeta7': [0,0], 'zeta8': [0,0]}
+    rollout_function = mab_rollout
   #elif policy_name == 'eps-fixed-decay':
     #tuning_function = lambda a, b, c: 0.1/float(b+1)
     #tune = False
@@ -64,10 +67,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
 
   policy = tuned_bandit.mab_epsilon_greedy_policy
   tuning_function = lm_expit_epsilon_decay
-  tuning_function_parameter = np.array()
-  bounds = {'zeta0': (0.05,2.0),'zeta1': (-1,1),'zeta2': (-1,1),'zeta3': (-1,1),'zeta4': (-1,1),'zeta5': (-1,1),'zeta6': (-1,1),'zeta7': (-1,1), 'zeta8': (-1,1)}
-  explore_ = {''}
-  gamma = 0.9
+  gamma = 1
   env = Bandit.NormalMAB()
   time_horizon = T
   tune = True
@@ -75,13 +75,16 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   rewards = []
   actions = []
   posterior_alphas = []
+  posterior_betas = []
+  posterior_lambdas = []  
+  posterior_mus = []
   r = 0
   est_means = []
   std_errs = []
   for i = 1:time_horizon:
 #    print(env.counter, r)
     acts=[]
-    for t in range(env.maxT):
+#    for t in range(env.maxT):
 #      print(env.counter, t, sum(rewards))
       if tune and i > 5:
         tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
@@ -96,20 +99,29 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
       
       action = policy(est_means, std_errs, 0, tuning_function, tuning_function_parameter, T,t,env)
       reward = env.step(action)
+      if reward.__class__.__name__=='dict':
+        reward = reward['Utility']
       rewards.append(reward)
       acts.append(action)
       actions.append(action)
-      new_post_alpha = env.posterior_alpha.copy()
-      posterior_alphas.append(new_post_alpha)
+      new_post_alphas = [env.posterior_params_dict[i]['alpha_post'] for i in env.posterior_params_dict.keys()]
+      new_post_betas = [env.posterior_params_dict[i]['beta_post'] for i in env.posterior_params_dict.keys()]
+      new_post_lambdas = [env.posterior_params_dict[i]['lambda_post'] for i in env.posterior_params_dict.keys()]
+      new_post_mus = [env.posterior_params_dict[i]['mu_post'] for i in env.posterior_params_dict.keys()]
+      posterior_alphas.append(new_post_alphas)
+      posterior_betas.append(new_post_betas)
+      posterior_lambdas.append(new_post_lambdas)
+      posterior_mus.append(new_post_mus)
 #      print("after: {}".format(posterior_alphas))
       r += reward
-      if done:
-        print(acts)
+#      if done:
+#        print(acts)
 #        print(env.counter, r)
         break
   print(sum(rewards))        
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
-          'actions': actions, 'posterior_alphas': posterior_alphas}
+          'actions': actions, 'posterior_alphas': posterior_alphas, 'posterior_betas': posterior_betas,
+          'posterior_lambdas': posterior_lambdas, 'posterior_mus': posterior_mus}
     
 def run(policy_name, save=True, mc_replicates=10, T=1000):
   """
@@ -158,7 +170,7 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=75)
 #  episode('eps-fixed-decay', 2, T=50)
-#  run('eps-decay', save=True, T=2)
+  run('eps-decay', save=True, T=2)
 #  run('eps-fixed-decay', save=False, T=75)
 #  run('eps', save=False, T=50)
   episode('eps', 1, T=50)
