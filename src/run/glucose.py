@@ -18,6 +18,7 @@ import yaml
 import pymc3 as pm
 import matplotlib.pyplot as plt
 from theano import shared, tensor as tt
+from functools import partial
 
 
 def npb_diagnostics():
@@ -70,7 +71,22 @@ def npb_diagnostics():
   return
 
 
-def episode(label, stacked=False, save=False, monte_carlo_reps=10):
+def episode(label, policy_name, save=False, monte_carlo_reps=10):
+  if policy_name in ['npb', 'stacked']:
+    tune = True
+    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
+    bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
+    tuning_function_parameter = np.array([0.05, 1.0, 0.01])
+    fixed_eps = None
+  else:
+    tune = False
+    fixed_eps = 0.05
+
+  if policy_name == 'stacked':
+    stack = True
+  else:
+    stack = False
+
   if save:
     base_name = 'glucose-stacked={}-{}'.format(stacked, label)
     prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -93,18 +109,19 @@ def episode(label, stacked=False, save=False, monte_carlo_reps=10):
   env.step(np.random.binomial(1, 0.3, n_patients))
 
   for t in range(T):
-    # Get posterior
-    X, Sp1 = env.get_state_transitions_as_x_y_pair()
-    X_ = shared(X)
-    y = Sp1[:, 0]
-    # model_, trace_, compare_ = dd.dependent_density_regression(X_, y, stack=stacked)
-    # kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_, 'compare': compare_}
+    if tune:
+      # Get posterior
+      X, Sp1 = env.get_state_transitions_as_x_y_pair()
+      X_ = shared(X)
+      y = Sp1[:, 0]
+      model_, trace_, compare_ = dd.dependent_density_regression(X_, y, stack=stacked)
+      kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_, 'compare': compare_}
 
-    # tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
-    #                                          tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
+      tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
+                                               tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
     X = [x[:-1, :] for x in env.X]
-    action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t, fixed_eps=0.05)
+    action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t, fixed_eps=fixed_eps)
     _, r = env.step(action)
     cumulative_reward += r
 
@@ -117,14 +134,15 @@ def episode(label, stacked=False, save=False, monte_carlo_reps=10):
   return {'cumulative_reward': float(cumulative_reward)}
 
 
-def run():
-  replicates = 24
+def run(policy_name):
+  replicates = 48
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
-  results = pool.map(episode, range(replicates))
+  episode_partial = partial(episode, policy_name=policy_name)
+  results = pool.map(episode_partial, range(replicates))
 
-  base_name = 'npb-glucose'
+  base_name = 'glucose-{}'.format(policy_name)
   prefix = os.path.join(project_dir, 'src', 'run', base_name)
   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
   filename = '{}_{}.yml'.format(prefix, suffix)
@@ -143,4 +161,6 @@ if __name__ == '__main__':
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # npb_diagnostics()
-  run()
+  run('stacked')
+  run('npb')
+  run('fixed-eps')
