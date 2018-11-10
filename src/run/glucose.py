@@ -157,10 +157,10 @@ def run(policy_name):
 
 if __name__ == '__main__':
   # t0 = time.time()
-  # reward = episode(0, stacked=True, save=False, monte_carlo_reps=10)
+  reward = episode(0, 'stacked')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # npb_diagnostics()
-  run('stacked')
-  run('npb')
-  run('fixed-eps')
+  # run('stacked')
+  # run('npb')
+  # run('fixed-eps')
