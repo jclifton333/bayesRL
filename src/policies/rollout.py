@@ -353,8 +353,11 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
         food_patient, activity_patient = env.generate_food_and_activity()  # ToDo: This should be estimated, not given!
         # food = np.append(food, food_patient)
         # activity = np.append(activity, activity_patient)
-        x_patient = np.array([[1.0, glucose_patient, food_patient, activity_patient, X_rep[patient][-1, 1],
-                              X_rep[patient][-1, 2], X_rep[patient][-1, 3], X_rep[patient][-1, -1], action[patient]]])
+        try:
+            x_patient = np.array([[1.0, glucose_patient, food_patient, activity_patient, X_rep[patient][-1, 1],
+                                  X_rep[patient][-1, 2], X_rep[patient][-1, 3], X_rep[patient][-1, -1], action[patient]]])
+        except:
+            pdb.set_trace()
         X_rep[patient] = np.vstack((X_rep[patient], x_patient))
         new_current_x.append(x_patient)
         rewards_t_patient = (glucose_patient < 70) * (-0.005 * glucose_patient ** 2 + 0.95 * glucose_patient - 45) + \
