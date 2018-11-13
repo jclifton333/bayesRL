@@ -1,7 +1,27 @@
-import Bandit
-import numpy as np
-import bayes_opt
+import sys
+import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
+
+
+import matplotlib.pyplot as plt
 from src.policies import tuned_bandit_policies as tuned_bandit
+#from src.environments.policy_iteration import policy_iteration
+#from src.environments.grid import Gridworld
+import src.environments.Bandit
+  
+import numpy as np
+from functools import partial
+import datetime
+import yaml
+import multiprocessing as mp
+import sklearn
+
+from bayes_opt import BayesianOptimization
+import time
+
 
 def lm_expit_epsilon_decay(T, t, zeta, R, delta):
   covari = np.kron([1, T-t], np.kron([1, R],[1,delta]))
@@ -81,43 +101,50 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   r = 0
   est_means = []
   std_errs = []
-  for i = 1:time_horizon:
+  for i in range(time_horizon):
 #    print(env.counter, r)
     acts=[]
 #    for t in range(env.maxT):
 #      print(env.counter, t, sum(rewards))
-      if tune and i > 5:
+    if tune and i <= 4:
+      if i == 1 or i == 2:
+        action = 1
+      else:
+        action = 0
+    else:
+      if tune and i >= 5:
         tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
-                                             time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, std_errs)
-        tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter]) 
+                                           time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, std_errs)
+        tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
+      action = policy(est_means, std_errs, 0, tuning_function, tuning_function_parameter, T,t,env)
 #      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
-      print("###########")
+      
+    print("###########")
 #      print(env.counter, update_transitionMatrices[1,:4,:], env.transitionMatrices[1,:4,:])
 #      print(env.counter, sum(sum(abs(update_transitionMatrices[1,:3,:] - env.transitionMatrices[1,:3,:]))))
 #      print(env.counter, sum(sum(abs(update_transitionMatrices[2,[3,7,10],:] - env.transitionMatrices[2,[3,7,10],:]))))
 #      print(env.counter, sum(sum(sum(abs(update_transitionMatrices - env.transitionMatrices)))))
       
-      action = policy(est_means, std_errs, 0, tuning_function, tuning_function_parameter, T,t,env)
-      reward = env.step(action)
-      if reward.__class__.__name__=='dict':
-        reward = reward['Utility']
-      rewards.append(reward)
-      acts.append(action)
-      actions.append(action)
-      new_post_alphas = [env.posterior_params_dict[i]['alpha_post'] for i in env.posterior_params_dict.keys()]
-      new_post_betas = [env.posterior_params_dict[i]['beta_post'] for i in env.posterior_params_dict.keys()]
-      new_post_lambdas = [env.posterior_params_dict[i]['lambda_post'] for i in env.posterior_params_dict.keys()]
-      new_post_mus = [env.posterior_params_dict[i]['mu_post'] for i in env.posterior_params_dict.keys()]
-      posterior_alphas.append(new_post_alphas)
-      posterior_betas.append(new_post_betas)
-      posterior_lambdas.append(new_post_lambdas)
-      posterior_mus.append(new_post_mus)
+    reward = env.step(action)
+    if reward.__class__.__name__=='dict':
+      reward = reward['Utility']
+    rewards.append(reward)
+    acts.append(action)
+    actions.append(action)
+    new_post_alphas = [env.posterior_params_dict[i]['alpha_post'] for i in env.posterior_params_dict.keys()]
+    new_post_betas = [env.posterior_params_dict[i]['beta_post'] for i in env.posterior_params_dict.keys()]
+    new_post_lambdas = [env.posterior_params_dict[i]['lambda_post'] for i in env.posterior_params_dict.keys()]
+    new_post_mus = [env.posterior_params_dict[i]['mu_post'] for i in env.posterior_params_dict.keys()]
+    posterior_alphas.append(new_post_alphas)
+    posterior_betas.append(new_post_betas)
+    posterior_lambdas.append(new_post_lambdas)
+    posterior_mus.append(new_post_mus)
 #      print("after: {}".format(posterior_alphas))
-      r += reward
+    r += reward
 #      if done:
 #        print(acts)
 #        print(env.counter, r)
-        break
+#        break
   print(sum(rewards))        
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions, 'posterior_alphas': posterior_alphas, 'posterior_betas': posterior_betas,
