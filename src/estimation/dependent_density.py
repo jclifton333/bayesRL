@@ -44,9 +44,9 @@ def normal_bayesian_regression(X, y):
   """
   n, p = X.shape.eval()
   with pm.Model() as model:
-    # beta = pm.Normal('beta', 0.0, 5.0, shape=p)
     beta = pm.Normal('beta', 0.0, 5.0, shape=3)
     tau = pm.Gamma('tau', 0.001, 0.001, shape=1)
+    # mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
     mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
@@ -61,7 +61,14 @@ def normal_bayesian_regression(X, y):
   return model, trace
 
 
-def dependent_density_regression(X, y, stack=False):
+def dependent_density_regression(X, y, X_p=None):
+  """
+
+  :param X:
+  :param y:
+  :param X_p: features for parametric model; if not None, will average np and parametric models.
+  :return:
+  """
   n, p = X.shape.eval()
   K = 20
   # X = shared(np.column_stack((np.ones(n), X)))
@@ -102,7 +109,7 @@ def dependent_density_regression(X, y, stack=False):
 
   model.name = 'nonparametric'
 
-  if stack:
+  if X_p is not None:
     model_p, trace_p = normal_bayesian_regression(X, y)
     model_p.name = 'parametric'
     compare_ = pm.compare({model_p: trace_p, model: trace}, method='BB-pseudo-BMA')
@@ -139,11 +146,17 @@ def posterior_predictive_transition(trace, model, shared_x, new_x, compare_=None
   :param compare_: compare object (needed if multiple traces/models given!) or None
   :return:
   """
-  shared_x.set_value(new_x)
   if compare_ is None:
+    shared_x.set_value(new_x)
     pp_sample = pm.sample_ppc(trace, model=model, samples=1)
   else:
-    pp_sample = pm.sample_ppc_w(trace, 1, model, weights=compare_.weight.sort_index(ascending=True))
+    weights_ = np.array(compare_.weight.sort_index(ascending=True)).astype(float)
+    ix_ = np.random.choice(len(weights_), p=weights_)
+    if model[ix_].name == 'parametric':
+      shared_x.set_value(new_x[:3])
+    pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_], samples=1, size=1)
+    # pp_sample = pm.sample_ppc_w(traces=trace, samples=1, models=model,
+    #                             weights=compare_.weight.sort_index(ascending=True), size=1)
   return pp_sample, shared_x
 
 

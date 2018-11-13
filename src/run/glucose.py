@@ -15,6 +15,7 @@ import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies
 import yaml
+import pandas as pd
 import pymc3 as pm
 import matplotlib.pyplot as plt
 from theano import shared, tensor as tt
@@ -112,9 +113,10 @@ def episode(label, policy_name, save=False, monte_carlo_reps=10):
     if tune:
       # Get posterior
       X, Sp1 = env.get_state_transitions_as_x_y_pair()
-      X_ = shared(X)
+      X_np = shared(X)
+      X_p = shared(X[:, :3])
       y = Sp1[:, 0]
-      model_, trace_, compare_ = dd.dependent_density_regression(X_, y, stack=stack)
+      model_, trace_, compare_ = dd.dependent_density_regression(X_np, y, X_p=X_p)
       kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_, 'compare': compare_}
 
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
