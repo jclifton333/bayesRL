@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from src.policies import tuned_bandit_policies as tuned_bandit
 #from src.environments.policy_iteration import policy_iteration
 #from src.environments.grid import Gridworld
-import src.environments.Bandit
+import Bandit
   
 import numpy as np
 from functools import partial
@@ -23,10 +23,6 @@ from bayes_opt import BayesianOptimization
 import time
 
 
-def lm_expit_epsilon_decay(T, t, zeta, R, delta):
-  covari = np.kron([1, T-t], np.kron([1, R],[1,delta]))
-  return zeta[0] * expit(np.dot(zeta[1:9]),covari)
-
 def mab_rollout(tuning_function_parameter, mab_epsilon_policy, 
                              time_horizon, tuning_function, env, 
                              gamma, mc_reps, est_means, std_errs):
@@ -38,11 +34,54 @@ def mab_rollout(tuning_function_parameter, mab_epsilon_policy,
   for rep in range(mc_reps):
     r = 0
     for j in range(time_horizon):
-      a = mab_epsilon_policy(est_means, std_errs, 1, expit_wrapper, tuning_function_parameter, T, t, env)
-      r += gamma**j*env.reward_dbn(a)
+      a = mab_epsilon_policy(est_means, std_errs, 1, expit_wrapper, tuning_function_parameter, time_horizon, j, env)
+      r += gamma**j*env.reward_dbn(a)[0]
+    mean_cumulative_reward += (r - mean_cumulative_reward)/(rep+1)
+    #print(rep, r, mean_cumulative_reward)
+  return mean_cumulative_reward
+
+# Modify this and bayesopt_under_true_model to work for MABs
+def rollout_under_true_model(tuning_function_parameter, mab_epsilon_policy, 
+                             time_horizon, tuning_function, gamma, mc_replicates):
+#  env = Gridworld(time_horizon=time_horizon)
+#  print(time_horizon)
+  mean_cumulative_reward = 0
+#  done=False
+  for rep in range(mc_replicates):
+    env = NormalMAB()
+    r = 0
+    for t in range(time_horizon):  
+#      print(env.counter, r)
+      optimal_action = np.argmax(env.list_of_reward_mus)
+      action = mab_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
+                                       time_horizon, t, env)
+      reward = env.step(action)
+      r += reward
+#  print(r)
     mean_cumulative_reward += (r - mean_cumulative_reward)/(rep+1)
 #    print(rep, r, mean_cumulative_reward)
   return mean_cumulative_reward
+
+def bayesopt_under_true_model(T):
+  rollout_function = rollout_under_true_model
+  policy = tuned_bandits.mab_epsilon_greedy_policy    
+  bounds = {'zeta0': (0.05,2.0),'zeta1': (-1.0,1.0),'zeta2': (-1.0,1.0),'zeta3': (-1.0,1.0),'zeta4': (-1.0,1.0),'zeta5': (-1.0,1.0),'zeta6': (-1.0,1.0),'zeta7': (-1.0,1.0), 'zeta8': (-1.0,1.0)}
+  tuning_function = tuned_bandit.lm_expit_epsilon_decay
+  
+  def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
+    zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
+    return rollout_function(zeta, policy, T, tuning_function, gamma, mc_replicates)
+
+  # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
+#  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0], 
+#              'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5]}
+  explore_ = {'zeta0': [0.05,1.0],'zeta1': [0.0,0.0],'zeta2': [0.0,0.0],'zeta3': [0.0,0.0],'zeta4': [0.0,0.0],'zeta5': [0.0,0.0],'zeta6': [0.0,0.0],'zeta7': [0.0,0.0], 'zeta8': [0.0,0.0]}
+  bo = BayesianOptimization(objective, bounds)
+  bo.explore(explore_)
+  bo.maximize(init_points=100, n_iter=15, alpha=1e-4)
+  best_param = bo.res['max']['max_params']
+  best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
+  return best_param
 
 def mab_bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
              bounds, explore_, gamma, est_means, std_errs):
@@ -52,10 +91,11 @@ def mab_bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_hori
     return rollout_function(zeta, policy, time_horizon, tuning_function, 
                             env, gamma, mc_replicates, est_means, std_errs)
 
+  #print(objective(0,0,0,0,0,0,0,0,0))
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=15, alpha=1e-4)
+  bo.maximize(init_points=100, n_iter=15, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param
@@ -72,10 +112,11 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
     #tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
     #bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
     #explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
-    tuning_function_parameter = np.concatenate([0.05],np.random.uniform(-0.5,0.5,8))
-    bounds = {'zeta0': (0.05,2.0),'zeta1': (-1,1),'zeta2': (-1,1),'zeta3': (-1,1),'zeta4': (-1,1),'zeta5': (-1,1),'zeta6': (-1,1),'zeta7': (-1,1), 'zeta8': (-1,1)}
-    explore_ = {'zeta0': [0.05,1.0],'zeta1': [0,0],'zeta2': [0,0],'zeta3': [0,0],'zeta4': [0,0],'zeta5': [0,0],'zeta6': [0,0],'zeta7': [0,0], 'zeta8': [0,0]}
+    tuning_function_parameter = np.concatenate(([0.05],np.random.uniform(-0.5,0.5,8)))
+    bounds = {'zeta0': (0.05,2.0),'zeta1': (-1.0,1.0),'zeta2': (-1.0,1.0),'zeta3': (-1.0,1.0),'zeta4': (-1.0,1.0),'zeta5': (-1.0,1.0),'zeta6': (-1.0,1.0),'zeta7': (-1.0,1.0), 'zeta8': (-1.0,1.0)}
+    explore_ = {'zeta0': [0.05,1.0],'zeta1': [0.0,0.0],'zeta2': [0.0,0.0],'zeta3': [0.0,0.0],'zeta4': [0.0,0.0],'zeta5': [0.0,0.0],'zeta6': [0.0,0.0],'zeta7': [0.0,0.0], 'zeta8': [0.0,0.0]}
     rollout_function = mab_rollout
+    tuning_function = tuned_bandit.lm_expit_epsilon_decay
   #elif policy_name == 'eps-fixed-decay':
     #tuning_function = lambda a, b, c: 0.1/float(b+1)
     #tune = False
@@ -86,7 +127,6 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
 #    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
 
   policy = tuned_bandit.mab_epsilon_greedy_policy
-  tuning_function = lm_expit_epsilon_decay
   gamma = 1
   env = Bandit.NormalMAB()
   time_horizon = T
@@ -94,29 +134,30 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   tuning_parameter_sequence = []
   rewards = []
   actions = []
+  act_count = [0,0]
   posterior_alphas = []
   posterior_betas = []
   posterior_lambdas = []  
   posterior_mus = []
   r = 0
-  est_means = []
-  std_errs = []
-  for i in range(time_horizon):
+  est_means = [0,0]
+  sse = [0,0]
+  for t in range(time_horizon):
 #    print(env.counter, r)
-    acts=[]
+#    acts=[]
 #    for t in range(env.maxT):
 #      print(env.counter, t, sum(rewards))
-    if tune and i <= 4:
-      if i == 1 or i == 2:
+    if tune and t <= 4:
+      if t == 1 or t == 2:
         action = 1
       else:
         action = 0
     else:
-      if tune and i >= 5:
+      if tune and t >= 5:
         tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
-                                           time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, std_errs)
+                                           time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, np.divide(sse,np.add(act_count,-1)))
         tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
-      action = policy(est_means, std_errs, 0, tuning_function, tuning_function_parameter, T,t,env)
+      action = policy(est_means, sse, 0, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
 #      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
       
     print("###########")
@@ -127,9 +168,9 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
       
     reward = env.step(action)
     if reward.__class__.__name__=='dict':
-      reward = reward['Utility']
+      reward = reward['Utility'][0]
     rewards.append(reward)
-    acts.append(action)
+#    acts.append(action)
     actions.append(action)
     new_post_alphas = [env.posterior_params_dict[i]['alpha_post'] for i in env.posterior_params_dict.keys()]
     new_post_betas = [env.posterior_params_dict[i]['beta_post'] for i in env.posterior_params_dict.keys()]
@@ -141,6 +182,14 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
     posterior_mus.append(new_post_mus)
 #      print("after: {}".format(posterior_alphas))
     r += reward
+    #print(rewards)
+    print(est_means)
+    print(actions)
+    print()
+    act_count[action] += 1
+    err = reward-est_means[action]
+    est_means[action] += err/act_count[action]
+    sse[action] += err * (reward-est_means[action])
 #      if done:
 #        print(acts)
 #        print(env.counter, r)
@@ -157,15 +206,16 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   """
 
 #  replicates = 48
-  num_cpus = int(mp.cpu_count())
+  #num_cpus = int(mp.cpu_count())
 #  num_cpus = 4
-  replicates = 20
-  results = []
-  pool = mp.Pool(processes=num_cpus)
+  #replicates = 20
+  #results = []
+  #pool = mp.Pool(processes=num_cpus)
 
   episode_partial = partial(episode, policy_name, mc_replicates=mc_replicates, T=T)
 
-  results = pool.map(episode_partial, range(replicates))
+  #results = pool.map(episode_partial, range(replicates))
+  results = episode_partial(1)
 #  cumulative_regrets = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [list(d['zeta_sequence']) for d in results]
   actions = [list(d['actions']) for d in results]
@@ -197,10 +247,10 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=75)
 #  episode('eps-fixed-decay', 2, T=50)
-  run('eps-decay', save=True, T=2)
+  run('eps-decay', save=True, T=20)
 #  run('eps-fixed-decay', save=False, T=75)
 #  run('eps', save=False, T=50)
-  episode('eps', 1, T=50)
+#  episode('eps', 1, T=50)
 #  result = episode('eps', 0, T=1000)
 #  print(result['cum_rewards'])
  # episode('eps-fixed-decay', 1, T=50)
