@@ -110,7 +110,7 @@ def dependent_density_regression(X, y, X_p=None):
   model.name = 'nonparametric'
 
   if X_p is not None:
-    model_p, trace_p = normal_bayesian_regression(X, y)
+    model_p, trace_p = normal_bayesian_regression(X_p, y)
     model_p.name = 'parametric'
     compare_ = pm.compare({model_p: trace_p, model: trace}, method='BB-pseudo-BMA')
     models = [model, model_p]
@@ -134,7 +134,7 @@ def stack_parametric_and_nonparametric_dependent_densities(X, y):
   return combined_ppd
 
 
-def posterior_predictive_transition(trace, model, shared_x, new_x, compare_=None):
+def posterior_predictive_transition(trace, model, shared_x_np, new_x, shared_x_p=None, compare_=None):
   """
   Sample from estimated transition density at x, using posterior predictive density as the estimated transition
   density.
@@ -147,17 +147,18 @@ def posterior_predictive_transition(trace, model, shared_x, new_x, compare_=None
   :return:
   """
   if compare_ is None:
-    shared_x.set_value(new_x)
+    shared_x_np.set_value(new_x)
+    shared_x_p = None
     pp_sample = pm.sample_ppc(trace, model=model, samples=1)
   else:
     weights_ = np.array(compare_.weight.sort_index(ascending=True)).astype(float)
     ix_ = np.random.choice(len(weights_), p=weights_)
-    if model[ix_].name == 'parametric':
-      shared_x.set_value(new_x[:3])
+    shared_x_np.set_value(new_x)
+    shared_x_p.set_value(new_x[:3])
     pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_], samples=1, size=1)
     # pp_sample = pm.sample_ppc_w(traces=trace, samples=1, models=model,
     #                             weights=compare_.weight.sort_index(ascending=True), size=1)
-  return pp_sample, shared_x
+  return pp_sample, shared_x_np, shared_x_p
 
 
 
