@@ -325,8 +325,7 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
 
 def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
-  n_rep, x_shared, model_, trace_, compare_ = \
-    kwargs['n_rep'], kwargs['x_shared'], kwargs['model'], kwargs['trace'], kwargs['compare']
+  n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
   mean_cumulative_reward = 0.0
   for rep in range(n_rep):
     rewards = 0.0
@@ -346,12 +345,7 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
       rewards_t = 0.0
       for patient in range(env.nPatients):
         # Draw next state from ppd
-        glucose_patient, x_shared = \
-          posterior_predictive_transition(trace_, model_, x_shared, current_x[patient], compare_=compare_)
-        if type(glucose_patient['obs'][0]) is np.ndarray:
-          pdb.set_trace()
-        glucose_patient = glucose_patient['obs'][0]
-
+        glucose_patient = estimator.draw_from_ppd(current_x[patient])
         food_patient, activity_patient = env.generate_food_and_activity()  # ToDo: This should be estimated, not given!
         # food = np.append(food, food_patient)
         # activity = np.append(activity, activity_patient)

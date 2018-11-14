@@ -52,6 +52,7 @@ def normal_bayesian_regression(X, y):
 
   SAMPLES = 1000
   BURN = 10000
+  # SAMPLES = BURN = 1
 
   with model:
     # ToDo: different algo (conjugate?)
@@ -101,7 +102,7 @@ def dependent_density_regression(X, y, X_p=None):
   # ToDo: can samples be 1 if we want multiple ppd samples??
   SAMPLES = 1000
   BURN = 10000
-  # BURN = 1
+  # SAMPLES = BURN = 1
 
   with model:
     step = pm.Metropolis()
@@ -155,7 +156,11 @@ def posterior_predictive_transition(trace, model, shared_x_np, new_x, shared_x_p
     ix_ = np.random.choice(len(weights_), p=weights_)
     shared_x_np.set_value(new_x)
     shared_x_p.set_value(new_x[:3])
-    pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_], samples=1, size=1)
+    if ix_ == 0:
+      pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0]
+    elif ix_ == 1:
+      # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
+      pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0, 0]
     # pp_sample = pm.sample_ppc_w(traces=trace, samples=1, models=model,
     #                             weights=compare_.weight.sort_index(ascending=True), size=1)
   return pp_sample, shared_x_np, shared_x_p
