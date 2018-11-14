@@ -117,7 +117,8 @@ def episode(label, policy_name, save=False, monte_carlo_reps=10):
       X_p = shared(X[:, :3])
       y = Sp1[:, 0]
       model_, trace_, compare_ = dd.dependent_density_regression(X_np, y, X_p=X_p)
-      kwargs = {'n_rep': monte_carlo_reps, 'x_shared': X_, 'model': model_, 'trace': trace_, 'compare': compare_}
+      kwargs = {'n_rep': monte_carlo_reps, 'X_np': X_np, 'model': model_, 'trace': trace_, 'compare': compare_,
+                'X_p': X_p}
 
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
