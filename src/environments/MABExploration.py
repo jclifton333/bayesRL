@@ -48,15 +48,17 @@ def rollout_under_true_model(tuning_function_parameter, mab_epsilon_policy,
   mean_cumulative_reward = 0
 #  done=False
   for rep in range(mc_replicates):
-    env = NormalMAB()
+    env = Bandit.NormalMAB()
     r = 0
+    delta = env.list_of_reward_mus[1][0]-env.list_of_reward_mus[0][0]
+    R = env.list_of_reward_vars[1][0]/env.list_of_reward_vars[0][0]
+    expit_wrapper = partial(tuning_function, R=R, delta=delta)
     for t in range(time_horizon):  
 #      print(env.counter, r)
-      optimal_action = np.argmax(env.list_of_reward_mus)
-      action = mab_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
+      action = mab_epsilon_policy(env.list_of_reward_mus,[],1, expit_wrapper, tuning_function_parameter, 
                                        time_horizon, t, env)
       reward = env.step(action)
-      r += reward
+      r += gamma**rep*reward['Utility'][0]
 #  print(r)
     mean_cumulative_reward += (r - mean_cumulative_reward)/(rep+1)
 #    print(rep, r, mean_cumulative_reward)
@@ -64,13 +66,13 @@ def rollout_under_true_model(tuning_function_parameter, mab_epsilon_policy,
 
 def bayesopt_under_true_model(T):
   rollout_function = rollout_under_true_model
-  policy = tuned_bandits.mab_epsilon_greedy_policy    
+  policy = tuned_bandit.mab_epsilon_greedy_policy
   bounds = {'zeta0': (0.05,2.0),'zeta1': (-1.0,1.0),'zeta2': (-1.0,1.0),'zeta3': (-1.0,1.0),'zeta4': (-1.0,1.0),'zeta5': (-1.0,1.0),'zeta6': (-1.0,1.0),'zeta7': (-1.0,1.0), 'zeta8': (-1.0,1.0)}
   tuning_function = tuned_bandit.lm_expit_epsilon_decay
   
   def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
     zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
-    return rollout_function(zeta, policy, T, tuning_function, gamma, mc_replicates)
+    return rollout_function(zeta, policy, T, tuning_function, 1, 10)
 
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
 #  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0], 
@@ -126,6 +128,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   #  tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
 #    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
 
+
   policy = tuned_bandit.mab_epsilon_greedy_policy
   gamma = 1
   env = Bandit.NormalMAB()
@@ -141,23 +144,26 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   posterior_mus = []
   r = 0
   est_means = [0,0]
-  sse = [0,0]
+  sse = [1e-8,1e-8]
+  if tune:
+      #tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
+                                               #time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, np.divide(sse,np.add(act_count,-1)))
+    tuning_function_parameter = bayesopt_under_true_model(time_horizon)            
+    tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
+    
   for t in range(time_horizon):
 #    print(env.counter, r)
 #    acts=[]
 #    for t in range(env.maxT):
 #      print(env.counter, t, sum(rewards))
-    if tune and t <= 4:
-      if t == 1 or t == 2:
-        action = 1
-      else:
-        action = 0
-    else:
-      if tune and t >= 5:
-        tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
-                                           time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, np.divide(sse,np.add(act_count,-1)))
-        tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
-      action = policy(est_means, sse, 0, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
+    #if tune and t <= 4:
+    #  if t == 1 or t == 2:
+    #    action = 1
+    #  else:
+    #    action = 0
+    #else:
+    #  if tune and t == 5:
+    action = policy(est_means, sse, 1, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
 #      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
       
     print("###########")
@@ -183,9 +189,8 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
 #      print("after: {}".format(posterior_alphas))
     r += reward
     #print(rewards)
-    print(est_means)
-    print(actions)
-    print()
+    #print(est_means)
+    #print(actions)
     act_count[action] += 1
     err = reward-est_means[action]
     est_means[action] += err/act_count[action]
@@ -194,7 +199,8 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
 #        print(acts)
 #        print(env.counter, r)
 #        break
-  print(sum(rewards))        
+  print(sum(rewards))
+  print(tuning_parameter_sequence)
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions, 'posterior_alphas': posterior_alphas, 'posterior_betas': posterior_betas,
           'posterior_lambdas': posterior_lambdas, 'posterior_mus': posterior_mus}
@@ -206,21 +212,27 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   """
 
 #  replicates = 48
-  #num_cpus = int(mp.cpu_count())
+  num_cpus = int(mp.cpu_count())
 #  num_cpus = 4
-  #replicates = 20
-  #results = []
-  #pool = mp.Pool(processes=num_cpus)
+  replicates = 20
+  results = []
+  pool = mp.Pool(processes=num_cpus)
 
   episode_partial = partial(episode, policy_name, mc_replicates=mc_replicates, T=T)
 
-  #results = pool.map(episode_partial, range(replicates))
-  results = episode_partial(1)
+  results = pool.map(episode_partial, range(replicates))
+  #results = episode_partial(1)
 #  cumulative_regrets = [np.float(d['cumulative_regret']) for d in results]
+  for key,val in results.items():
+    print(key)
+    print(val)
   zeta_sequences = [list(d['zeta_sequence']) for d in results]
   actions = [list(d['actions']) for d in results]
   cum_rewards = [float(d['cum_rewards']) for d in results]
   posterior_alphas = [d['posterior_alphas']for d in results]
+  posterior_betas = [d['posterior_betas']for d in results]
+  posterior_lambdas = [d['posterior_lambdas']for d in results]
+  posterior_mus = [d['posterior_mus']for d in results]
 #  rewards = [list(d['rewards'].astype(float)) for d in results]
 #  print(policy_name, cum_rewards)
   print(policy_name, 'rewards', float(np.mean(cum_rewards)), 'se_rewards',float(np.std(cum_rewards))/np.sqrt(replicates))
@@ -229,9 +241,10 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
     results = {'T':T, 'mc_replicates': mc_replicates, 'cum_rewards': cum_rewards, 
                'rewards': float(np.mean(cum_rewards)), 'se_rewards':float(np.std(cum_rewards)/np.sqrt(replicates)),
                'zeta_sequences': zeta_sequences, 'actions': actions, 
-               'posterior_alphas': posterior_alphas}#, 'rewards':rewards}
+               'posterior_alphas': posterior_alphas, 'posterior_betas': posterior_betas,
+               'posterior_lambdas': posterior_lambdas, 'posterior_mus': posterior_mus}#, 'rewards':rewards}
 
-    base_name = 'mdp-grid-{}'.format(policy_name)
+    base_name = 'mab-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
