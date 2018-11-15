@@ -42,20 +42,21 @@ def mab_rollout(tuning_function_parameter, mab_epsilon_policy,
 
 # Modify this and bayesopt_under_true_model to work for MABs
 def rollout_under_true_model(tuning_function_parameter, mab_epsilon_policy, 
-                             time_horizon, tuning_function, gamma, mc_replicates):
+                             time_horizon, tuning_function, gamma, mc_replicates,tune=False):
 #  env = Gridworld(time_horizon=time_horizon)
 #  print(time_horizon)
   mean_cumulative_reward = 0
 #  done=False
   for rep in range(mc_replicates):
-    env = Bandit.NormalMAB()
+    env = Bandit.NormalMAB(list_of_reward_mus=[[0.3],[0.6]])
     r = 0
     delta = env.list_of_reward_mus[1][0]-env.list_of_reward_mus[0][0]
     R = env.list_of_reward_vars[1][0]/env.list_of_reward_vars[0][0]
-    expit_wrapper = partial(tuning_function, R=R, delta=delta)
+    if tune:
+      tuning_function = partial(tuning_function, R=R, delta=delta)
     for t in range(time_horizon):  
 #      print(env.counter, r)
-      action = mab_epsilon_policy(env.list_of_reward_mus,[],1, expit_wrapper, tuning_function_parameter, 
+      action = mab_epsilon_policy(env.list_of_reward_mus,[],1, tuning_function, tuning_function_parameter, 
                                        time_horizon, t, env)
       reward = env.step(action)
       r += gamma**rep*reward['Utility'][0]
@@ -64,7 +65,7 @@ def rollout_under_true_model(tuning_function_parameter, mab_epsilon_policy,
 #    print(rep, r, mean_cumulative_reward)
   return mean_cumulative_reward
 
-def bayesopt_under_true_model(T):
+def bayesopt_under_true_model(T,tune):
   rollout_function = rollout_under_true_model
   policy = tuned_bandit.mab_epsilon_greedy_policy
   bounds = {'zeta0': (0.05,2.0),'zeta1': (-1.0,1.0),'zeta2': (-1.0,1.0),'zeta3': (-1.0,1.0),'zeta4': (-1.0,1.0),'zeta5': (-1.0,1.0),'zeta6': (-1.0,1.0),'zeta7': (-1.0,1.0), 'zeta8': (-1.0,1.0)}
@@ -72,7 +73,7 @@ def bayesopt_under_true_model(T):
   
   def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
     zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
-    return rollout_function(zeta, policy, T, tuning_function, 1, 10)
+    return rollout_function(zeta, policy, T, tuning_function, 1, 10,tune)
 
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
 #  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0], 
@@ -109,7 +110,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
     tune = False
     tuning_function_parameter = None
   elif policy_name == "eps-decay":
-    tuning_function = tuned_bandit.expit_epsilon_decay
+    #tuning_function = tuned_bandit.expit_epsilon_decay
     tune = True
     #tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
     #bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
@@ -119,21 +120,19 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
     explore_ = {'zeta0': [0.05,1.0],'zeta1': [0.0,0.0],'zeta2': [0.0,0.0],'zeta3': [0.0,0.0],'zeta4': [0.0,0.0],'zeta5': [0.0,0.0],'zeta6': [0.0,0.0],'zeta7': [0.0,0.0], 'zeta8': [0.0,0.0]}
     rollout_function = mab_rollout
     tuning_function = tuned_bandit.lm_expit_epsilon_decay
-  #elif policy_name == 'eps-fixed-decay':
+  elif policy_name == 'eps-fixed-decay':
     #tuning_function = lambda a, b, c: 0.1/float(b+1)
     #tune = False
     #tuning_function_parameter = None
-  #  tuning_function = tuned_bandit.expit_epsilon_decay
-  #  tune = False
-  #  tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
+    tuning_function = tuned_bandit.expit_epsilon_decay
+    tune = False
+    tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
 #    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
-
 
   policy = tuned_bandit.mab_epsilon_greedy_policy
   gamma = 1
-  env = Bandit.NormalMAB()
+  env = Bandit.NormalMAB(list_of_reward_mus=[[0.3],[0.6]])
   time_horizon = T
-  tune = True
   tuning_parameter_sequence = []
   rewards = []
   actions = []
@@ -148,7 +147,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   if tune:
       #tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
                                                #time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, np.divide(sse,np.add(act_count,-1)))
-    tuning_function_parameter = bayesopt_under_true_model(time_horizon)            
+    tuning_function_parameter = bayesopt_under_true_model(time_horizon,tune)            
     tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
     
   for t in range(time_horizon):
@@ -169,7 +168,10 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
       else:
         action = 0
     else:
-      action = policy(est_means, sse, 1, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
+      if tune:
+        action = policy(est_means, sse, 1, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
+      else:
+        action = policy(est_means, sse, 1, tuning_function, tuning_function_parameter, T,t,env)
 #      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
       
     print("###########")
@@ -264,7 +266,7 @@ if __name__ == '__main__':
 #  episode('eps-decay', 0, T=75)
 #  episode('eps-fixed-decay', 2, T=50)
   run('eps-decay', save=True, T=20)
-#  run('eps-fixed-decay', save=False, T=75)
+  run('eps-fixed-decay', save=False, T=75)
 #  run('eps', save=False, T=50)
 #  episode('eps', 1, T=50)
 #  result = episode('eps', 0, T=1000)
