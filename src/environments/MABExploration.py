@@ -163,7 +163,13 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
     #    action = 0
     #else:
     #  if tune and t == 5:
-    action = policy(est_means, sse, 1, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
+    if t <= 4:
+      if t == 1 or t == 2:
+        action = 1
+      else:
+        action = 0
+    else:
+      action = policy(est_means, sse, 1, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
 #      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
       
     print("###########")
@@ -223,9 +229,6 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   results = pool.map(episode_partial, range(replicates))
   #results = episode_partial(1)
 #  cumulative_regrets = [np.float(d['cumulative_regret']) for d in results]
-  for key,val in results.items():
-    print(key)
-    print(val)
   zeta_sequences = [list(d['zeta_sequence']) for d in results]
   actions = [list(d['actions']) for d in results]
   cum_rewards = [float(d['cum_rewards']) for d in results]
