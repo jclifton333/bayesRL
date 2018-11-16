@@ -18,6 +18,7 @@ import datetime
 import yaml
 import multiprocessing as mp
 import sklearn
+import matplotlib as plt
 
 from bayes_opt import BayesianOptimization
 import time
@@ -52,7 +53,7 @@ def rollout_under_true_model(tuning_function_parameter, mab_epsilon_policy,
     r = 0
     delta = env.list_of_reward_mus[1][0]-env.list_of_reward_mus[0][0]
     R = env.list_of_reward_vars[1][0]/env.list_of_reward_vars[0][0]
-    if tuning_function==tuned_bandit.lm_expit_epsilon_decay:
+    if tuning_function==tuned_bandit.information_expit_epsilon_decay:
       tuning_function = partial(tuning_function, R=R, delta=delta)
     for t in range(time_horizon):  
 #      print(env.counter, r)
@@ -65,23 +66,35 @@ def rollout_under_true_model(tuning_function_parameter, mab_epsilon_policy,
 #    print(rep, r, mean_cumulative_reward)
   return mean_cumulative_reward
 
-def bayesopt_under_true_model(T):
+def bayesopt_under_true_model(T, info=False):
   rollout_function = rollout_under_true_model
   policy = tuned_bandit.mab_epsilon_greedy_policy
-  bounds = {'zeta0': (0.05,2.0),'zeta1': (-1.0,1.0),'zeta2': (-1.0,1.0),'zeta3': (-1.0,1.0),'zeta4': (-1.0,1.0),'zeta5': (-1.0,1.0),'zeta6': (-1.0,1.0),'zeta7': (-1.0,1.0), 'zeta8': (-1.0,1.0)}
-  tuning_function = tuned_bandit.lm_expit_epsilon_decay
+  #bounds = {'zeta0': (0.05,2.0),'zeta1': (-1.0,1.0),'zeta2': (-1.0,1.0),'zeta3': (-1.0,1.0),'zeta4': (-1.0,1.0),'zeta5': (-1.0,1.0),'zeta6': (-1.0,1.0),'zeta7': (-1.0,1.0), 'zeta8': (-1.0,1.0)}
   
-  def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
-    zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
-    return rollout_function(zeta, policy, T, tuning_function, 1, 10)
-
+  if info:
+    bounds = {'zeta0': (0.05,2.0),'zeta1': (-5.0, 5.0),'zeta2': (-5.0,5.0),'zeta3': (-5.0,5.0),'zeta4': (-5.0,5.0),'zeta5': (-5.0,5.0),'zeta6': (-5.0,5.0),'zeta7': (-5.0,5.0), 'zeta8': (-5.0,5.0)}
+    explore_ = {'zeta0': [0.05,0.1,0.0,1.0, 0.1],'zeta1': [0.0,0.0,0.0,0.0,-122.5],'zeta2': [0.0,0.0,0.0,0.0,0.0],'zeta3': [0.0,0.0,0.0,0.0,0.0],'zeta4': [0.0,0.0,0.0,0.0,0.0],'zeta5': [0.0,0.0,0.0,0.0,2.5],'zeta6': [0.0,0.0,0.0,0.0,0.0],'zeta7': [0.0,0.0,0.0,0.0,0.0], 'zeta8': [0.0,0.0,0.0,0.0,0.0]}
+    tuning_function = tuned_bandit.information_expit_epsilon_decay
+    init_points = 50
+    def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
+      zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
+      return rollout_function(zeta, policy, T, tuning_function, 1, 10)
+  else:
+    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+    tuning_function = tuned_bandit.expit_epsilon_decay
+    init_points = 50
+    def objective(zeta0, zeta1, zeta2):
+      zeta = np.array([zeta0, zeta1, zeta2])
+      return rollout_function(zeta, policy, T, tuning_function, 1, 10)
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
 #  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0], 
 #              'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5]}
-  explore_ = {'zeta0': [0.05,1.0],'zeta1': [0.0,0.0],'zeta2': [0.0,0.0],'zeta3': [0.0,0.0],'zeta4': [0.0,0.0],'zeta5': [0.0,0.0],'zeta6': [0.0,0.0],'zeta7': [0.0,0.0], 'zeta8': [0.0,0.0]}
+  #
+  
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=100, n_iter=15, alpha=1e-4)
+  bo.maximize(init_points=init_points, n_iter=15, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param
@@ -98,36 +111,50 @@ def mab_bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_hori
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=15, alpha=1e-4)
+  bo.maximize(init_points=50, n_iter=15, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param
 
-def episode(policy_name, label, mc_replicates=10, T=1000):
-  #np.random.seed(label)
+def episode(policy_name, label, mc_replicates=10, T=1000, info=False):
+  np.random.seed(label)
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.0  # Constant epsilon
+    tuning_function = lambda a, b, c: 0.05  # Constant epsilon
     tune = False
     tuning_function_parameter = None
   elif policy_name == "eps-decay":
     #tuning_function = tuned_bandit.expit_epsilon_decay
     tune = True
-    #tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
-    #bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    #explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
-    tuning_function_parameter = np.concatenate(([0.05],np.random.uniform(-0.5,0.5,8)))
-    bounds = {'zeta0': (0.05,2.0),'zeta1': (-1.0,1.0),'zeta2': (-1.0,1.0),'zeta3': (-1.0,1.0),'zeta4': (-1.0,1.0),'zeta5': (-1.0,1.0),'zeta6': (-1.0,1.0),'zeta7': (-1.0,1.0), 'zeta8': (-1.0,1.0)}
-    explore_ = {'zeta0': [0.05,1.0],'zeta1': [0.0,0.0],'zeta2': [0.0,0.0],'zeta3': [0.0,0.0],'zeta4': [0.0,0.0],'zeta5': [0.0,0.0],'zeta6': [0.0,0.0],'zeta7': [0.0,0.0], 'zeta8': [0.0,0.0]}
     rollout_function = mab_rollout
-    tuning_function = tuned_bandit.lm_expit_epsilon_decay
+    if info:
+      tuning_function_parameter = np.concatenate(([0.05],np.random.uniform(-0.5,0.5,8)))
+      bounds = {'zeta0': (0.05,2.0),'zeta1': (-5.0, 5.0),'zeta2': (-5.0,5.0),'zeta3': (-5.0,5.0),'zeta4': (-5.0,5.0),'zeta5': (-5.0,5.0),'zeta6': (-5.0,5.0),'zeta7': (-5.0,5.0), 'zeta8': (-5.0,5.0)}
+      explore_ = {'zeta0': [0.05,0.1,0.0,1.0, 0.1],'zeta1': [0.0,0.0,0.0,0.0,-122.5],'zeta2': [0.0,0.0,0.0,0.0,0.0],'zeta3': [0.0,0.0,0.0,0.0,0.0],'zeta4': [0.0,0.0,0.0,0.0,0.0],'zeta5': [0.0,0.0,0.0,0.0,2.5],'zeta6': [0.0,0.0,0.0,0.0,0.0],'zeta7': [0.0,0.0,0.0,0.0,0.0], 'zeta8': [0.0,0.0,0.0,0.0,0.0]}
+      tuning_function = tuned_bandit.information_expit_epsilon_decay
+    else:
+      tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
+      bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+      explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+      tuning_function = tuned_bandit.expit_epsilon_decay
   elif policy_name == 'eps-fixed-decay':
+    if info:
+      tuning_function = tuned_bandit.information_expit_epsilon_decay
+      tune = False
+      tuning_function_parameter = np.array([1.92231616,  3.96185359,  4.34784061,  0.19374746,  2.44322134, -3.31251488,
+ -4.59189167, -2.82927292,    0.49703557] )
+
+      #tuning_function_parameter = np.array([  0.05,       -3.72724451, -2.12433158, -0.85542478, -1.85824809, -4.65891594,
+ #-0.51686164,  0.52647143, -0.35647646 ] )
+    else:
+      tuning_function = tuned_bandit.expit_epsilon_decay
+      tune = False
+      tuning_function_parameter = np.array([ 0.1     ,  49. , 2.5 ] )
+
     #tuning_function = lambda a, b, c: 0.1/float(b+1)
     #tune = False
     #tuning_function_parameter = None
-    tuning_function = tuned_bandit.lm_expit_epsilon_decay
-    tune = False
-    tuning_function_parameter = np.array([ 0.4652, -0.6916, -0.4979, 0.3094, -0.7081, -0.8968, -0.1557, -0.8516, 0.9501 ] )
-    #tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
+    
+    #
 #    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
 
   policy = tuned_bandit.mab_epsilon_greedy_policy
@@ -146,9 +173,9 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   est_means = [0,0]
   sse = [1e-8,1e-8]
   if tune:
-      #tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
-                                               #time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, np.divide(sse,np.add(act_count,-1)))
-    tuning_function_parameter = bayesopt_under_true_model(time_horizon)            
+    tuning_function_parameter = mab_bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
+                                               time_horizon, env, mc_replicates, bounds, explore_, gamma, est_means, np.divide(sse,np.add(act_count,-1)))
+    #tuning_function_parameter = bayesopt_under_true_model(time_horizon, info)            
     tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
     
   for t in range(time_horizon):
@@ -169,13 +196,15 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
       else:
         action = 0
     else:
-      if tuning_function == tuned_bandit.lm_expit_epsilon_decay:
+      if tuning_function == tuned_bandit.information_expit_epsilon_decay:
         action = policy(est_means, sse, 1, partial(tuning_function,R=sse[1]*(act_count[0]-1)/(sse[0]*(act_count[1]-1)),delta=est_means[1]-est_means[0]), tuning_function_parameter, T,t,env)
       else:
         action = policy(est_means, sse, 1, tuning_function, tuning_function_parameter, T,t,env)
 #      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
       
     print("###########")
+    print("Time: " + t)
+    print("Replicate: " + label)
 #      print(env.counter, update_transitionMatrices[1,:4,:], env.transitionMatrices[1,:4,:])
 #      print(env.counter, sum(sum(abs(update_transitionMatrices[1,:3,:] - env.transitionMatrices[1,:3,:]))))
 #      print(env.counter, sum(sum(abs(update_transitionMatrices[2,[3,7,10],:] - env.transitionMatrices[2,[3,7,10],:]))))
@@ -208,26 +237,26 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
 #        print(acts)
 #        print(env.counter, r)
 #        break
-  print(sum(rewards))
-  print(tuning_parameter_sequence)
+#  print(sum(rewards))
+#  print(tuning_parameter_sequence)
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions, 'posterior_alphas': posterior_alphas, 'posterior_betas': posterior_betas,
           'posterior_lambdas': posterior_lambdas, 'posterior_mus': posterior_mus}
     
-def run(policy_name, save=True, mc_replicates=10, T=1000):
+def run(policy_name, save=True, mc_replicates=10, T=1000, info=False):
   """
 
   :return:
   """
 
-#  replicates = 48
+  replicates = 96
   num_cpus = int(mp.cpu_count())
 #  num_cpus = 4
-  replicates = 20
+  #replicates = 20
   results = []
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name, mc_replicates=mc_replicates, T=T)
+  episode_partial = partial(episode, policy_name, mc_replicates=mc_replicates, T=T, info=info)
 
   results = pool.map(episode_partial, range(replicates))
   #results = episode_partial(1)
@@ -236,9 +265,14 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   actions = [list(d['actions']) for d in results]
   cum_rewards = [float(d['cum_rewards']) for d in results]
   posterior_alphas = [d['posterior_alphas']for d in results]
-  posterior_betas = [d['posterior_betas']for d in results]
-  posterior_lambdas = [d['posterior_lambdas']for d in results]
-  posterior_mus = [d['posterior_mus']for d in results]
+  if info:
+    posterior_betas = [d['posterior_betas']for d in results]
+    posterior_lambdas = [d['posterior_lambdas']for d in results]
+    posterior_mus = [d['posterior_mus']for d in results]
+  else:
+    posterior_betas = None
+    posterior_lambdas = None
+    posterior_mus = None
 #  rewards = [list(d['rewards'].astype(float)) for d in results]
 #  print(policy_name, cum_rewards)
   print(policy_name, 'rewards', float(np.mean(cum_rewards)), 'se_rewards',float(np.std(cum_rewards))/np.sqrt(replicates))
@@ -266,9 +300,10 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=75)
 #  episode('eps-fixed-decay', 2, T=50)
-#  run('eps-decay', save=True, T=10)
-  run('eps-fixed-decay', save=False, T=75)
-#  run('eps', save=False, T=50)
+  run('eps-decay', save=True, T=50, info=True)
+  #run('eps-fixed-decay', save=False, T=50, info=True)
+  #run('eps-fixed-decay', save=False, T=50, info=False)
+  #run('eps', save=False, T=50)
 #  episode('eps', 1, T=50)
 #  result = episode('eps', 0, T=1000)
 #  print(result['cum_rewards'])
@@ -280,7 +315,8 @@ if __name__ == '__main__':
 #  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
 #  with open('bayes-opt-glucose.yml', 'w') as handle:
 #    yaml.dump(params_dict, handle)
-#  print(bayesopt_under_true_model(T=75))
+  #print(bayesopt_under_true_model(T=50,info=False))
+  #print(bayesopt_under_true_model(T=50,info=True))
 #  print(rollout_under_true_model(np.array([1.  ,50.,   0.1]), mdp_grid_epsilon_policy, 
 #                             50, tuned_bandit.expit_epsilon_decay, 0.9, 20))
   elapsed_time = time.time() - start_time

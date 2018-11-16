@@ -161,7 +161,7 @@ def stepwise_linear_epsilon(T, t, zeta):
   epsilon = sum(zeta[:j]) + ((T-t) - j*interval) * zeta[j] / interval
   return epsilon
 
-def lm_expit_epsilon_decay(T, t, zeta, R, delta):
+def information_expit_epsilon_decay(T, t, zeta, R, delta):
   covari = np.kron([1, T-t], np.kron([1, R],[1,delta]))
   return zeta[0] * expit(np.dot(zeta[1:9],covari))
 
