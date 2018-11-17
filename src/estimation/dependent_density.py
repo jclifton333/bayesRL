@@ -62,6 +62,49 @@ def normal_bayesian_regression(X, y):
   return model, trace
 
 
+def dirichlet_mixture_regression(X, y):
+  n, p = X.shape.eval()
+  K = 20
+  # X = shared(np.column_stack((np.ones(n), X)))
+  # X_for_model = shared(X, broadcastable=(False, True))
+
+  # Specify model
+  with pm.Model() as model:
+    # Dirichlet priors
+    # alpha = pm.Normal('alpha', 0.0, 5.0, shape=K)
+    beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
+    v = norm_cdf(tt.dot(X, beta))
+    # v = norm_cdf(alpha + tt.dot(X, beta))
+    w = pm.Deterministic('w', stick_breaking(v))
+
+  print('dirichlet prior')
+
+  with model:
+    # Linear model
+    theta = pm.Normal('theta', 0.0, 10.0, shape=(p, K))
+    mu_ = pm.Deterministic('mu', tt.dot(X, theta))
+
+  print('linear model')
+
+  with model:
+    tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
+    obs = pm.NormalMixture('obs', w, mu_, tau=tau, observed=y)
+
+  print('ready to go')
+
+  # ToDo: can samples be 1 if we want multiple ppd samples??
+  SAMPLES = 1000
+  BURN = 10000
+  # SAMPLES = BURN = 1
+
+  with model:
+    step = pm.Metropolis()
+    trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
+
+  model.name = 'nonparametric'
+  return model, trace
+
+
 def dependent_density_regression(X, y, X_p=None):
   """
 
@@ -135,35 +178,35 @@ def stack_parametric_and_nonparametric_dependent_densities(X, y):
   return combined_ppd
 
 
-def posterior_predictive_transition(trace, model, shared_x_np, new_x, shared_x_p=None, compare_=None):
-  """
-  Sample from estimated transition density at x, using posterior predictive density as the estimated transition
-  density.
-
-  :param trace:
-  :param model:
-  :param shared_x:
-  :param new_x:
-  :param compare_: compare object (needed if multiple traces/models given!) or None
-  :return:
-  """
-  if compare_ is None:
-    shared_x_np.set_value(new_x)
-    shared_x_p = None
-    pp_sample = pm.sample_ppc(trace, model=model, samples=1)
-  else:
-    weights_ = np.array(compare_.weight.sort_index(ascending=True)).astype(float)
-    ix_ = np.random.choice(len(weights_), p=weights_)
-    shared_x_np.set_value(new_x)
-    shared_x_p.set_value(new_x[:3])
-    if ix_ == 0:
-      pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0]
-    elif ix_ == 1:
-      # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
-      pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0, 0]
-    # pp_sample = pm.sample_ppc_w(traces=trace, samples=1, models=model,
-    #                             weights=compare_.weight.sort_index(ascending=True), size=1)
-  return pp_sample, shared_x_np, shared_x_p
+# def posterior_predictive_transition(trace, model, shared_x_np, new_x, shared_x_p=None, compare_=None):
+#   """
+#   Sample from estimated transition density at x, using posterior predictive density as the estimated transition
+#   density.
+#
+#   :param trace:
+#   :param model:
+#   :param shared_x:
+#   :param new_x:
+#   :param compare_: compare object (needed if multiple traces/models given!) or None
+#   :return:
+#   """
+#   if compare_ is None:
+#     shared_x_np.set_value(new_x)
+#     shared_x_p = None
+#     pp_sample = pm.sample_ppc(trace, model=model, samples=1)
+#   else:
+#     weights_ = np.array(compare_.weight.sort_index(ascending=True)).astype(float)
+#     ix_ = np.random.choice(len(weights_), p=weights_)
+#     shared_x_np.set_value(new_x)
+#     shared_x_p.set_value(new_x[:3])
+#     if ix_ == 0:
+#       pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0]
+#     elif ix_ == 1:
+#       # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
+#       pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0, 0]
+#     # pp_sample = pm.sample_ppc_w(traces=trace, samples=1, models=model,
+#     #                             weights=compare_.weight.sort_index(ascending=True), size=1)
+#   return pp_sample, shared_x_np, shared_x_p
 
 
 

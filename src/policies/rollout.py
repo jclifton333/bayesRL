@@ -15,7 +15,7 @@ from scipy.linalg import block_diag
 import src.policies.linear_algebra as la
 from src.environments.Bandit import NormalCB
 from src.environments.Glucose import Glucose
-from src.estimation.dependent_density import posterior_predictive_transition
+# from src.estimation.dependent_density import posterior_predictive_transition
 import src.policies.tuned_bandit_policies as tuned_bandit
 
 

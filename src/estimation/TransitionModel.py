@@ -1,10 +1,15 @@
 """
 Classes for estimated transition model, to be used for tuning exploration.
 """
-import numpy as np
+import sys
 import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
+import numpy as np
 import pymc3 as pm
-from .dependent_density import dependent_density_regression, posterior_predictive_transition
+import src.estimation.dependent_density as dd
 from theano import shared
 
 
@@ -27,17 +32,22 @@ class GlucoseTransitionModel(object):
     # Update shared features
     if self.method == 'np':
       self.shared_x_np = shared(X)
+      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y)
     elif self.method == 'p':
       self.shared_x_p = shared(X[:, :3])
+      model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y)
     elif self.method == 'averaged':
       self.shared_x_np = shared(X)
       self.shared_x_p = shared(X[:, :3])
+      model_np, trace_np = dd.dirichlet_mixture_regression(self.shared_x_np, y)
+      model_p, trace_p = dd.normal_bayesian_regression(self.shared_x_p, y)
+      model_ = [model_p, model_np]
+      trace_ = [trace_p, trace_np]
+      self.compare = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')
 
-    # Fit model
-    model_, trace_, compare_ = dependent_density_regression(self.shared_x_np, y, X_p=self.shared_x_p)
     self.model = model_
     self.trace = trace_
-    self.compare = compare_
+    # self.compare = compare_
 
   def draw_from_ppd(self, x):
     """
@@ -52,9 +62,9 @@ class GlucoseTransitionModel(object):
       ix_ = np.random.choice(len(weights_), p=weights_)
       self.shared_x_np.set_value(x)
       self.shared_x_p.set_value(x[:3])
-      if ix_ == 0:
+      if ix_ == 1:
         pp_sample = pm.sample_ppc(self.trace[ix_], model=self.model[ix_])['obs'][0]
-      elif ix_ == 1:
+      elif ix_ == 0:
         # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
         pp_sample = pm.sample_ppc(self.trace[ix_], model=self.model[ix_])['obs'][0, 0]
     elif self.method == 'np':
