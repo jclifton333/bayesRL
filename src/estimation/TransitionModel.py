@@ -59,10 +59,10 @@ class GlucoseTransitionModel(object):
         pp_sample = pm.sample_ppc(self.trace[ix_], model=self.model[ix_])['obs'][0, 0]
     elif self.method == 'np':
       self.shared_x_np.set_value(x)
-      pp_sample = pm.sample_ppc(self.trace[0], model=self.model[0])['obs'][0]
+      pp_sample = pm.sample_ppc(self.trace, model=self.model)['obs'][0]
     elif self.method == 'p':
       self.shared_x_p.set_value(x[:3])
-      pp_sample = pm.sample_ppc(self.trace[1], model=self.model[1])['obs'][0, 0]
+      pp_sample = pm.sample_ppc(self.trace, model=self.model)['obs'][0, 0]
 
     return pp_sample
 

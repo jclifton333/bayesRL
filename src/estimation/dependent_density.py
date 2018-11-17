@@ -50,7 +50,7 @@ def normal_bayesian_regression(X, y):
     mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
-  SAMPLES = 1000
+  SAMPLES = 200
   BURN = 10000
   # SAMPLES = BURN = 1
 
@@ -100,7 +100,7 @@ def dependent_density_regression(X, y, X_p=None):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  SAMPLES = 1000
+  SAMPLES = 200 
   BURN = 10000
   # SAMPLES = BURN = 1
 
