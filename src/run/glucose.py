@@ -164,10 +164,10 @@ def run(policy_name):
 
 if __name__ == '__main__':
   # t0 = time.time()
-  reward = episode(0, 'averaged')
+  # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # npb_diagnostics()
-  # run('stacked')
-  # run('npb')
-  # run('fixed-eps')
+  run('np')
+  run('p')
+  run('averaged')
