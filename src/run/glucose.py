@@ -142,7 +142,7 @@ def episode(label, policy_name, save=False, monte_carlo_reps=10):
 
 
 def run(policy_name):
-  replicates = 48
+  replicates = 24
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
