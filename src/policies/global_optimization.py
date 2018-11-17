@@ -11,8 +11,8 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
   # zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
 
-  def objective(*args):
-    zeta = np.array([zeta_ for zeta_ in args])
+  def objective(zeta0, zeta1, zeta2):
+    zeta = np.array([zeta0, zeta1, zeta2])
     return rollout_function(zeta, policy, time_horizon, tuning_function, env, **rollout_function_kwargs)
 
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}

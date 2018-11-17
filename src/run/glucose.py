@@ -74,7 +74,7 @@ def npb_diagnostics():
 
 
 def episode(label, policy_name, save=False, monte_carlo_reps=10):
-  if policy_name in ['np', 'averaged']:
+  if policy_name in ['np', 'p', 'averaged']:
     tune = True
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
     bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
@@ -169,5 +169,6 @@ if __name__ == '__main__':
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # npb_diagnostics()
   # run('np')
-  run('p')
+  episode(0, 'p')
   # run('averaged')
+
