@@ -11,15 +11,15 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
   # zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
 
-  def objective(zeta0, zeta1, zeta2):
-    zeta = np.array([zeta0, zeta1, zeta2])
+  def objective(*args):
+    zeta = np.array([zeta_ for zeta_ in args])
     return rollout_function(zeta, policy, time_horizon, tuning_function, env, **rollout_function_kwargs)
 
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=2, n_iter=2)
+  bo.maximize(init_points=10, n_iter=10)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param

@@ -184,6 +184,18 @@ def expit_epsilon_decay(T, t, zeta):
   return zeta[0] * expit(zeta[2]*(T - t - zeta[1]))
 
 
+def expit_epsilon_decay_info_state(T, t, zeta, **kwargs):
+  """
+  Use info state, for two-armed multiarmed bandit only.
+  :param T: 
+  :param t: 
+  :return: 
+  """
+  xbar_diff, sigma_ratio = kwargs['xbar_diff'], kwargs['sigma_ratio']
+  return zeta[0] * expit(zeta[1]*(T-t) + zeta[2]*xbar_diff + zeta[3]*sigma_ratio + zeta[4]*(T-t)*xbar_diff
+                         + zeta[5]*(T-t)*sigma_ratio - zeta[6])
+
+
 def step_function(T, t, zeta):
   J = len(zeta)
   interval = int(T/float(J))

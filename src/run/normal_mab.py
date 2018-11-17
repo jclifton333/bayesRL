@@ -51,6 +51,15 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
     bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
     posterior_sample = True
+  elif policy_name == 'eps-decay-info-state':
+    tuning_function = tuned_bandit.expit_epsilon_decay
+    policy = tuned_bandit.mab_epsilon_greedy_policy
+    tune = True
+    tuning_function_parameter = np.array([0.05, 45, 2.5])
+    bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+    # explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+    explore_ = {}
+    posterior_sample = True
   elif policy_name == 'eps-decay-posterior-sample':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.mab_epsilon_greedy_policy
