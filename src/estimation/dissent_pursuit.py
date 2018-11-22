@@ -8,8 +8,17 @@ Pseudocode:
 
 where cross_regret(m_a, m_b) = V( pi_opt(m_b) ; m_a) + V( pi_opt(m_a) ; m_b)
 """
+import sys
+import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
 import numpy as np
+import src.estimation.dependent_density as dd
 from sklearn.ensemble import RandomForestRegressor
+from src.environments.Glucose import Glucose
+from theano import shared
 
 
 def solve_for_pi_opt(initial_state, transition_model, time_horizon, number_of_actions, rollout_policy,
@@ -80,8 +89,8 @@ def evaluate_policy(initial_state, transition_model, time_horizon, policy, featu
   return np.mean(returns)
 
 
-def conflict_pursuit(model, trace, posterior_density, time_horizon, initial_state, exploration_parameters,
-                     number_of_actions, rollout_policy, feature_function):
+def dissent_pursuit(model, trace, posterior_density, time_horizon, initial_state, exploration_parameters,
+                    number_of_actions, rollout_policy, feature_function, transition_model_from_parameter):
   """
   Conflict pursuit for TWO MODELS only.
 
@@ -90,6 +99,7 @@ def conflict_pursuit(model, trace, posterior_density, time_horizon, initial_stat
   :param posterior_density:
   :param time_horizon:
   :param exploration_parameters:
+  :param transition_model_from_parameter: function that takes parameter and returns transition distribution
   :param initial_state:
   :return:
   """
@@ -97,20 +107,22 @@ def conflict_pursuit(model, trace, posterior_density, time_horizon, initial_stat
 
   # Get map estimate and corresponding policy
   map_parameters = model.find_MAP()
-  pi_1 = solve_for_pi_opt(initial_state, map_parameters, time_horizon, number_of_actions, rollout_policy,
+  transition_model_1 = transition_model_from_parameter(map_parameters)
+  pi_1 = solve_for_pi_opt(initial_state, transition_model_1, time_horizon, number_of_actions, rollout_policy,
                           feature_function)
-  value_of_pi_1 = evaluate_policy(initial_state, map_parameters, time_horizon, pi_1, feature_function)
+  value_of_pi_1 = evaluate_policy(initial_state, transition_model_1, time_horizon, pi_1, feature_function)
 
   # Define CP objective
   def cp_objective(transition_model_parameters):
     # Get value of policy corresponding to this parameter setting
-    candidate_policy = solve_for_pi_opt(transition_model_parameters, time_horizon)
-    value_of_candidate_policy = evaluate_policy(initial_state, map_parameters, time_horizon, candidate_policy,
+    transition_model_2 = transition_model_from_parameter(transition_model_parameters)
+    candidate_policy = solve_for_pi_opt(transition_model_2, time_horizon)
+    value_of_candidate_policy = evaluate_policy(initial_state, transition_model_2, time_horizon, candidate_policy,
                                                 feature_function)
 
     # Compute cross-regrets
-    cross_value_candidate_policy = evaluate_policy(initial_state, map_parameters, time_horizon, candidate_policy)
-    cross_value_pi_1 = evaluate_policy(initial_state, transition_model_parameters, time_horizon, pi_1)
+    cross_value_candidate_policy = evaluate_policy(initial_state, transition_model_1, time_horizon, candidate_policy)
+    cross_value_pi_1 = evaluate_policy(initial_state, transition_model_2, time_horizon, pi_1)
     transition_model_parameters_density = posterior_density(transition_model_parameters)
 
     cross_regret_1 = value_of_pi_1 - cross_value_candidate_policy
@@ -136,5 +148,34 @@ def conflict_pursuit(model, trace, posterior_density, time_horizon, initial_stat
   return best_param
 
 
+if __name__ == "__main__":
+  # Collect data
+  np.random.seed(3)
+  n_patients = 10
+  T = 5
+  env = Glucose(nPatients=n_patients)
+  env.reset()
+
+  for t in range(T):
+    # Get posterior
+    # X, Sp1 = env.get_state_transitions_as_x_y_pair()
+    # X = shared(X)
+    # y = Sp1[:, 0]
+    # model_, trace_ = dd.dependent_density_regression(X, y)
+    action = np.random.binomial(1, 0.3, n_patients)
+    env.step(action)
+
+  # Get posterior
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  X = shared(X)
+  y = Sp1[:, 0]
+  model_, trace_, compare_ = dd.dependent_density_regression(X, y)
+
+  # Dissent pursuit
+  time_horizon_ = 3
+  def rollout_policy_(s):
+    return np.random.binomial(1, 0.3)
+  dissent_pursuit(model_, trace_, posterior_density, time_horizon_, env.X[-1][:-1, :], [],
+                  2, rollout_policy_, feature_function, transition_model_from_parameter)
 
 
