@@ -10,7 +10,7 @@ sys.path.append(project_dir)
 import scipy.stats.norm as norm
 import numpy as np
 import pymc3 as pm
-import src.estimation.dependent_density as dd
+import src.estimation.density_estimation as dd
 from theano import shared
 
 

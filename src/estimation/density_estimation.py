@@ -15,6 +15,7 @@ sys.path.append(project_dir)
 
 import pymc3 as pm
 import numpy as np
+import scipy as sp
 import pandas as pd
 import theano
 from theano import shared, tensor as tt
@@ -103,6 +104,41 @@ def dirichlet_mixture_regression(X, y):
 
   model.name = 'nonparametric'
   return model, trace
+
+
+def np_density_estimation(X):
+  """
+  Density estimation of distribution of X using dirichlet mixture https://docs.pymc.io/notebooks/dp_mix.html.
+  This is used for density estimation of Food and Activity, which are distributed as
+    0 with probability 1 - p
+    F with probability p, where F is some distribution
+  So we estimate p and estimate density only for those X's which aren't 0.
+
+  :param X: one-dimensional array of observations
+  :return:
+  """
+  # Estimate p
+  p = np.mean(X != 0.0)
+
+  # DP mixture density estimation hyperparameters
+  K = 30
+  X_nonzero = X[np.where(X != 0)]
+  n = len(X_nonzero)
+  alpha = 2.0
+
+  with pm.Model() as model:
+    alpha = pm.Gamma('alpha', 1.0, 1.0)
+    beta = pm.Beta('beta', 1.0, alpha, shape=K)
+    w = pm.Deterministic('w', stick_breaking(beta))
+    tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
+    lambda_ = pm.Uniform('lambda', 0, 5, shape=K)
+    mu = pm.Normal('mu', 0, tau=lamda_*tau, shape=K)
+    obs = pm.NormalMixture('obs', w, mu, tau=lambda_*tau, observed=X_nonzero)
+
+    trace = pm.sample(1000)
+
+  return model, trace, p
+
 
 
 def dependent_density_regression(X, y, X_p=None):

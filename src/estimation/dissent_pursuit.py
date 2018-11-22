@@ -15,7 +15,8 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 import numpy as np
-import src.estimation.dependent_density as dd
+import src.estimation.density_estimation as dd
+import src.estimation.TransitionModel as tm
 from sklearn.ensemble import RandomForestRegressor
 from src.environments.Glucose import Glucose
 from theano import shared
@@ -106,7 +107,7 @@ def dissent_pursuit(model, trace, posterior_density, time_horizon, initial_state
   NUMBER_OF_EVALUATIONS = 10
 
   # Get map estimate and corresponding policy
-  map_parameters = model.find_MAP()
+  map_parameters = model.find_MAP()  # ToDo: Posterior mean instead?
   transition_model_1 = transition_model_from_parameter(map_parameters)
   pi_1 = solve_for_pi_opt(initial_state, transition_model_1, time_horizon, number_of_actions, rollout_policy,
                           feature_function)
@@ -149,6 +150,15 @@ def dissent_pursuit(model, trace, posterior_density, time_horizon, initial_state
 
 
 if __name__ == "__main__":
+  # def glucose_feature_function(g, a):
+  #   # Draw next state from ppd
+  #   glucose_patient = estimator.draw_from_ppd(current_x[patient])
+  #   food_patient, activity_patient = env.generate_food_and_activity()  # ToDo: This should be estimated, not given!
+  #   # food = np.append(food, food_patient)
+  #   # activity = np.append(activity, activity_patient)
+  #   x_patient = np.array([[1.0, glucose_patient, food_patient, activity_patient, X_rep[patient][-1, 1],
+  #                          X_rep[patient][-1, 2], X_rep[patient][-1, 3], X_rep[patient][-1, -1], action[patient]]])
+
   # Collect data
   np.random.seed(3)
   n_patients = 10
@@ -173,9 +183,14 @@ if __name__ == "__main__":
 
   # Dissent pursuit
   time_horizon_ = 3
+
   def rollout_policy_(s):
     return np.random.binomial(1, 0.3)
-  dissent_pursuit(model_, trace_, posterior_density, time_horizon_, env.X[-1][:-1, :], [],
-                  2, rollout_policy_, feature_function, transition_model_from_parameter)
+
+  def posterior_density_(p):
+    return np.exp(model_.logp(p))
+
+  dissent_pursuit(model_, trace_, posterior_density_, time_horizon_, env.X[-1][:-1, :], [],
+                  2, rollout_policy_, feature_function, tm.transition_model_from_np_parameter)
 
 
