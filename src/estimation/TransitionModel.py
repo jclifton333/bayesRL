@@ -21,19 +21,30 @@ class GlucoseTransitionModel(object):
     :param method: string in ['np', 'p', 'averaged']
     """
     assert method in ['np', 'p', 'averaged']
+    self.method = method
 
-    self.model = None
-    self.trace = None
+    self.glucose_model = None
+    self.glucose_trace = None
     self.compare = None
     self.shared_x_np = None
     self.shared_x_p = None
-    self.method = method
+
+    self.food_model = None
+    self.food_trace = None
+    self.food_nonzero_prob = None
+    self.activity_model = None
+    self.activity_trace = None
+    self.activity_nonzero_prob = None
+    self.shared_nonzero_food = None
+    self.shared_nonzero_activity = None
 
   def fit(self, X, y):
     # Update shared features
     if self.method == 'np':
       self.shared_x_np = shared(X)
       model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y)
+      self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
+      self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 4])
     elif self.method == 'p':
       self.shared_x_p = shared(X[:, :3])
       model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y)
