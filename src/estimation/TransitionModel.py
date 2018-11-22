@@ -7,6 +7,7 @@ import os
 this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
+import scipy.stats.norm as norm
 import numpy as np
 import pymc3 as pm
 import src.estimation.dependent_density as dd
@@ -88,3 +89,22 @@ class GlucoseTransitionModel(object):
     pass
 
 
+def transition_model_from_np_parameter(np_parameter):
+  """
+
+  :param np_parameter: Parameter corresponding to probit mixture of gaussians as in GlucoseTransitionModel np option.
+  :return:
+  """
+  tau, beta, theta = \
+    np_parameter['tau'], np_parameter['beta'], np_parameter['theta']
+
+  def transition_model(x):
+    # Draw cluster
+    cluster_probs = np.array([norm.cdf(np.dot(x, beta_i)) for beta_i in beta])
+    cluster = np.random.choice(range(len(cluster_probs)), p=cluster_probs)
+    theta_i = theta[cluster]
+    s_mean = np.dot(theta_i, x)
+    s_tilde = np.random.multivariate_normal(s_mean, cov=tau[cluster]*np.eye(len(s_mean)))
+    return s_tilde
+
+  return transition_model

@@ -33,28 +33,38 @@ def solve_for_pi_opt(initial_state, transition_model, time_horizon, number_of_ac
     s = initial_state
     for t in range(time_horizon):
       a = rollout_policy(s)
-      X = np.vstack((X, feature_function(s, a)))
+      x = feature_function(s, a)
+      X = np.vstack((X, x))
       S = np.vstack((S, s))
-      s, r = transition_model(s, a)
+      s, r = transition_model(x)
       R = np.append(R, r)
 
   # Do FQI
   reg = RandomForestRegressor()
   reg.fit(X, R)
-  q = None
+  q = lambda x_: reg.predict(x_)
   for _ in range(number_of_dp_iterations):
     Q_ = R + np.array([
       np.max([q(feature_function(s, a)) for a in range(number_of_actions)]) for s in S[1:]])
     reg.fit(X[:-1], Q_)
-    q = None
+    q = lambda x_: reg.predict(x_)
 
-  def pi_opt(s):
-    return np.argmax([q(feature_function(s, a) for a in range(number_of_actions))])
+  def pi_opt(s_):
+    return np.argmax([q(feature_function(s_, a_) for a_ in range(number_of_actions))])
 
   return pi_opt
 
 
-def evaluate_policy(initial_state, transition_model, time_horizon, policy):
+def evaluate_policy(initial_state, transition_model, time_horizon, policy, feature_function):
+  """
+
+  :param initial_state:
+  :param transition_model:
+  :param time_horizon:
+  :param policy:
+  :param feature_function:
+  :return:
+  """
   MC_REPLICATES = 100
   returns = []
 
@@ -63,13 +73,15 @@ def evaluate_policy(initial_state, transition_model, time_horizon, policy):
     return_ = 0.0
     for t in range(time_horizon):
       a = policy(s)
-      s, r = transition_model(s, a)
+      x = feature_function(s, a)
+      s, r = transition_model(x)
       return_ += r
     returns.append(return_)
   return np.mean(returns)
 
 
-def conflict_pursuit(model, trace, posterior_density, time_horizon, initial_state, exploration_parameters):
+def conflict_pursuit(model, trace, posterior_density, time_horizon, initial_state, exploration_parameters,
+                     number_of_actions, rollout_policy, feature_function):
   """
   Conflict pursuit for TWO MODELS only.
 
@@ -85,14 +97,21 @@ def conflict_pursuit(model, trace, posterior_density, time_horizon, initial_stat
 
   # Get map estimate and corresponding policy
   map_parameters = model.find_MAP()
-  pi_1, value_of_pi_1 = solve_for_pi_opt(map_parameters)
+  pi_1 = solve_for_pi_opt(initial_state, map_parameters, time_horizon, number_of_actions, rollout_policy,
+                          feature_function)
+  value_of_pi_1 = evaluate_policy(initial_state, map_parameters, time_horizon, pi_1, feature_function)
 
   # Define CP objective
   def cp_objective(transition_model_parameters):
-    candidate_policy, value_of_candidate_policy = solve_for_pi_opt(transition_model_parameters, time_horizon)
+    # Get value of policy corresponding to this parameter setting
+    candidate_policy = solve_for_pi_opt(transition_model_parameters, time_horizon)
+    value_of_candidate_policy = evaluate_policy(initial_state, map_parameters, time_horizon, candidate_policy,
+                                                feature_function)
+
+    # Compute cross-regrets
     cross_value_candidate_policy = evaluate_policy(initial_state, map_parameters, time_horizon, candidate_policy)
     cross_value_pi_1 = evaluate_policy(initial_state, transition_model_parameters, time_horizon, pi_1)
-    transition_model_parameters_density = posterior_density(transition_model_parameters_density)
+    transition_model_parameters_density = posterior_density(transition_model_parameters)
 
     cross_regret_1 = value_of_pi_1 - cross_value_candidate_policy
     cross_regret_2 = value_of_candidate_policy - cross_value_pi_1
