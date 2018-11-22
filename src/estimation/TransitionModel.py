@@ -76,4 +76,15 @@ class GlucoseTransitionModel(object):
 
     return pp_sample
 
+  def cluster_trajectories(self, x, policy, time_horizon, n_draw=100):
+    """
+    Draw n_draw trajectories of length time_horizon, starting at state x, under policy, and cluster these.
+
+    :param x:
+    :param policy:
+    :param time_horizon:
+    :return:
+    """
+    pass
+
 

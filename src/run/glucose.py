@@ -169,6 +169,6 @@ if __name__ == '__main__':
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # npb_diagnostics()
   # run('np')
-  episode(0, 'p')
+  # episode(0, 'p')
   # run('averaged')
 
