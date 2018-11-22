@@ -141,10 +141,6 @@ def bayesopt_under_true_model(seed, info, mc_reps=1000, T=50):
     def objective(zeta0, zeta1, zeta2):
       zeta = np.array([zeta0, zeta1, zeta2])
       return rollout_function(zeta, policy, T, tuning_function, env, info, **rollout_function_kwargs)
-  # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
-#  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0], 
-#              'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5]}
-  #
   
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
@@ -266,7 +262,7 @@ def episode(policy_name, label, info, std=0.1, T=50, monte_carlo_reps=1000, post
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
     
-def run(policy_name, info, save=True, mc_replicates=10, T=50):
+def run(policy_name, info, save=True, mc_replicates=1000, T=50):
   """
 
   :return:
@@ -305,7 +301,7 @@ def run(policy_name, info, save=True, mc_replicates=10, T=50):
     results = {'T': float(T), 'mean_regret': float(np.mean(cumulative_regret)), 'std_regret': float(np.std(cumulative_regret)),
                'regret list': [float(r) for r in cumulative_regret],
                'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
-               'rewards': rewards, 'actions': actions, 'std': std}
+               'rewards': rewards, 'actions': actions}
 
     base_name = 'info-mab-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)

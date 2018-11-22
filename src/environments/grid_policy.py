@@ -30,7 +30,7 @@ def mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_par
 
 def mdp_grid_rollout(tuning_function_parameter, mdp_grid_epsilon_policy, 
                              time_horizon, tuning_function, env, 
-                             gamma, mc_replicates, reward_mat):
+                             gamma, mc_replicates):
   mean_cumulative_reward = 0
   nS, nA, nAdj = env.posterior_alpha.shape
   transition_prob = np.zeros((nS, nA, nAdj))
@@ -40,17 +40,19 @@ def mdp_grid_rollout(tuning_function_parameter, mdp_grid_epsilon_policy,
       for j in range(nA):
         transition_prob[i, j, :] = np.random.dirichlet(env.posterior_alpha[i, j, :])
     transitionMatrices = env.convert_to_transitionMatrices(transition_prob)
-#    transitionMatrices = env.transitionMatrices
-    sim_env = Gridworld(transitionMatrices=transitionMatrices, time_horizon=time_horizon, reward_mat=reward_mat)
+#    ## Get the transition probaility from the posterior mean, use it as the sim environment
+#    transitionMatrices = env.posterior_mean_model()
+    sim_env = Gridworld(transitionMatrices=transitionMatrices, time_horizon=time_horizon)
     r = 0
     while sim_env.counter < sim_env.time_horizon:  
 #      print(sim_env.counter)
       s = sim_env.reset()
       for t in range(sim_env.maxT):
         update_transitionMatrices = sim_env.posterior_mean_model()
-        mdp = Gridworld(transitionMatrices=update_transitionMatrices, time_horizon=time_horizon, reward_mat=reward_mat)
-        _, _, Q = policy_iteration(mdp)
-        optimal_action = np.argmax(Q[s, ])
+        mdp = Gridworld(transitionMatrices=update_transitionMatrices, time_horizon=time_horizon)
+        _, pis, Q = policy_iteration(mdp)
+#        optimal_action = np.argmax(Q[s, ])
+        optimal_action = pis[-1][s]
         action = mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
                                          sim_env.time_horizon, sim_env.counter, sim_env)
         s, reward, done = sim_env.step(action)
@@ -63,12 +65,12 @@ def mdp_grid_rollout(tuning_function_parameter, mdp_grid_epsilon_policy,
   return mean_cumulative_reward
 
 def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
-             bounds, explore_, gamma,reward_mat=None):
+             bounds, explore_, gamma):
 
   def objective(zeta0, zeta1, zeta2):
     zeta = np.array([zeta0, zeta1, zeta2])
     return rollout_function(zeta, policy, time_horizon, tuning_function, 
-                            env, gamma, mc_replicates,reward_mat)
+                            env, gamma, mc_replicates)
 
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds)
@@ -94,8 +96,9 @@ def rollout_under_true_model(tuning_function_parameter, mdp_grid_epsilon_policy,
       for t in range(env.maxT):
         update_transitionMatrices = env.posterior_mean_model()
         mdp = Gridworld(transitionMatrices=update_transitionMatrices, time_horizon=time_horizon)
-        _, _, Q = policy_iteration(mdp)
-        optimal_action = np.argmax(Q[s, ])
+        _, pis, Q = policy_iteration(mdp)
+#        optimal_action = np.argmax(Q[s, ])
+        optimal_action = pis[-1][s]
         action = mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
                                          env.time_horizon, env.counter, env)
         s, reward, done = env.step(action)
@@ -120,7 +123,7 @@ def bayesopt_under_true_model(T):
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
 #  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0], 
 #              'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5]}
-  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [75.0, 74.0, 1.0, 74.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0], 'zeta1': [75.0, 74.0, 1.0, 74.0, 0], 'zeta2': [0.1, 2.5, 1.0, 2.5, 0]}
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
   bo.maximize(init_points=10, n_iter=15, alpha=1e-4)
@@ -132,24 +135,29 @@ def bayesopt_under_true_model(T):
 def episode(policy_name, label, mc_replicates=10, T=1000):
   np.random.seed(label)
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.0  # Constant epsilon
+    tuning_function = lambda a, b, c: 0.1  # Constant epsilon
     tune = False
     tuning_function_parameter = None
   elif policy_name == "eps-decay":
     tuning_function = tuned_bandit.expit_epsilon_decay
     tune = True
     tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
-    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+#    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 150.0 ), 'zeta2': (0.01, 2.5)}
+#    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05, 0], 'zeta1': [150.0, 149.0, 1.0, 149.0, 1.0,0], 'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5,0]}
+#    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 75.0 ), 'zeta2': (0.01, 2.5)}
+#    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0], 'zeta1': [75.0, 74.0, 1.0, 74.0, 0], 'zeta2': [0.1, 2.5, 1.0, 2.5, 0]}
+    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0 ), 'zeta2': (0.01, 2.5)}
+    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05, 0], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0, 0], 'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5,0]}
+
     rollout_function = mdp_grid_rollout
   elif policy_name == 'eps-fixed-decay':
-    #tuning_function = lambda a, b, c: 0.1/float(b+1)
-    #tune = False
-    #tuning_function_parameter = None
-    tuning_function = tuned_bandit.expit_epsilon_decay
+    tuning_function = lambda a, b, c: 0.1/float(b+1)
     tune = False
-    tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
-#    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
+    tuning_function_parameter = None
+    #tuning_function = tuned_bandit.expit_epsilon_decay
+    #tune = False
+    #tuning_function_parameter = np.array([ 0.05     ,  43.46014702 , 2.5 ] )
+#    tuning_function_parameter = np.array([ 2.0,75.0,2.5])
 
   policy = mdp_grid_epsilon_policy    
   gamma = 0.9
@@ -161,45 +169,39 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   posterior_alphas = []
   nEpi = 0
   r = 0
-  reward_mat = []
   while env.counter < env.time_horizon:
-#    print(env.counter, r)
+    print("########counter {}, rewards {}#######".format(env.counter, sum(rewards)))
     s = env.reset()
-    acts=[]
     for t in range(env.maxT):
-#      print(env.counter, t, sum(rewards))
+      print("####### time step {} in one episode ###################".format(t))
       if tune:
         tuning_function_parameter = bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
                                              time_horizon, env, mc_replicates, bounds, explore_, gamma)
         tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter]) 
       update_transitionMatrices = env.posterior_mean_model()
-#      print("estimated {}, true {}".format(update_transitionMatrices[:,0,:], env.transitionMatrices[:,0,:]))
-      print("###########")
-#      print(env.counter, update_transitionMatrices[1,:4,:], env.transitionMatrices[1,:4,:])
-#      print(env.counter, sum(sum(abs(update_transitionMatrices[1,:3,:] - env.transitionMatrices[1,:3,:]))))
-#      print(env.counter, sum(sum(abs(update_transitionMatrices[2,[3,7,10],:] - env.transitionMatrices[2,[3,7,10],:]))))
 #      print(env.counter, sum(sum(sum(abs(update_transitionMatrices - env.transitionMatrices)))))
-      
       mdp = Gridworld(transitionMatrices=update_transitionMatrices, time_horizon=time_horizon)
-      _, _, Q = policy_iteration(mdp)
-      optimal_action = np.argmax(Q[s, ])
+      _, pis, Q = policy_iteration(mdp)
+#      optimal_action = np.argmax(Q[s, ])
+      optimal_action = pis[-1][s]
       action = mdp_grid_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, 
                                        env.time_horizon, env.counter, env)
       s, reward, done = env.step(action)
       rewards.append(reward)
-      acts.append(action)
       actions.append(action)
       new_post_alpha = env.posterior_alpha.copy()
       posterior_alphas.append(new_post_alpha)
-#      print("after: {}".format(posterior_alphas))
       r += reward
       if done:
-        print(acts)
 #        print(env.counter, r)
+        if t < env.maxT:
+#          print(t)
+          nEpi += 1 # the number of episodes where the agent gets the terminal state in less than maxT time steps
         break
-  print(sum(rewards))        
+#  print(nEpi)
+  print(sum(rewards))
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
-          'actions': actions, 'posterior_alphas': posterior_alphas}
+          'actions': actions, 'posterior_alphas':posterior_alphas}
     
 
 def run(policy_name, save=True, mc_replicates=10, T=1000):
@@ -209,9 +211,9 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   """
 
 #  replicates = 48
-  num_cpus = int(mp.cpu_count())
-#  num_cpus = 4
-  replicates = 20
+#  num_cpus = int(mp.cpu_count())
+  num_cpus = 24
+  replicates = 24
   results = []
   pool = mp.Pool(processes=num_cpus)
 
@@ -222,7 +224,7 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   zeta_sequences = [list(d['zeta_sequence']) for d in results]
   actions = [list(d['actions']) for d in results]
   cum_rewards = [float(d['cum_rewards']) for d in results]
-  posterior_alphas = [d['posterior_alphas']for d in results]
+  posterior_alphas = [d['posterior_alphas'] for d in results]
 #  rewards = [list(d['rewards'].astype(float)) for d in results]
 #  print(policy_name, cum_rewards)
   print(policy_name, 'rewards', float(np.mean(cum_rewards)), 'se_rewards',float(np.std(cum_rewards))/np.sqrt(replicates))
@@ -230,10 +232,10 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   if save:
     results = {'T':T, 'mc_replicates': mc_replicates, 'cum_rewards': cum_rewards, 
                'rewards': float(np.mean(cum_rewards)), 'se_rewards':float(np.std(cum_rewards)/np.sqrt(replicates)),
-               'zeta_sequences': zeta_sequences, 'actions': actions, 
+               'zeta_sequences': zeta_sequences, 'actions': actions,
                'posterior_alphas': posterior_alphas}#, 'rewards':rewards}
 
-    base_name = 'mdp-grid-{}'.format(policy_name)
+    base_name = 'mdp-grid-rdtie-absorb-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -247,12 +249,12 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
 if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
-#  episode('eps-decay', 0, T=75)
+#  episode('eps-decay', 0, T=50)
 #  episode('eps-fixed-decay', 2, T=50)
-#  run('eps-decay', save=True, T=2)
-#  run('eps-fixed-decay', save=False, T=75)
+  run('eps-decay', save=True, T=50, mc_replicates=100)
+#  run('eps-fixed-decay', save=False, T=50)
 #  run('eps', save=False, T=50)
-  episode('eps', 1, T=50)
+#  episode('eps', 0, T=50)
 #  result = episode('eps', 0, T=1000)
 #  print(result['cum_rewards'])
  # episode('eps-fixed-decay', 1, T=50)

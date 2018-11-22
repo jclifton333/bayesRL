@@ -9,7 +9,7 @@ sys.path.append(project_dir)
 import matplotlib.pyplot as plt
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.environments.policy_iteration import policy_iteration
-from src.environments.grid import Gridworld
+from src.environments.grid_reward import Gridworld
   
 import numpy as np
 from functools import partial
@@ -127,7 +127,7 @@ def bayesopt_under_true_model(T):
   def objective(zeta0, zeta1, zeta2):
     zeta = np.array([zeta0, zeta1, zeta2])
     return rollout_function(zeta, policy, T, tuning_function, 0.9, 10)
-  print(objective(0,1,0))
+  
 #  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.05], 'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0], 
 #              'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5]}
   explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 2.0, 0.33993149], 'zeta1': [75.0, 74.0, 1.0, 74.0, 75.0, 74.95364242], 
@@ -144,7 +144,7 @@ def bayesopt_under_true_model(T):
 def episode(policy_name, label, mc_replicates=10, T=1000):
   np.random.seed(label)
   if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.0 # Constant epsilon
+    tuning_function = lambda a, b, c: 0.1 # Constant epsilon
     tune = False
     tuning_function_parameter = None
   elif policy_name == "eps-decay":
@@ -159,6 +159,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
     rollout_function = mdp_grid_rollout
   elif policy_name == 'eps-fixed-decay':
     tuning_function = lambda a, b, c: 0.1/float(b+1)
+#    tuning_function = lambda a, b, c: np.log(b+1)/float(b+1)
     tune = False
     tuning_function_parameter = None
 #    tuning_function = tuned_bandit.expit_epsilon_decay
@@ -177,10 +178,11 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   r = 0
   update_reward_mat = initial_reward_mat(nS=env.NUM_STATE)
   while env.counter < env.time_horizon:
-#    print(env.counter, r)
+    print("########### counter {}, rewards {} #########".format(env.counter, sum(rewards)))
     s = env.reset()
     acts=[]
     for t in range(env.maxT):
+      print("########## time step {} in one episdode #############".format(t))
 #      print(env.counter, t, sum(rewards))
       if tune:
         tuning_function_parameter = bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
@@ -213,7 +215,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
 #        print(acts)
 #        print(env.counter, r)
         break
-  print(sum(rewards))        
+ # print(sum(rewards))        
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions, 'posterior_alphas': posterior_alphas}
     
@@ -224,9 +226,9 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   :return:
   """
 
-  replicates = 24
+  replicates = 72
 #  num_cpus = int(mp.cpu_count())
-  num_cpus = 24
+  num_cpus = 72
 #  replicates = 24
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -234,6 +236,7 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   episode_partial = partial(episode, policy_name, mc_replicates=mc_replicates, T=T)
 
   results = pool.map(episode_partial, range(replicates))
+#  results = pool.map(episode_partial, range(24, replicates + 24))
 #  cumulative_regrets = [np.float(d['cumulative_regret']) for d in results]
   zeta_sequences = [list(d['zeta_sequence']) for d in results]
   actions = [list(d['actions']) for d in results]
@@ -249,7 +252,7 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
                'zeta_sequences': zeta_sequences, 'actions': actions, 
                'posterior_alphas': posterior_alphas}#, 'rewards':rewards}
 
-    base_name = 'mdp-grid-{}'.format(policy_name)
+    base_name = 'mdp-grid-rdtie-absorb-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -265,7 +268,7 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=75)
 #  episode('eps-fixed-decay', 2, T=50)
-#  run('eps-decay', save=True, T=75, mc_replicates=50)
+  run('eps-decay', save=True, T=75, mc_replicates=10)
 #  run('eps-fixed-decay', save=False, T=75)
 #  run('eps', save=False, T=75)
 #  episode('eps', 1, T=50)
@@ -279,7 +282,7 @@ if __name__ == '__main__':
 #  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
 #  with open('bayes-opt-glucose.yml', 'w') as handle:
 #    yaml.dump(params_dict, handle)
-  print(bayesopt_under_true_model(T=75))
+#  print(bayesopt_under_true_model(T=75))
 #  print(rollout_under_true_model(np.array([1.  ,50.,   0.1]), mdp_grid_epsilon_policy, 
 #                             50, tuned_bandit.expit_epsilon_decay, 0.9, 20))
   elapsed_time = time.time() - start_time
