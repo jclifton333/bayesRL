@@ -58,9 +58,10 @@ def evaluate_glucose_mb_policy():
     return np.random.binomial(1, 0.3)
 
   initial_state = X[-1, :]
+  transition_model = estimator.draw_from_ppd
   pi = solve_for_pi_opt(initial_state, transition_model, T, 2, rollout_policy, feature_function)
 
   # Evaluate policy
   v = evaluate_policy(initial_state, transition_model, T, pi, feature_function)
 
-  return
+  return v
