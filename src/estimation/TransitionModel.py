@@ -7,7 +7,7 @@ import os
 this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
-import scipy.stats.norm as norm
+from scipy.stats import norm
 import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
@@ -44,9 +44,9 @@ class GlucoseTransitionModel(object):
     # Update shared features
     if self.method == 'np':
       self.shared_x_np = shared(X)
-      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y)
       self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
       self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 4])
+      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y)
     elif self.method == 'p':
       self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
       model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y)

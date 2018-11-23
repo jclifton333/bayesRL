@@ -41,35 +41,9 @@ def npb_diagnostics():
     action = np.random.binomial(1, 0.3, n_patients)
     env.step(action)
 
-  # Get posterior
+  model = GlucoseTransitionModel()
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  X = shared(X)
-  y = Sp1[:, 0]
-  model_, trace_, compare_ = dd.dependent_density_regression(X, y)
-  print(compare_)
-
-  # Test states
-  hypoglycemic_0 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 0, 0]])
-  hypoglycemic_1 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 1, 0]])
-  hyperglycemic_0 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 0, 0]])
-  hyperglycemic_1 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 1, 0]])
-
-  # Histograms
-  PPD_SAMPLES = 500
-  # X.set_value(hyperglycemic_0)
-  # pp_sample_0 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
-  # X.set_value(hyperglycemic_1)
-  # pp_sample_1 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
-  # plt.hist(pp_sample_0)
-  # plt.hist(pp_sample_1)
-  # plt.show()
-
-  x_vals = np.array([[1.0, g, 0, 33, g, 0, 0, 0, 0] for g in np.linspace(50, 200, 20)])
-  X.set_value(x_vals)
-  pp_sample = \
-    pm.sample_ppc_w(trace_, PPD_SAMPLES, model_, weights=compare_.weight.sort_index(ascending=True))
-  plt.plot(np.linspace(50, 200, 20), np.mean(pp_sample['obs'], axis=0))
-  plt.show()
+  model.fit(X, Sp1[:, 0])
   return
 
 
@@ -167,7 +141,7 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  # npb_diagnostics()
+  npb_diagnostics()
   # run('np')
   # episode(0, 'p')
   # run('averaged')

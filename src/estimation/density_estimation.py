@@ -30,10 +30,15 @@ def norm_cdf(z):
     return 0.5 * (1 + tt.erf(z / np.sqrt(2)))
 
 
-def stick_breaking(v):
+def stick_breaking_for_probit(v):
   return v * tt.concatenate([tt.ones_like(v[:, :1]),
                              tt.extra_ops.cumprod(1 - v, axis=1)[:, :-1]],
                             axis=1)
+
+
+def stick_breaking_for_unconditional(beta):
+  portion_remaining = tt.concatenate([[1], tt.extra_ops.cumprod(1 - beta)[:-1]])
+  return beta * portion_remaining
 
 
 def normal_bayesian_regression(X, y):
@@ -76,7 +81,7 @@ def dirichlet_mixture_regression(X, y):
     beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
     v = norm_cdf(tt.dot(X, beta))
     # v = norm_cdf(alpha + tt.dot(X, beta))
-    w = pm.Deterministic('w', stick_breaking(v))
+    w = pm.Deterministic('w', stick_breaking_for_probit(v))
 
   print('dirichlet prior')
 
@@ -117,28 +122,28 @@ def np_density_estimation(X):
   :param X: one-dimensional array of observations
   :return:
   """
+  BURN = 10000
+  SAMPLES = 1000
+
   # Estimate p
   p = np.mean(X != 0.0)
 
   # DP mixture density estimation hyperparameters
-  K = 30
+  K = 20
   X_nonzero = X[np.where(X != 0)]
   n = len(X_nonzero)
   alpha = 2.0
 
   with pm.Model() as model:
-    alpha = pm.Gamma('alpha', 1.0, 1.0)
     beta = pm.Beta('beta', 1.0, alpha, shape=K)
-    w = pm.Deterministic('w', stick_breaking(beta))
+    w = pm.Deterministic('w', stick_breaking_for_unconditional(beta))
     tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
-    lambda_ = pm.Uniform('lambda', 0, 5, shape=K)
-    mu = pm.Normal('mu', 0, tau=lamda_*tau, shape=K)
-    obs = pm.NormalMixture('obs', w, mu, tau=lambda_*tau, observed=X_nonzero)
-
-    trace = pm.sample(1000)
+    mu = pm.Normal('mu', 0, tau=tau, shape=K)
+    obs = pm.NormalMixture('obs', w, mu, tau=tau, observed=X_nonzero)
+    step = pm.Metropolis()
+    trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
 
   return model, trace, p
-
 
 
 def dependent_density_regression(X, y, X_p=None):
@@ -161,7 +166,7 @@ def dependent_density_regression(X, y, X_p=None):
     beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
     v = norm_cdf(tt.dot(X, beta))
     # v = norm_cdf(alpha + tt.dot(X, beta))
-    w = pm.Deterministic('w', stick_breaking(v))
+    w = pm.Deterministic('w', stick_breaking_for_probit(v))
 
   print('dirichlet prior')
 
