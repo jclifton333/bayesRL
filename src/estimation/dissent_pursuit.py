@@ -23,31 +23,6 @@ from src.environments.Glucose import Glucose
 from theano import shared
 
 
-def evaluate_policy(initial_state, transition_model, time_horizon, policy, feature_function):
-  """
-
-  :param initial_state:
-  :param transition_model:
-  :param time_horizon:
-  :param policy:
-  :param feature_function:
-  :return:
-  """
-  MC_REPLICATES = 100
-  returns = []
-
-  for _ in range(MC_REPLICATES):
-    s = initial_state
-    return_ = 0.0
-    for t in range(time_horizon):
-      a = policy(s)
-      x = feature_function(s, a)
-      s, r = transition_model(x)
-      return_ += r
-    returns.append(return_)
-  return np.mean(returns)
-
-
 def dissent_pursuit(model, trace, posterior_density, time_horizon, initial_state, exploration_parameters,
                     number_of_actions, rollout_policy, feature_function, transition_model_from_parameter):
   """
