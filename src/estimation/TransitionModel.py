@@ -77,17 +77,17 @@ class GlucoseTransitionModel(object):
       self.shared_x_np.set_value(x)
       self.shared_x_p.set_value(x[:3])
       if ix_ == 1:
-        glucose, food, activity = self.draw_from_np_ppd(x)
+       s, r = self.draw_from_np_ppd(x)
       elif ix_ == 0:
         # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
         pp_sample = pm.sample_ppc(self.trace[ix_], model=self.model[ix_])['obs'][0, 0]
     elif self.method == 'np':
-      glucose, food, activity = self.draw_from_np_ppd(x)
+      s, r = self.draw_from_np_ppd(x)
     elif self.method == 'p':
       self.shared_x_p.set_value(x[:3])
       pp_sample = pm.sample_ppc(self.trace, model=self.model)['obs'][0, 0]
 
-    return glucose, food, activity
+    return s, r
 
   def draw_from_np_ppd(self, x):
     # Draw glucose
