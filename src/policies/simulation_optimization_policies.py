@@ -42,7 +42,6 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
       x = feature_function(s, a, x)
       X = np.vstack((X, x))
       S = np.vstack((S, s))
-      pdb.set_trace()
       s, r = transition_model(np.array([x]))
       R = np.append(R, r)
 

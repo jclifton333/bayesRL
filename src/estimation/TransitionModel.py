@@ -98,15 +98,32 @@ class GlucoseTransitionModel(object):
     if np.random.random() < self.food_nonzero_prob:
       food = 0.0
     else:
-      food = np.random.choice(self.food_trace)
+      food = pm.sample_ppc(self.food_trace, model=self.food_model)['obs'][0, 0]
 
     # Draw activity
     if np.random.random() < self.activity_nonzero_prob:
       activity = 0.0
     else:
-      activity = np.random.choice(self.activity_trace)
+      activity = pm.sample_ppc(self.activity_trace, model=self.activity_model)['obs'][0, 0]
 
-    return glucose, food, activity
+    s = np.array([glucose, food, activity])
+    r = self.reward_function(s)
+    return s, r
+
+  @staticmethod
+  def reward_function(s):
+    """
+
+    :param s_prev: state vector at previous time step
+    :param s: state vector
+    :return:
+    """
+    new_glucose = s[0]
+
+    # Reward from this timestep
+    r1 = (new_glucose < 70) * (-0.005 * new_glucose ** 2 + 0.95 * new_glucose - 45) + \
+         (new_glucose >= 70) * (-0.00017 * new_glucose ** 2 + 0.02167 * new_glucose - 0.5)
+    return r1
 
   def cluster_trajectories(self, x, policy, time_horizon, n_draw=100):
     """
