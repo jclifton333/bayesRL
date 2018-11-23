@@ -11,10 +11,11 @@ from src.estimation.TransitionModel import GlucoseTransitionModel
 import src.policies.simulation_optimization_policies as opt
 
 
-def evaluate_policy(initial_state, transition_model, time_horizon, policy, feature_function):
+def evaluate_policy(initial_state, initial_x, transition_model, time_horizon, policy, feature_function):
   """
 
   :param initial_state:
+  :param initial_x: initial features
   :param transition_model:
   :param time_horizon:
   :param policy:
@@ -26,11 +27,12 @@ def evaluate_policy(initial_state, transition_model, time_horizon, policy, featu
 
   for _ in range(MC_REPLICATES):
     s = initial_state
+    x = initial_x
     return_ = 0.0
     for t in range(time_horizon):
-      a = policy(s)
-      x = feature_function(s, a)
-      s, r = transition_model(x)
+      a = policy(s, x)
+      x = feature_function(s, a, x)
+      s, r = transition_model(np.array([x]))
       return_ += r
     returns.append(return_)
   return np.mean(returns)
@@ -65,7 +67,7 @@ def evaluate_glucose_mb_policy():
   pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
 
   # Evaluate policy
-  v = evaluate_policy(initial_state, transition_model, T, pi, feature_function)
+  v = evaluate_policy(initial_state, initial_x, transition_model, T, pi, feature_function)
 
   return v
 

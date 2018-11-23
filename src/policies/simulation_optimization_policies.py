@@ -56,7 +56,6 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
     q_ = lambda x_: reg.predict(x_.reshape(1, -1))
 
   def pi_opt(s_, x_):
-    return np.argmax([q_(feature_function(s_, a_, x_) for a_ in range(number_of_actions))])
+    return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(number_of_actions)])
 
-  pdb.set_trace()
   return pi_opt
