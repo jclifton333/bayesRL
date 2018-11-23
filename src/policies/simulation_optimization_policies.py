@@ -48,14 +48,15 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
   # Do FQI
   reg = RandomForestRegressor()
   reg.fit(X, R)
-  q = lambda x_: reg.predict(x_)
+  q_ = lambda x_: reg.predict(x_.reshape(1, -1))
   for _ in range(number_of_dp_iterations):
-    Q_ = R + np.array([
-      np.max([q(feature_function(s, a, x)) for a in range(number_of_actions)]) for s, x in zip(S[1:], X[:-1])])
+    Q_ = R[:-1] + np.array([
+      np.max([q_(feature_function(s, a, x)) for a in range(number_of_actions)]) for s, x in zip(S[1:], X[:-1])])
     reg.fit(X[:-1], Q_)
-    q = lambda x_: reg.predict(x_)
+    q_ = lambda x_: reg.predict(x_.reshape(1, -1))
 
-  def pi_opt(s_):
-    return np.argmax([q(feature_function(s_, a_) for a_ in range(number_of_actions))])
+  def pi_opt(s_, x_):
+    return np.argmax([q_(feature_function(s_, a_, x_) for a_ in range(number_of_actions))])
 
+  pdb.set_trace()
   return pi_opt

@@ -92,19 +92,19 @@ class GlucoseTransitionModel(object):
   def draw_from_np_ppd(self, x):
     # Draw glucose
     self.shared_x_np.set_value(x)
-    glucose = pm.sample_ppc(self.trace, model=self.model)['obs'][0]
+    glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0]
 
     # Draw food
     if np.random.random() < self.food_nonzero_prob:
       food = 0.0
     else:
-      food = pm.sample_ppc(self.food_trace, model=self.food_model)['obs'][0, 0]
+      food = pm.sample_ppc(self.food_trace, model=self.food_model, progressbar=False)['obs'][0, 0]
 
     # Draw activity
     if np.random.random() < self.activity_nonzero_prob:
       activity = 0.0
     else:
-      activity = pm.sample_ppc(self.activity_trace, model=self.activity_model)['obs'][0, 0]
+      activity = pm.sample_ppc(self.activity_trace, model=self.activity_model, progressbar=False)['obs'][0, 0]
 
     s = np.array([glucose, food, activity])
     r = self.reward_function(s)
@@ -149,7 +149,7 @@ def transition_model_from_np_parameter(np_parameter):
   def transition_model(x):
     # Draw cluster
     cluster_probs = np.array([norm.cdf(np.dot(x, beta_i)) for beta_i in beta])
-    cluster = np.random.choice(range(len(cluster_probs)), p=clustr_probs)
+    cluster = np.random.choice(range(len(cluster_probs)), p=cluster_probs)
     theta_i = theta[cluster]
     s_mean = np.dot(theta_i, x)
     s_tilde = np.random.multivariate_normal(s_mean, cov=tau[cluster]*np.eye(len(s_mean)))
