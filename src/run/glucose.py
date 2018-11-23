@@ -45,7 +45,7 @@ def npb_diagnostics():
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   X = shared(X)
   y = Sp1[:, 0]
-  model_, trace_, compare_ = dd.dependent_density_regression(X, y, stack=True)
+  model_, trace_, compare_ = dd.dependent_density_regression(X, y)
   print(compare_)
 
   # Test states

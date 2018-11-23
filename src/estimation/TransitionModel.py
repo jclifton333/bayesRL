@@ -15,6 +15,8 @@ from theano import shared
 
 
 class GlucoseTransitionModel(object):
+  FEATURE_INDICES_FOR_PARAMETRIC_MODEL = [0, 1, 2, 3, 7]
+
   def __init__(self, method='np'):
     """
 
@@ -46,11 +48,11 @@ class GlucoseTransitionModel(object):
       self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
       self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 4])
     elif self.method == 'p':
-      self.shared_x_p = shared(X[:, :3])
+      self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
       model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y)
     elif self.method == 'averaged':
       self.shared_x_np = shared(X)
-      self.shared_x_p = shared(X[:, :3])
+      self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
       model_np, trace_np = dd.dirichlet_mixture_regression(self.shared_x_np, y)
       model_p, trace_p = dd.normal_bayesian_regression(self.shared_x_p, y)
       model_ = [model_p, model_np]
@@ -75,18 +77,36 @@ class GlucoseTransitionModel(object):
       self.shared_x_np.set_value(x)
       self.shared_x_p.set_value(x[:3])
       if ix_ == 1:
-        pp_sample = pm.sample_ppc(self.trace[ix_], model=self.model[ix_])['obs'][0]
+        glucose, food, activity = self.draw_from_np_ppd(x)
       elif ix_ == 0:
         # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
         pp_sample = pm.sample_ppc(self.trace[ix_], model=self.model[ix_])['obs'][0, 0]
     elif self.method == 'np':
-      self.shared_x_np.set_value(x)
-      pp_sample = pm.sample_ppc(self.trace, model=self.model)['obs'][0]
+      glucose, food, activity = self.draw_from_np_ppd(x)
     elif self.method == 'p':
       self.shared_x_p.set_value(x[:3])
       pp_sample = pm.sample_ppc(self.trace, model=self.model)['obs'][0, 0]
 
-    return pp_sample
+    return glucose, food, activity
+
+  def draw_from_np_ppd(self, x):
+    # Draw glucose
+    self.shared_x_np.set_value(x)
+    glucose = pm.sample_ppc(self.trace, model=self.model)['obs'][0]
+
+    # Draw food
+    if np.random.random() < self.food_nonzero_prob:
+      food = 0.0
+    else:
+      food = np.random.choice(self.food_trace)
+
+    # Draw activity
+    if np.random.random() < self.activity_nonzero_prob:
+      activity = 0.0
+    else:
+      activity = np.random.choice(self.activity_trace)
+
+    return glucose, food, activity
 
   def cluster_trajectories(self, x, policy, time_horizon, n_draw=100):
     """
@@ -112,10 +132,11 @@ def transition_model_from_np_parameter(np_parameter):
   def transition_model(x):
     # Draw cluster
     cluster_probs = np.array([norm.cdf(np.dot(x, beta_i)) for beta_i in beta])
-    cluster = np.random.choice(range(len(cluster_probs)), p=cluster_probs)
+    cluster = np.random.choice(range(len(cluster_probs)), p=clustr_probs)
     theta_i = theta[cluster]
     s_mean = np.dot(theta_i, x)
     s_tilde = np.random.multivariate_normal(s_mean, cov=tau[cluster]*np.eye(len(s_mean)))
     return s_tilde
 
   return transition_model
+
