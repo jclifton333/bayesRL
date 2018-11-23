@@ -99,9 +99,9 @@ def dirichlet_mixture_regression(X, y):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  SAMPLES = 1000
-  BURN = 10000
-  # SAMPLES = BURN = 1
+  # SAMPLES = 1000
+  # BURN = 10000
+  SAMPLES = BURN = 1
 
   with model:
     step = pm.Metropolis()
@@ -122,8 +122,9 @@ def np_density_estimation(X):
   :param X: one-dimensional array of observations
   :return:
   """
-  BURN = 10000
-  SAMPLES = 1000
+  BURN = SAMPLES = 1
+  # BURN = 10000
+  # SAMPLES = 1000
 
   # Estimate p
   p = np.mean(X != 0.0)
@@ -184,9 +185,9 @@ def dependent_density_regression(X, y, X_p=None):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  SAMPLES = 200 
-  BURN = 10000
-  # SAMPLES = BURN = 1
+  # SAMPLES = 200
+  # BURN = 10000
+  SAMPLES = BURN = 1
 
   with model:
     step = pm.Metropolis()

@@ -8,7 +8,7 @@ sys.path.append(project_dir)
 
 from src.environments.Glucose import Glucose
 from src.estimation.TransitionModel import GlucoseTransitionModel
-from src.policies.simulation_optimization_policies import solve_for_pi_opt
+import src.policies.simulation_optimization_policies as opt
 
 
 def evaluate_policy(initial_state, transition_model, time_horizon, policy, feature_function):
@@ -50,6 +50,7 @@ def evaluate_glucose_mb_policy():
   # Fit model on data
   estimator = GlucoseTransitionModel()
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  S = env.S
   y = Sp1[:, 0]
   estimator.fit(X, y)
 
@@ -57,11 +58,17 @@ def evaluate_glucose_mb_policy():
   def rollout_policy(s):
     return np.random.binomial(1, 0.3)
 
-  initial_state = X[-1, :]
+  initial_x = X[-1, :]
+  initial_state = S[0][-1, :]
   transition_model = estimator.draw_from_ppd
-  pi = solve_for_pi_opt(initial_state, transition_model, T, 2, rollout_policy, feature_function)
+  feature_function = opt.glucose_feature_function
+  pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
 
   # Evaluate policy
   v = evaluate_policy(initial_state, transition_model, T, pi, feature_function)
 
   return v
+
+
+if __name__ == "__main__":
+  evaluate_glucose_mb_policy()
