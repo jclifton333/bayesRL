@@ -133,14 +133,15 @@ def np_density_estimation(X):
   K = 20
   X_nonzero = X[np.where(X != 0)]
   n = len(X_nonzero)
-  alpha = 2.0
 
   with pm.Model() as model:
+    alpha = pm.Gamma('alpha', 1.0, 1.0)
     beta = pm.Beta('beta', 1.0, alpha, shape=K)
     w = pm.Deterministic('w', stick_breaking_for_unconditional(beta))
     tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
-    mu = pm.Normal('mu', 0, tau=tau, shape=K)
-    obs = pm.NormalMixture('obs', w, mu, tau=tau, observed=X_nonzero)
+    lambda_ = pm.Uniform('lambda', 0, 5, shape=K)
+    mu = pm.Normal('mu', 0, tau=lambda_ * tau, shape=K)
+    obs = pm.NormalMixture('obs', w, mu, tau=lambda_ * tau, observed=X_nonzero)
     step = pm.Metropolis()
     trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
 
