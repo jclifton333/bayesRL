@@ -42,10 +42,13 @@ class GlucoseTransitionModel(object):
 
   def fit(self, X, y):
     # Update shared features
+
+    # Food and activity are modeled with np density estimation in all cases
+    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
+    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 4])
+
     if self.method == 'np':
       self.shared_x_np = shared(X)
-      self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
-      self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 4])
       model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y)
     elif self.method == 'p':
       self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
@@ -69,31 +72,31 @@ class GlucoseTransitionModel(object):
     :param x:
     :return:
     """
+    food, activity = self.draw_from_food_and_activity_ppd()
 
     # If performing model averaging, need to compute weights and draw from mixed ppd
+    # Sample from np or parametric model based on weights
     if self.method == 'averaged':
       weights_ = np.array(self.compare.weight.sort_index(ascending=True)).astype(float)
       ix_ = np.random.choice(len(weights_), p=weights_)
       self.shared_x_np.set_value(x)
-      self.shared_x_p.set_value(x[:3])
       if ix_ == 1:
-       s, r = self.draw_from_np_ppd(x)
+        glucose, r = self.draw_from_np_ppd(x)
       elif ix_ == 0:
-        # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
-        pp_sample = pm.sample_ppc(self.trace[ix_], model=self.model[ix_])['obs'][0, 0]
-    elif self.method == 'np':
-      s, r = self.draw_from_np_ppd(x)
-    elif self.method == 'p':
-      self.shared_x_p.set_value(x[:3])
-      pp_sample = pm.sample_ppc(self.trace, model=self.model)['obs'][0, 0]
+        glucose, r = self.draw_from_parametric_ppd(x[self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
 
+    # Sample from np model
+    elif self.method == 'np':
+      glucose, r = self.draw_from_np_ppd(x)
+
+    # Sample from parametric model
+    elif self.method == 'p':
+      glucose, r = self.draw_from_parametric_ppd(x[self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+
+    s = np.array([glucose, food, activity])
     return s, r
 
-  def draw_from_np_ppd(self, x):
-    # Draw glucose
-    self.shared_x_np.set_value(x)
-    glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0]
-
+  def draw_from_food_and_activity_ppd(self):
     # Draw food
     if np.random.random() < self.food_nonzero_prob:
       food = 0.0
@@ -106,23 +109,41 @@ class GlucoseTransitionModel(object):
     else:
       activity = pm.sample_ppc(self.activity_trace, model=self.activity_model, progressbar=False)['obs'][0, 0]
 
-    s = np.array([glucose, food, activity])
-    r = self.reward_function(s)
-    return s, r
+    return food, activity
+
+  def draw_from_np_ppd(self, x):
+    # Draw glucose
+    self.shared_x_np.set_value(x)
+    if self.method == 'averaged':
+      glucose = pm.sample_ppc(self.trace[1], model=self.model[1], progressbar=False)['obs'][0]
+    else:
+      glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0]
+
+    r = self.reward_function(glucose)
+    return glucose, r
+
+  def draw_from_parametric_ppd(self, x):
+    # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
+    # Draw glucose
+    self.shared_x_p.set_value(x)
+    if self.method == 'averaged':
+      glucose = pm.sample_ppc(self.trace[0], model=self.model[0], progressbar=False)['obs'][0, 0]
+    else:
+      glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0]
+
+    r = self.reward_function(glucose)
+    return glucose, r
 
   @staticmethod
-  def reward_function(s):
+  def reward_function(glucose):
     """
 
-    :param s_prev: state vector at previous time step
-    :param s: state vector
+    :param glucose:
     :return:
     """
-    new_glucose = s[0]
-
     # Reward from this timestep
-    r1 = (new_glucose < 70) * (-0.005 * new_glucose ** 2 + 0.95 * new_glucose - 45) + \
-         (new_glucose >= 70) * (-0.00017 * new_glucose ** 2 + 0.02167 * new_glucose - 0.5)
+    r1 = (glucose < 70) * (-0.005 * glucose ** 2 + 0.95 * glucose - 45) + \
+         (glucose >= 70) * (-0.00017 * glucose ** 2 + 0.02167 * glucose - 0.5)
     return r1
 
   def cluster_trajectories(self, x, policy, time_horizon, n_draw=100):
