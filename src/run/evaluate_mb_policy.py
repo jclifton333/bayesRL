@@ -50,7 +50,7 @@ def evaluate_glucose_mb_policy():
     env.step(np.random.binomial(1, 0.3, n_patients))
 
   # Fit model on data
-  estimator = GlucoseTransitionModel()
+  estimator = GlucoseTransitionModel(method='p')
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   S = env.S
   y = Sp1[:, 0]

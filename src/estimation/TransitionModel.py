@@ -83,7 +83,7 @@ class GlucoseTransitionModel(object):
       if ix_ == 1:
         glucose, r = self.draw_from_np_ppd(x)
       elif ix_ == 0:
-        glucose, r = self.draw_from_parametric_ppd(x[self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+        glucose, r = self.draw_from_parametric_ppd(x)
 
     # Sample from np model
     elif self.method == 'np':
@@ -91,7 +91,7 @@ class GlucoseTransitionModel(object):
 
     # Sample from parametric model
     elif self.method == 'p':
-      glucose, r = self.draw_from_parametric_ppd(x[self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+      glucose, r = self.draw_from_parametric_ppd(x)
 
     s = np.array([glucose, food, activity])
     return s, r
@@ -125,11 +125,11 @@ class GlucoseTransitionModel(object):
   def draw_from_parametric_ppd(self, x):
     # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
     # Draw glucose
-    self.shared_x_p.set_value(x)
+    self.shared_x_p.set_value(x[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
     if self.method == 'averaged':
       glucose = pm.sample_ppc(self.trace[0], model=self.model[0], progressbar=False)['obs'][0, 0]
     else:
-      glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0]
+      glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0, 0]
 
     r = self.reward_function(glucose)
     return glucose, r
