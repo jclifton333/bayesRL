@@ -173,7 +173,7 @@ class GlucoseTransitionModel(object):
     """
     # Posterior of food, activity densities; following https://docs.pymc.io/notebooks/dp_mix.html
     # Food
-    x_plot_food = np.linspace(0.0, np.max(self.X[:, 3]), 200)
+    x_plot_food = np.linspace(0.0, np.max(self.X_[:, 3]), 200)
     post_food_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_food),
                                       self.food_trace['mu'][:, np.newaxis, :],
                                       1.0 / np.sqrt(self.food_trace['tau'])[:, np.newaxis, :])
@@ -185,30 +185,63 @@ class GlucoseTransitionModel(object):
     plt.show()
 
     # Activity
-    x_plot_activity = np.linspace(0.0, np.max(self.X[:, 4]), 200)
+    x_plot_activity = np.linspace(0.0, np.max(self.X_[:, 4]), 200)
     post_activity_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_activity),
                                       self.activity_trace['mu'][:, np.newaxis, :],
                                       1.0 / np.sqrt(self.activity_trace['tau'])[:, np.newaxis, :])
     post_activity_pdfs = (self.activity_trace['w'][:, np.newaxis, :] * post_activity_pdf_contribs).sum(axis=-1)
     plt.hist(self.activity_nonzero)
     plt.plot(x_plot_activity, post_activity_pdfs[0], c='gray', label='Posterior sample densities')
-    plt.plt(x_plot_activity, post_activity_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
+    plt.plot(x_plot_activity, post_activity_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
     plt.title('Posterior density estimates for activity')
     plt.show()
 
     # Posterior of hyper- and hypo-glycemic densities with and without treatment
     # ToDo: Display true distributions, too
+    # ToDo: Assuming method=np!
+    x_plot = np.linspace(np.min(self.X_[:, 1]), np.max(self.X_[:, 1]), 200)
+
+    # Test states
     hypoglycemic_0 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 0, 0]])
     hypoglycemic_1 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 1, 0]])
     hyperglycemic_0 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 0, 0]])
     hyperglycemic_1 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 1, 0]])
-    # X.set_value(hyperglycemic_0)
-    # pp_sample_0 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
-    # X.set_value(hyperglycemic_1)
-    # pp_sample_1 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
-    # plt.hist(pp_sample_0)
-    # plt.hist(pp_sample_1)
-    # plt.show()
+
+    # Conditional pdfs
+    hypo0_pdfs = self.posterior_glucose_pdfs_at_x(hypoglycemic_0, x_plot)
+    hypo1_pdfs = self.posterior_glucose_pdfs_at_x(hypoglycemic_1, x_plot)
+    hyper0_pdfs = self.posterior_glucose_pdfs_at_x(hyperglycemic_0, x_plot)
+    hyper1_pdfs = self.posterior_glucose_pdfs_at_x(hyperglycemic_1, x_plot)
+
+    # Plot
+    # Hypo
+    plt.plot(x_plot, hypo0_pdfs[0], c='gray')
+    plt.plot(x_plot, hypo0_pdfs.mean(axis=0), c='k')
+    plt.plot(x_plot, hypo1_pdfs[0], c='cyan')
+    plt.plot(x_plot, hypo1_pdfs.mean(axis=0), c='green')
+    plt.show()
+
+    # Hyper
+    plt.plot(x_plot, hyper0_pdfs[0], c='gray')
+    plt.plot(x_plot, hyper0_pdfs.mean(axis=0), c='k')
+    plt.plot(x_plot, hyper1_pdfs[0], c='cyan')
+    plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green')
+    plt.show()
+
+  def posterior_glucose_pdfs_at_x(self, x, x_grid):
+    """
+    For plottng posterior conditional glucose densities at a given feature vector x.
+
+    :param x:
+    :param x_grid: Grid of values at which to evaluate pdf
+    :return:
+    """
+    # Get conditional means at each cluster
+    mu = np.dot(self.glucose_trace['theta'], x)[:, np.newaxis, :]
+    post_glucose_pdf_contribs = norm.pdf(np.atleast_3d(x_grid), mu,
+                                          1.0 / np.sqrt(self.glucose_trace['tau'])[:, np.newaxis, :])
+    post_glucose_pdfs = (self.glucose_trace['w'][:, np.newaxis, :] * post_glucose_pdf_contribs.sum(axis=-1))
+    return post_glucose_pdfs
 
 
 def transition_model_from_np_parameter(np_parameter):

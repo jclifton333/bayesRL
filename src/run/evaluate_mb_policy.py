@@ -57,15 +57,15 @@ def evaluate_glucose_mb_policy():
   y = Sp1[:, 0]
   estimator.fit(X, y)
 
-  # Get optimal policy under model
-  def rollout_policy(s):
-    return np.random.binomial(1, 0.3)
+  # # Get optimal policy under model
+  # def rollout_policy(s):
+  #   return np.random.binomial(1, 0.3)
 
-  initial_x = X[-1, :]
-  initial_state = S[0][-1, :]
-  transition_model = estimator.draw_from_ppd
-  feature_function = opt.glucose_feature_function
-  pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
+  # initial_x = X[-1, :]
+  # initial_state = S[0][-1, :]
+  # transition_model = estimator.draw_from_ppd
+  # feature_function = opt.glucose_feature_function
+  # pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
 
   # Evaluate policy
   v = None
@@ -76,3 +76,4 @@ def evaluate_glucose_mb_policy():
 
 if __name__ == "__main__":
   v_, estimator_ = evaluate_glucose_mb_policy()
+  estimator_.plot()
