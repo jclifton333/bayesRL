@@ -11,6 +11,7 @@ from scipy.stats import norm
 import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
+import matplotlib.pyplot as plt
 from theano import shared
 
 
@@ -40,8 +41,17 @@ class GlucoseTransitionModel(object):
     self.shared_nonzero_food = None
     self.shared_nonzero_activity = None
 
+    # Covariates and subsequent glucoses; hang on to these after model is fit for plotting
+    self.X_ = None
+    self.food_nonzero = None
+    self.activity_nonzero = None
+    self.y_ = None
+
   def fit(self, X, y):
-    # Update shared features
+    self.X_ = X
+    self.y_ = y
+    self.food_nonzero = X[:, 3][np.where(X[:, 3]) != 0.0]
+    self.activity_nonzero = X[:, 4][np.where(X[:, 4]) != 0.0]
 
     # Food and activity are modeled with np density estimation in all cases
     self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
@@ -73,7 +83,6 @@ class GlucoseTransitionModel(object):
     :return:
     """
     food, activity = self.draw_from_food_and_activity_ppd()
-
     # If performing model averaging, need to compute weights and draw from mixed ppd
     # Sample from np or parametric model based on weights
     if self.method == 'averaged':
@@ -101,7 +110,7 @@ class GlucoseTransitionModel(object):
     if np.random.random() < self.food_nonzero_prob:
       food = 0.0
     else:
-      food = pm.sample_ppc(self.food_trace, model=self.food_model, progressbar=False)['obs'][0, 0]
+      food = pm.sample_ppc(self.food_trace, model=self.food_model, samples=1, progressbar=False)['obs'][0, 0]
 
     # Draw activity
     if np.random.random() < self.activity_nonzero_prob:
@@ -115,9 +124,9 @@ class GlucoseTransitionModel(object):
     # Draw glucose
     self.shared_x_np.set_value(x)
     if self.method == 'averaged':
-      glucose = pm.sample_ppc(self.trace[1], model=self.model[1], progressbar=False)['obs'][0]
+      glucose = pm.sample_ppc(self.trace[1], samples=1, model=self.model[1], progressbar=False)['obs'][0]
     else:
-      glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0]
+      glucose = pm.sample_ppc(self.trace, samples=1, model=self.model, progressbar=False)['obs'][0]
 
     r = self.reward_function(glucose)
     return glucose, r
@@ -156,6 +165,50 @@ class GlucoseTransitionModel(object):
     :return:
     """
     pass
+
+  def plot(self):
+    """
+    Plot some info associated with the posterior.
+    :return:
+    """
+    # Posterior of food, activity densities; following https://docs.pymc.io/notebooks/dp_mix.html
+    # Food
+    x_plot_food = np.linspace(0.0, np.max(self.X[:, 3]), 200)
+    post_food_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_food),
+                                      self.food_trace['mu'][:, np.newaxis, :],
+                                      1.0 / np.sqrt(self.food_trace['tau'])[:, np.newaxis, :])
+    post_food_pdfs = (self.food_trace['w'][:, np.newaxis, :] * post_food_pdf_contribs).sum(axis=-1)
+    plt.hist(self.food_nonzero)
+    plt.plot(x_plot_food, post_food_pdfs[0], c='gray', label='Posterior sample densities')
+    plt.plt(x_plot_food, post_food_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
+    plt.title('Posterior density estimates for food')
+    plt.show()
+
+    # Activity
+    x_plot_activity = np.linspace(0.0, np.max(self.X[:, 4]), 200)
+    post_activity_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_activity),
+                                      self.activity_trace['mu'][:, np.newaxis, :],
+                                      1.0 / np.sqrt(self.activity_trace['tau'])[:, np.newaxis, :])
+    post_activity_pdfs = (self.activity_trace['w'][:, np.newaxis, :] * post_activity_pdf_contribs).sum(axis=-1)
+    plt.hist(self.activity_nonzero)
+    plt.plot(x_plot_activity, post_activity_pdfs[0], c='gray', label='Posterior sample densities')
+    plt.plt(x_plot_activity, post_activity_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
+    plt.title('Posterior density estimates for activity')
+    plt.show()
+
+    # Posterior of hyper- and hypo-glycemic densities with and without treatment
+    # ToDo: Display true distributions, too
+    hypoglycemic_0 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 0, 0]])
+    hypoglycemic_1 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 1, 0]])
+    hyperglycemic_0 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 0, 0]])
+    hyperglycemic_1 = np.array([[1.0, 200, 0, 30, 200, 0, 0, 1, 0]])
+    # X.set_value(hyperglycemic_0)
+    # pp_sample_0 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
+    # X.set_value(hyperglycemic_1)
+    # pp_sample_1 = pm.sample_ppc(trace_, model=model_, samples=PPD_SAMPLES)['obs']
+    # plt.hist(pp_sample_0)
+    # plt.hist(pp_sample_1)
+    # plt.show()
 
 
 def transition_model_from_np_parameter(np_parameter):
