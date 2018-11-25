@@ -272,7 +272,8 @@ def transition_model_from_np_parameter(np_parameter):
 
   def transition_model(x):
     # Draw cluster
-    cluster_probs = np.array([norm.cdf(np.dot(x, beta_i)) for beta_i in beta])
+    stick_breaking_weights = np.array([norm.cdf(np.dot(x.flatten(), beta_i)) for beta_i in beta.T])
+    cluster_probs = stick_breaking_for_probit_numpy_version(stick_breaking_weights)
     cluster = np.random.choice(range(len(cluster_probs)), p=cluster_probs)
     theta_i = theta[cluster]
     s_mean = np.dot(theta_i, x)
@@ -283,4 +284,6 @@ def transition_model_from_np_parameter(np_parameter):
 
 
 def stick_breaking_for_probit_numpy_version(v):
-  return v * np.concatenate(([1.0], np.cumprod(1-v)[:-1]))
+  w = v * np.concatenate(([1.0], np.cumprod(1-v)[:-1]))
+  w = np.concatenate((w[:-1], [1 - np.sum(w[:-1])]))  # Correct rounding error
+  return w

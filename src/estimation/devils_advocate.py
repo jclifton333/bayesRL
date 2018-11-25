@@ -24,7 +24,18 @@ from src.environments.Glucose import Glucose
 from theano import shared
 
 
-def dissent_pursuit(model, trace, posterior_density, time_horizon, initial_state, exploration_parameters,
+def posterior_mean(trace):
+  """
+  Helper.
+
+  :param trace:
+  :return:
+  """
+  mean_parameter = { varname: trace[varname].mean(axis=0) for varname in trace[0].keys() }
+  return mean_parameter
+
+
+def devils_advocate(model, trace, posterior_density, time_horizon, initial_state, initial_x, exploration_parameters,
                     number_of_actions, rollout_policy, feature_function, transition_model_from_parameter):
   """
   Conflict pursuit for TWO MODELS only.
@@ -41,23 +52,24 @@ def dissent_pursuit(model, trace, posterior_density, time_horizon, initial_state
   NUMBER_OF_EVALUATIONS = 10
 
   # Get map estimate and corresponding policy
-  map_parameters = model.find_MAP()  # ToDo: Posterior mean instead?
+  # map_parameters = model.find_MAP()  # ToDo: Posterior mean instead?
+  map_parameters = posterior_mean(trace)
   transition_model_1 = transition_model_from_parameter(map_parameters)
-  pi_1 = solve_for_pi_opt(initial_state, transition_model_1, time_horizon, number_of_actions, rollout_policy,
+  pi_1 = solve_for_pi_opt(initial_state, initial_x, transition_model_1, time_horizon, number_of_actions, rollout_policy,
                           feature_function)
-  value_of_pi_1 = evaluate_policy(initial_state, transition_model_1, time_horizon, pi_1, feature_function)
+  value_of_pi_1 = evaluate_policy(initial_state, initial_x, transition_model_1, time_horizon, pi_1, feature_function)
 
   # Define CP objective
   def cp_objective(transition_model_parameters):
     # Get value of policy corresponding to this parameter setting
     transition_model_2 = transition_model_from_parameter(transition_model_parameters)
     candidate_policy = solve_for_pi_opt(transition_model_2, time_horizon)
-    value_of_candidate_policy = evaluate_policy(initial_state, transition_model_2, time_horizon, candidate_policy,
+    value_of_candidate_policy = evaluate_policy(initial_state, initial_x, transition_model_2, time_horizon, candidate_policy,
                                                 feature_function)
 
     # Compute cross-regrets
-    cross_value_candidate_policy = evaluate_policy(initial_state, transition_model_1, time_horizon, candidate_policy)
-    cross_value_pi_1 = evaluate_policy(initial_state, transition_model_2, time_horizon, pi_1)
+    cross_value_candidate_policy = evaluate_policy(initial_state, initial_x, transition_model_1, time_horizon, candidate_policy)
+    cross_value_pi_1 = evaluate_policy(initial_state, initial_x, transition_model_2, time_horizon, pi_1)
     transition_model_parameters_density = posterior_density(transition_model_parameters)
 
     cross_regret_1 = value_of_pi_1 - cross_value_candidate_policy
@@ -125,7 +137,7 @@ if __name__ == "__main__":
     return np.exp(model_.logp(p))
 
   feature_function = glucose_feature_function
-  dissent_pursuit(model_, trace_, posterior_density_, time_horizon_, env.X[-1][:-1, :], [],
+  devils_advocate(model_, trace_, posterior_density_, time_horizon_, env.S[-1][-1, :], env.X[-1][-1, :], [],
                   2, rollout_policy_, feature_function, tm.transition_model_from_np_parameter)
 
 
