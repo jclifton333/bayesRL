@@ -257,8 +257,9 @@ class GlucoseTransitionModel(object):
     sigma = sigma[:, np.newaxis, :]
     post_glucose_pdf_contribs = norm.pdf(np.atleast_3d(x_grid), mu, sigma)
     v_ = np.array([norm.cdf(np.dot(x, b)) for b in self.trace['beta'][:100]])
-    pdb.set_trace()
-    post_glucose_pdfs = (v_ * post_glucose_pdf_contribs).sum(axis=-1)
+    w_ = np.array([stick_breaking_for_probit_numpy_version(v_[i, 0, :]) for i in range(v_.shape[0])])
+    w_ = w_[:, np.newaxis, :]
+    post_glucose_pdfs = (w_ * post_glucose_pdf_contribs).sum(axis=-1)
     return post_glucose_pdfs
 
 
@@ -284,4 +285,4 @@ def transition_model_from_np_parameter(np_parameter):
 
 
 def stick_breaking_for_probit_numpy_version(v):
-  pass
+  return v * np.concatenate(([1.0], np.cumprod(1-v)[:-1]))
