@@ -99,9 +99,9 @@ def dirichlet_mixture_regression(X, y):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  SAMPLES = 1000
-  BURN = 10000
-  # SAMPLES = BURN = 1
+  # SAMPLES = 1000
+  # BURN = 10000
+  SAMPLES = BURN = 1
 
   with model:
     step = pm.Metropolis()
@@ -122,9 +122,9 @@ def np_density_estimation(X):
   :param X: one-dimensional array of observations
   :return:
   """
-  # BURN = SAMPLES = 1
-  BURN = 10000
-  SAMPLES = 1000
+  BURN = SAMPLES = 1
+  # BURN = 10000
+  # SAMPLES = 1000
 
   # Estimate p
   p = np.mean(X != 0.0)
@@ -149,102 +149,4 @@ def np_density_estimation(X):
 
 
 
-# def posterior_predictive_transition(trace, model, shared_x_np, new_x, shared_x_p=None, compare_=None):
-#   """
-#   Sample from estimated transition density at x, using posterior predictive density as the estimated transition
-#   density.
-#
-#   :param trace:
-#   :param model:
-#   :param shared_x:
-#   :param new_x:
-#   :param compare_: compare object (needed if multiple traces/models given!) or None
-#   :return:
-#   """
-#   if compare_ is None:
-#     shared_x_np.set_value(new_x)
-#     shared_x_p = None
-#     pp_sample = pm.sample_ppc(trace, model=model, samples=1)
-#   else:
-#     weights_ = np.array(compare_.weight.sort_index(ascending=True)).astype(float)
-#     ix_ = np.random.choice(len(weights_), p=weights_)
-#     shared_x_np.set_value(new_x)
-#     shared_x_p.set_value(new_x[:3])
-#     if ix_ == 0:
-#       pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0]
-#     elif ix_ == 1:
-#       # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
-#       pp_sample = pm.sample_ppc(trace[ix_], model=model[ix_])['obs'][0, 0]
-#     # pp_sample = pm.sample_ppc_w(traces=trace, samples=1, models=model,
-#     #                             weights=compare_.weight.sort_index(ascending=True), size=1)
-#   return pp_sample, shared_x_np, shared_x_p
 
-
-
-
-# def main():
-#   DATA_URI = 'http://www.stat.cmu.edu/~larry/all-of-nonpar/=data/lidar.dat'
-#
-#   def standardize(x):
-#     return (x - x.mean()) / x.std()
-#
-#   df = (pd.read_csv(DATA_URI, sep=' *', engine='python')
-#         .assign(std_range=lambda df: standardize(df.range),
-#                 std_logratio=lambda df: standardize(df.logratio)))
-#
-#   N, _ = df.shape
-#   K = 20
-#
-#   std_range = df.std_range.values[:, np.newaxis]
-#   std_logratio = df.std_logratio.values[:, np.newaxis]
-#
-#   x_lidar = shared(std_range, broadcastable=(False, True))
-#
-#   with pm.Model() as model:
-#     alpha = pm.Normal('alpha', 0., 5., shape=K)
-#     beta = pm.Normal('beta', 0., 5., shape=K)
-#     v = norm_cdf(alpha + beta * x_lidar)
-#     w = pm.Deterministic('w', stick_breaking(v))
-#
-#   print('defined dirichlet priors')
-#
-#   with model:
-#     gamma = pm.Normal('gamma', 0., 10., shape=K)
-#     delta = pm.Normal('delta', 0., 10., shape=K)
-#     mu = pm.Deterministic('mu', gamma + delta * x_lidar)
-#
-#   print('defined lm')
-
-#   with model:
-#     tau = pm.Gamma('tau', 1., 1., shape=K)
-#     obs = pm.NormalMixture('obs', w, mu, tau=tau, observed=std_logratio)
-#
-#   SAMPLES = 20000
-#   BURN = 10000
-#
-#   with model:
-#     step = pm.Metropolis()
-#     trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
-
-#   return
-
-
-if __name__ == '__main__':
-  # n_patients = 20
-  # env = Glucose(nPatients=n_patients)
-
-  # # Take random actions to get some data
-  # env.step(np.random.choice(2, size=n_patients))
-  # X_, Sp1 = env.get_state_transitions_as_x_y_pair()
-
-  X_ = shared(np.random.multivariate_normal(np.zeros(3), np.eye(3), size=10))
-  y_ = np.random.normal(np.zeros(10))
-  # y_ = Sp1[:, 0]
-
-  # Fit model
-  # m, t = dependent_density_regression(X_, y_)
-  compare = stack_parametric_and_nonparametric_dependent_densities(X_, y_)
-
-  # Posterior predictive transition
-  # new_x_ = np.array([np.random.multivariate_normal(np.zeros(3), np.eye(3))])
-  # posterior_predictive_transition(t, m, X_, new_x_)

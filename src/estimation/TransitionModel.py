@@ -235,8 +235,6 @@ class GlucoseTransitionModel(object):
     plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green')
     plt.show()
 
-    pdb.set_trace()
-
   def true_glucose_pdf_at_x(self, x, x_grid):
     mu = np.dot(x, self.COEF)
     true_glucose_pdf = norm.pdf(x_grid, mu, self.SIGMA_GLUCOSE)

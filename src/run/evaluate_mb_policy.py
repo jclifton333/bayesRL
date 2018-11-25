@@ -42,7 +42,7 @@ def evaluate_policy(initial_state, initial_x, transition_model, time_horizon, po
 def evaluate_glucose_mb_policy():
   # Roll out to get data
   n_patients = 1
-  T = 1000
+  T = 15
   env = Glucose(n_patients)
   env.reset()
   env.step(np.random.binomial(1, 0.3, n_patients))
@@ -57,19 +57,19 @@ def evaluate_glucose_mb_policy():
   y = Sp1[:, 0]
   estimator.fit(X, y)
 
-  # # Get optimal policy under model
-  # def rollout_policy(s):
-  #   return np.random.binomial(1, 0.3)
+  # Get optimal policy under model
+  def rollout_policy(s):
+    return np.random.binomial(1, 0.3)
 
-  # initial_x = X[-1, :]
-  # initial_state = S[0][-1, :]
-  # transition_model = estimator.draw_from_ppd
-  # feature_function = opt.glucose_feature_function
-  # pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
+  initial_x = X[-1, :]
+  initial_state = S[0][-1, :]
+  transition_model = estimator.draw_from_ppd
+  feature_function = opt.glucose_feature_function
+  pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
 
   # Evaluate policy
-  v = None
-  # v = evaluate_policy(initial_state, initial_x, transition_model, T, pi, feature_function)
+  # v = None
+  v = evaluate_policy(initial_state, initial_x, transition_model, T, pi, feature_function)
 
   return v, estimator
 

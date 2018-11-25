@@ -17,7 +17,8 @@ sys.path.append(project_dir)
 import numpy as np
 import src.estimation.density_estimation as dd
 import src.estimation.TransitionModel as tm
-from src.policies.simulation_optimization_policies import solve_for_pi_opt
+from src.policies.simulation_optimization_policies import solve_for_pi_opt, glucose_feature_function
+from src.run.evaluate_mb_policy import evaluate_policy
 from sklearn.ensemble import RandomForestRegressor
 from src.environments.Glucose import Glucose
 from theano import shared
@@ -112,7 +113,7 @@ if __name__ == "__main__":
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   X = shared(X)
   y = Sp1[:, 0]
-  model_, trace_, compare_ = dd.dependent_density_regression(X, y)
+  model_, trace_ = dd.dirichlet_mixture_regression(X, y)
 
   # Dissent pursuit
   time_horizon_ = 3
@@ -123,6 +124,7 @@ if __name__ == "__main__":
   def posterior_density_(p):
     return np.exp(model_.logp(p))
 
+  feature_function = glucose_feature_function
   dissent_pursuit(model_, trace_, posterior_density_, time_horizon_, env.X[-1][:-1, :], [],
                   2, rollout_policy_, feature_function, tm.transition_model_from_np_parameter)
 
