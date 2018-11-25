@@ -261,24 +261,29 @@ class GlucoseTransitionModel(object):
     return post_glucose_pdfs
 
 
-def transition_model_from_np_parameter(np_parameter):
+def transition_model_from_np_parameter(glucose_parameter, food_and_activity_model):
   """
+  Fix glucose transition model at a certain parameter value, and use food and activity ppds.
 
-  :param np_parameter: Parameter corresponding to probit mixture of gaussians as in GlucoseTransitionModel np option.
+  :param glucose_parameter:
+  :param food_and_activity_model:
   :return:
   """
   tau, beta, theta = \
-    np_parameter['tau'], np_parameter['beta'], np_parameter['theta']
+    glucose_parameter['tau'], glucose_parameter['beta'], glucose_parameter['theta']
 
   def transition_model(x):
-    # Draw cluster
+    # Draw glucose from conditional mixture
     stick_breaking_weights = np.array([norm.cdf(np.dot(x.flatten(), beta_i)) for beta_i in beta.T])
     cluster_probs = stick_breaking_for_probit_numpy_version(stick_breaking_weights)
     cluster = np.random.choice(range(len(cluster_probs)), p=cluster_probs)
-    theta_i = theta[cluster]
-    s_mean = np.dot(theta_i, x)
-    s_tilde = np.random.multivariate_normal(s_mean, cov=tau[cluster]*np.eye(len(s_mean)))
-    return s_tilde
+    theta_i = theta.T[cluster]
+    g_mean = np.dot(x.flatten(), theta_i)
+    g_tilde = np.random.normal(g_mean, cov=tau.T[cluster])
+
+    # Draw food and activity
+    f_tilde, a_tilde = food_and_activity_model()
+    return np.array([g_tilde, f_tilde, a_tilde])
 
   return transition_model
 

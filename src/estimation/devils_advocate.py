@@ -125,7 +125,9 @@ if __name__ == "__main__":
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   X = shared(X)
   y = Sp1[:, 0]
-  model_, trace_ = dd.dirichlet_mixture_regression(X, y)
+  estimator = tm.GlucoseTransitionModel()
+  estimator.fit(X, y)
+  model_, trace_ = estimator.model, estimator.trace
 
   # Dissent pursuit
   time_horizon_ = 3
@@ -135,6 +137,9 @@ if __name__ == "__main__":
 
   def posterior_density_(p):
     return np.exp(model_.logp(p))
+
+  def transition_model(glucose_parameter):
+    return tm.transition_model_from_np_parameter(glucose_parameter, estimator.draw_from_food_and_activity_ppd)
 
   feature_function = glucose_feature_function
   devils_advocate(model_, trace_, posterior_density_, time_horizon_, env.S[-1][-1, :], env.X[-1][-1, :], [],
