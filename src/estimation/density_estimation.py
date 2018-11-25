@@ -186,13 +186,13 @@ def dependent_density_regression(X, y, X_p=None):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  # SAMPLES = 200
-  # BURN = 10000
-  SAMPLES = BURN = 1
+  SAMPLES = 1000
+  BURN = 10000
+  # SAMPLES = BURN = 1
 
   with model:
     step = pm.Metropolis()
-    trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
+    trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
 
   model.name = 'nonparametric'
 

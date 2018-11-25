@@ -17,6 +17,8 @@ from theano import shared
 
 class GlucoseTransitionModel(object):
   FEATURE_INDICES_FOR_PARAMETRIC_MODEL = [0, 1, 2, 3, 7]
+  COEF = np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4])
+  SIGMA_GLUCOSE = 25
 
   def __init__(self, method='np'):
     """
@@ -178,12 +180,11 @@ class GlucoseTransitionModel(object):
     #                                   self.food_trace['mu'][:, np.newaxis, :],
     #                                   1.0 / np.sqrt(self.food_trace['lambda'] * self.food_trace['tau'])[:, np.newaxis, :])
     # post_food_pdfs = (self.food_trace['w'][:, np.newaxis, :] * post_food_pdf_contribs).sum(axis=-1)
-    # # plt.hist(self.food_nonzero)
+    # # # plt.hist(self.food_nonzero)
     # plt.plot(x_plot_food, post_food_pdfs.T, c='gray', label='Posterior sample densities')
     # plt.plot(x_plot_food, post_food_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
     # plt.title('Posterior density estimates for food')
     # plt.show()
-
     # # Activity
     # x_plot_activity = np.linspace(np.min(self.X_[:, 4]), np.max(self.X_[:, 4]), 200)
     # post_activity_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_activity),
@@ -209,12 +210,17 @@ class GlucoseTransitionModel(object):
 
     # Conditional pdfs
     hypo0_pdfs = self.posterior_glucose_pdfs_at_x(hypoglycemic_0, x_plot)
+    true_hypo0_pdf = self.true_glucose_pdf_at_x(hypoglycemic_0, x_plot)
     hypo1_pdfs = self.posterior_glucose_pdfs_at_x(hypoglycemic_1, x_plot)
+    true_hypo1_pdf = self.true_glucose_pdf_at_x(hypoglycemic_1, x_plot)
     hyper0_pdfs = self.posterior_glucose_pdfs_at_x(hyperglycemic_0, x_plot)
+    true_hyper0_pdf = self.true_glucose_pdf_at_x(hyperglycemic_0, x_plot)
     hyper1_pdfs = self.posterior_glucose_pdfs_at_x(hyperglycemic_1, x_plot)
+    true_hyper1_pdf = self.true_glucose_pdf_at_x(hyperglycemic_1, x_plot)
 
     # Plot
     # Hypo
+    plt.figure()
     plt.plot(x_plot, hypo0_pdfs.T, c='gray')
     plt.plot(x_plot, hypo0_pdfs.mean(axis=0), c='k')
     plt.plot(x_plot, hypo1_pdfs.T, c='cyan')
@@ -222,11 +228,19 @@ class GlucoseTransitionModel(object):
     plt.show()
 
     # Hyper
+    plt.figure()
     plt.plot(x_plot, hyper0_pdfs.T, c='gray')
     plt.plot(x_plot, hyper0_pdfs.mean(axis=0), c='k')
     plt.plot(x_plot, hyper1_pdfs.T, c='cyan')
     plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green')
     plt.show()
+
+    pdb.set_trace()
+
+  def true_glucose_pdf_at_x(self, x, x_grid):
+    mu = np.dot(x, self.COEF)
+    true_glucose_pdf = norm.pdf(x_grid, mu, self.SIGMA_GLUCOSE)
+    return true_glucose_pdf
 
   def posterior_glucose_pdfs_at_x(self, x, x_grid):
     """
@@ -237,12 +251,13 @@ class GlucoseTransitionModel(object):
     :return:
     """
     # Get conditional means at each cluster
-    mu = np.array([np.dot(x, t) for t in self.trace['theta']])[:, np.newaxis, :]
-    pdb.set_trace()
-    post_glucose_pdf_contribs = multivariate_normal.pdf(np.atleast_3d(x_grid), mu,
-                                                        1.0 / np.sqrt(self.trace['tau'])[:, np.newaxis, :])
-    w = np.array([norm.cdf(np.dot(x, b)) for b in self.trace['beta']])
-    post_glucose_pdfs = (w * post_glucose_pdf_contribs.sum(axis=-1))
+    mu = np.array([np.dot(x, t) for t in self.trace['theta'][:100]])
+    sigma = 1.0 / np.sqrt(self.trace['tau'][:100])
+    # mu = mu[:, np.newaxis, :]
+    sigma = sigma[:, np.newaxis, :]
+    post_glucose_pdf_contribs = norm.pdf(np.atleast_3d(x_grid), mu, sigma)
+    w = np.array([norm.cdf(np.dot(x, b)) for b in self.trace['beta'][:100]])
+    post_glucose_pdfs = (w * post_glucose_pdf_contribs).sum(axis=-1)
     return post_glucose_pdfs
 
 

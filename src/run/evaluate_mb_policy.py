@@ -41,8 +41,8 @@ def evaluate_policy(initial_state, initial_x, transition_model, time_horizon, po
 
 def evaluate_glucose_mb_policy():
   # Roll out to get data
-  n_patients = 10
-  T = 20
+  n_patients = 1
+  T = 1000
   env = Glucose(n_patients)
   env.reset()
   env.step(np.random.binomial(1, 0.3, n_patients))
