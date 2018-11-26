@@ -52,8 +52,8 @@ class GlucoseTransitionModel(object):
   def fit(self, X, y):
     self.X_ = X
     self.y_ = y
-    self.food_nonzero = X[:, 3][np.where(X[:, 3]) != 0.0]
-    self.activity_nonzero = X[:, 4][np.where(X[:, 4]) != 0.0]
+    self.food_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
+    self.activity_nonzero = X[:, 4][np.where(X[:, 4] != 0.0)]
 
     # Food and activity are modeled with np density estimation in all cases
     self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
@@ -130,7 +130,7 @@ class GlucoseTransitionModel(object):
     else:
       glucose = pm.sample_ppc(self.trace, samples=1, model=self.model, progressbar=False)['obs'][0]
 
-    r = self.reward_function(glucose)
+    r = glucose_reward_function(glucose)
     return glucose, r
 
   def draw_from_parametric_ppd(self, x):
@@ -144,18 +144,6 @@ class GlucoseTransitionModel(object):
 
     r = self.reward_function(glucose)
     return glucose, r
-
-  @staticmethod
-  def reward_function(glucose):
-    """
-
-    :param glucose:
-    :return:
-    """
-    # Reward from this timestep
-    r1 = (glucose < 70) * (-0.005 * glucose ** 2 + 0.95 * glucose - 45) + \
-         (glucose >= 70) * (-0.00017 * glucose ** 2 + 0.02167 * glucose - 0.5)
-    return r1
 
   def cluster_trajectories(self, x, policy, time_horizon, n_draw=100):
     """
@@ -261,6 +249,8 @@ class GlucoseTransitionModel(object):
     return post_glucose_pdfs
 
 
+# Helpers
+
 def transition_model_from_np_parameter(glucose_parameter, food_and_activity_model):
   """
   Fix glucose transition model at a certain parameter value, and use food and activity ppds.
@@ -279,11 +269,11 @@ def transition_model_from_np_parameter(glucose_parameter, food_and_activity_mode
     cluster = np.random.choice(range(len(cluster_probs)), p=cluster_probs)
     theta_i = theta.T[cluster]
     g_mean = np.dot(x.flatten(), theta_i)
-    g_tilde = np.random.normal(g_mean, cov=tau.T[cluster])
+    g_tilde = np.random.normal(g_mean, 1 / np.sqrt(tau.T[cluster]))
 
     # Draw food and activity
     f_tilde, a_tilde = food_and_activity_model()
-    return np.array([g_tilde, f_tilde, a_tilde])
+    return np.array([g_tilde, f_tilde, a_tilde]), glucose_reward_function(g_tilde)
 
   return transition_model
 
@@ -292,3 +282,16 @@ def stick_breaking_for_probit_numpy_version(v):
   w = v * np.concatenate(([1.0], np.cumprod(1-v)[:-1]))
   w = np.concatenate((w[:-1], [1 - np.sum(w[:-1])]))  # Correct rounding error
   return w
+
+
+def glucose_reward_function(glucose):
+    """
+
+    :param glucose:
+    :return:
+    """
+    # Reward from this timestep
+    r1 = (glucose < 70) * (-0.005 * glucose ** 2 + 0.95 * glucose - 45) + \
+         (glucose >= 70) * (-0.00017 * glucose ** 2 + 0.02167 * glucose - 0.5)
+    return r1
+

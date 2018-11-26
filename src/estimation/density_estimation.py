@@ -132,7 +132,7 @@ def np_density_estimation(X):
   # DP mixture density estimation hyperparameters
   K = 20
   X_nonzero = X[np.where(X != 0)]
-  n = len(X_nonzero)
+  # n = X_nonzero.shape[0]
 
   with pm.Model() as model:
     alpha = pm.Gamma('alpha', 1.0, 1.0)
