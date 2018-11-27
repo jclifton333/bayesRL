@@ -12,6 +12,7 @@ import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
 import matplotlib.pyplot as plt
+import src.estimation.bellman_error as be
 from theano import shared
 
 
@@ -248,6 +249,26 @@ class GlucoseTransitionModel(object):
     post_glucose_pdfs = (w_ * post_glucose_pdf_contribs).sum(axis=-1)
     return post_glucose_pdfs
 
+  def bellman_error_weighted_np_posterior_expectation(self, q, S_ref, A_ref, tau=1):
+    """
+    Weight posterior by exp[ -tau/2 * BE(q, \theta) ], where \theta is parameter, q is q function.
+
+    :param q:
+    :param tau:
+    :return:
+    """
+    gamma = 0.9
+    reward_function = lambda s: glucose_reward_function(s[0])
+    posterior_expectation = None
+    n = 1
+    for param in self.trace:
+      transition_model = transition_model_from_np_parameter(param, self.draw_from_food_and_activity_ppd)
+      bellman_error = be.transition_distribution_bellman_error(q, transition_model, S_ref, A_ref, feature_function,
+                                                               reward_function, gamma, 2)
+      exp_bellman_error = np.exp(-tau/2 * bellman_error)
+      posterior_expectation += (param * exp_bellman_error - posterior_expectation) / n
+      n += 1
+    return posterior_expectation
 
 # Helpers
 
