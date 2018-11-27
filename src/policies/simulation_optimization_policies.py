@@ -38,7 +38,7 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
     s = initial_state
     x = initial_x
     for t in range(time_horizon):
-      a = rollout_policy(s)
+      a = rollout_policy(s, x)
       x = feature_function(s, a, x)
       X = np.vstack((X, x))
       S = np.vstack((S, s))
