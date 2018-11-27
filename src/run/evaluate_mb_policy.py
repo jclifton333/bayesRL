@@ -10,6 +10,8 @@ from src.environments.Glucose import Glucose
 from src.estimation.TransitionModel import GlucoseTransitionModel
 import src.policies.simulation_optimization_policies as opt
 import matplotlib.pyplot as plt
+import multiprocessing as mp
+from functools import partial
 
 
 def evaluate_policy(transition_model, time_horizon, policy, feature_function, initial_state_and_x=None):
@@ -32,32 +34,14 @@ def evaluate_policy(transition_model, time_horizon, policy, feature_function, in
       s = env_.S[patient][-1, :]
       x = env_.X[patient][-1, :]
       a = policy(s, x)
-      actions.append()
+      actions.append(a)
     env_.step(actions)
   return np.mean(env_.R)
 
 
-  if initial_state_and_x is not None:
-    s = initial_state_and_x['initial_state']
-    x = initial_state_and_x['initial_x']
-  else:
-    env_ = Glucose()
-  for _ in range(MC_REPLICATES):
-    if initial_state_and_x is None:
-      env_.reset()
-      s = env_.S[-1][-1, :]
-      x = env_.X[-1][-1, :]
-    return_ = 0.0
-    for t in range(time_horizon):
-      a = policy(s, x)
-      x = feature_function(s, a, x)
-      s, r = transition_model(np.array([x]))
-      return_ += r
-    returns.append(return_)
-  return np.mean(returns)
+def evaluate_glucose_mb_policy(replicate, method):
+  np.random.seed(replicate)
 
-
-def evaluate_glucose_mb_policy(method):
   # Roll out to get data
   n_patients = 20
   T = 20
@@ -97,5 +81,22 @@ def evaluate_glucose_mb_policy(method):
   return v
 
 
+def run():
+  N_REPLICATES_PER_METHOD = 10
+  N_PROCESSES = 2
+
+  methods = ['random', 'np']
+  results_dict = {}
+  for method in methods:
+    evaluate_partial = partial(evaluate_glucose_mb_policy, method=method)
+    results = []
+    pool = mp.Pool(N_PROCESSES)
+    for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
+      res = pool.map(evaluate_partial, [2*rep, 2*rep + 1])
+      results += res
+    results_dict[method] = {'mean': np.mean(results), 'se': np.std(results) / np.sqrt(N_REPLICATES_PER_METHOD)}
+  print(results_dict)
+
+
 if __name__ == "__main__":
-  v_ = evaluate_glucose_mb_policy()
+  v_ = evaluate_glucose_mb_policy('np')
