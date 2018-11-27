@@ -35,7 +35,6 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
   S = np.zeros((0, s_dim))
   R = np.zeros(0)
   for rollout in range(mc_rollouts):
-    print(rollout)
     s = initial_state
     x = initial_x
     for t in range(time_horizon):

@@ -83,18 +83,22 @@ def devils_advocate(model, trace, posterior_density, time_horizon, initial_state
   best_value = -float("inf")
   best_param = None
 
+  counter = 0
   for param in exploration_parameters:
+    print(counter)
     param_value = cp_objective(param)
     if param_value > best_value:
       best_param = param
       best_value = param_value
+    counter += 1
   for _ in range(NUMBER_OF_EVALUATIONS):
+    print(counter)
     param = np.random.choice(trace)
     param_value = cp_objective(param)
     if param_value > best_value:
       best_param = param
       best_value = param_value
-
+    counter += 1
   return best_param
 
 

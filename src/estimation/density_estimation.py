@@ -147,6 +147,3 @@ def np_density_estimation(X):
 
   return model, trace, p
 
-
-
-
