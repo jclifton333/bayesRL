@@ -9,23 +9,22 @@ sys.path.append(project_dir)
 from src.environments.Glucose import Glucose
 from src.estimation.TransitionModel import GlucoseTransitionModel
 import src.policies.simulation_optimization_policies as opt
+from sklearn.ensemble import RandomForestRegressor
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 from functools import partial
 
 
-def evaluate_policy(transition_model, time_horizon, policy, feature_function, initial_state_and_x=None):
+def evaluate_policy(time_horizon, policy, initial_state_and_x=None):
   """
   :param initial_state:
   :param initial_x: initial features
-  :param transition_model:
   :param time_horizon:
   :param policy:
   :param feature_function:
   :return:
   """
   MC_REPLICATES = 100
-  returns = []
   env_ = Glucose(nPatients=100)
   env_.reset()
   for t in range(time_horizon):
@@ -54,7 +53,7 @@ def evaluate_glucose_mb_policy(replicate, method):
 
   if method in ['np', 'p', 'averaged']:
     # Fit model on data
-    estimator = GlucoseTransitionModel(method='np')
+    estimator = GlucoseTransitionModel(method=method)
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     S = env.S
     y = Sp1[:, 0]
@@ -74,9 +73,38 @@ def evaluate_glucose_mb_policy(replicate, method):
     def pi(s_, x_):
       return np.random.binomial(1, 0.3)
 
+  elif method == 'one_step':  # One step FQI
+    reg = RandomForestRegressor()
+    X, Sp1 = env.get_state_transitions_as_x_y_pair()
+    y = Sp1[:, 0]
+    reg.fit(X, y)
+    q_ = lambda x_: reg.predict(x_.reshape(1, -1))
+    feature_function = opt.glucose_feature_function
+
+    def pi(s_, x_):
+      return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
+
+  elif method == 'two_step':
+    reg = RandomForestRegressor()
+    X, Sp1 = env.get_state_transitions_as_x_y_pair()
+    y = Sp1[:, 0]
+
+    # Step one
+    reg.fit(X, y)
+    q_ = lambda x_: reg.predict(x_.reshape(1, -1))
+    feature_function = opt.glucose_feature_function
+
+    # Step two
+    Q_ = y[:-1] + np.array([np.max([q_(feature_function(s, a, x)) for a in range(2)])
+                            for s, x in zip(Sp1[:-1], X[1:])])
+    reg.fit(X[:-1], Q_)
+
+    def pi(s_, x_):
+      return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
+
   # Evaluate policy
   # v = None
-  v = evaluate_policy(transition_model, T, pi, feature_function)
+  v = evaluate_policy(T, pi)
 
   return v
 
@@ -85,7 +113,7 @@ def run():
   N_REPLICATES_PER_METHOD = 10
   N_PROCESSES = 2
 
-  methods = ['random', 'np']
+  methods = ['two_step']
   results_dict = {}
   for method in methods:
     evaluate_partial = partial(evaluate_glucose_mb_policy, method=method)
@@ -94,9 +122,9 @@ def run():
     for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
       res = pool.map(evaluate_partial, [2*rep, 2*rep + 1])
       results += res
-    results_dict[method] = {'mean': np.mean(results), 'se': np.std(results) / np.sqrt(N_REPLICATES_PER_METHOD)}
+    results_dict[method] = {'mean': np.mean(results), 'se': np.std(results)}
   print(results_dict)
 
 
 if __name__ == "__main__":
-  v_ = evaluate_glucose_mb_policy('np')
+  run()

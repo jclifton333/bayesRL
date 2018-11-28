@@ -17,7 +17,7 @@ def glucose_feature_function(s, a, x):
 
 
 def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, number_of_actions, rollout_policy,
-                     feature_function, mc_rollouts=100, number_of_dp_iterations=2):
+                     feature_function, mc_rollouts=1000, number_of_dp_iterations=0):
   """
   Solve for optimal policy using dynamic programming.
 
@@ -51,7 +51,7 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
   q_ = lambda x_: reg.predict(x_.reshape(1, -1))
   for _ in range(number_of_dp_iterations):
     Q_ = R[:-1] + np.array([
-      np.max([q_(feature_function(s, a, x)) for a in range(number_of_actions)]) for s, x in zip(S[1:], X[:-1])])
+      np.max([q_(feature_function(s, a, x)) for a in range(number_of_actions)]) for s, x in zip(S[1:], X[:1])])
     reg.fit(X[:-1], Q_)
     q_ = lambda x_: reg.predict(x_.reshape(1, -1))
 

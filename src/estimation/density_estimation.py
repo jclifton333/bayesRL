@@ -56,7 +56,7 @@ def normal_bayesian_regression(X, y):
     mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
-  SAMPLES = 200
+  SAMPLES = 1000
   BURN = 10000
   # SAMPLES = BURN = 1
 
@@ -99,13 +99,13 @@ def dirichlet_mixture_regression(X, y):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  # SAMPLES = 1000
-  # BURN = 10000
-  SAMPLES = BURN = 1
+  SAMPLES = 1000
+  BURN = 10000
+  # SAMPLES = BURN = 1
 
   with model:
     step = pm.Metropolis()
-    trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
+    trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
   model.name = 'nonparametric'
   return model, trace
@@ -122,9 +122,9 @@ def np_density_estimation(X):
   :param X: one-dimensional array of observations
   :return:
   """
-  BURN = SAMPLES = 1
-  # BURN = 10000
-  # SAMPLES = 1000
+  # BURN = SAMPLES = 1
+  BURN = 10000
+  SAMPLES = 1000
 
   # Estimate p
   p = np.mean(X != 0.0)
@@ -143,7 +143,7 @@ def np_density_estimation(X):
     mu = pm.Normal('mu', 0, tau=lambda_ * tau, shape=K)
     obs = pm.NormalMixture('obs', w, mu, tau=lambda_ * tau, observed=X_nonzero)
     step = pm.Metropolis()
-    trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
+    trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
   return model, trace, p
 

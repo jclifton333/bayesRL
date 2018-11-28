@@ -143,7 +143,7 @@ class GlucoseTransitionModel(object):
     else:
       glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0, 0]
 
-    r = self.reward_function(glucose)
+    r = glucose_reward_function(glucose)
     return glucose, r
 
   def cluster_trajectories(self, x, policy, time_horizon, n_draw=100):
