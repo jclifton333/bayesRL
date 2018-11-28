@@ -251,7 +251,7 @@ class GlucoseTransitionModel(object):
     post_glucose_pdfs = (w_ * post_glucose_pdf_contribs).sum(axis=-1)
     return post_glucose_pdfs
 
-  def one_step_value_function_ppc(self, X, R):
+  def one_step_value_function_ppc(self, X, S, R):
     """
     Compare posterior predictive one-step value function to model-free one-step value function.
     :param X:
@@ -261,7 +261,15 @@ class GlucoseTransitionModel(object):
     NUM_PP_SAMPLES = 100
     NUM_MC_SAMPLES = 1000
 
-    grid = None  # Grid of s, x pairs at which to evaluate value functions
+    glucose_grid = np.linspace(50, 200, 100)
+    s_mean = np.mean(S, axis=0)
+    x_mean = np.mean(X, axis=0)
+    grid = []  # Grid of s, x pairs at which to evaluate value functions
+    for g in glucose_grid:
+      sg = np.concatenate(([g], s_mean[1:]))
+      xg = np.concatenate(([1, g], x_mean[2:]))
+      grid.append((sg, xg))
+    feature_function = opt.glucose_feature_function
 
     # Fit model-free value
     reg_mf = RandomForestRegressor()
@@ -285,6 +293,11 @@ class GlucoseTransitionModel(object):
       v_mb_eval.append([v_(s, x) for s, x in grid])
 
     # Plots
+    plt.figure()
+    plt.plot(glucose_grid, v_mf_eval, col='red', label='model free')
+    plt.plot(glucose_grid, v_mb_eval, col='gray', label='ppd of model based values')
+    plt.legend()
+    plt.show()
 
   def bellman_error_weighted_np_posterior_expectation(self, q, S_ref, A_ref, tau=1):
     """
