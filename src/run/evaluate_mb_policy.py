@@ -13,6 +13,8 @@ from sklearn.ensemble import RandomForestRegressor
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 from functools import partial
+import datetime
+import yaml
 
 
 def evaluate_policy(time_horizon, policy, initial_state_and_x=None):
@@ -113,8 +115,13 @@ def run():
   N_REPLICATES_PER_METHOD = 10
   N_PROCESSES = 2
 
-  methods = ['two_step']
+  methods = ['np', 'p', 'averaged']
   results_dict = {}
+  base_name = 'glucose-mb'
+  prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
+  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+  fname = '{}_{}.yml'.format(prefix, suffix)
+
   for method in methods:
     evaluate_partial = partial(evaluate_glucose_mb_policy, method=method)
     results = []
@@ -122,7 +129,9 @@ def run():
     for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
       res = pool.map(evaluate_partial, [2*rep, 2*rep + 1])
       results += res
-    results_dict[method] = {'mean': np.mean(results), 'se': np.std(results)}
+    results_dict[method] = {'mean': float(np.mean(results)), 'se': float(np.std(results))}
+    with open(fname, 'w') as outfile:
+      yaml.dump(results_dict, outfile)
   print(results_dict)
 
 
