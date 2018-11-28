@@ -10,7 +10,7 @@ from src.environments.Glucose import Glucose
 from src.estimation.TransitionModel import GlucoseTransitionModel
 import src.policies.simulation_optimization_policies as opt
 from sklearn.ensemble import RandomForestRegressor
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import multiprocessing as mp
 from functools import partial
 import datetime
@@ -138,3 +138,10 @@ def run():
 
 if __name__ == "__main__":
   v_mb, v_mf = evaluate_glucose_mb_policy(0, 'np')
+  base_name = 'glucose-vfn-ppd'
+  prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
+  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+  fname = '{}_{}.yml'.format(prefix, suffix)
+  vfuns = {'v_mb': v_mb, 'v_mf': v_mf}
+  with open(fname, 'w') as outfile:
+    yaml.dump(vfuns, outfile)

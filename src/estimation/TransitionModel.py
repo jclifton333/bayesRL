@@ -11,7 +11,7 @@ from scipy.stats import norm, multivariate_normal
 import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 import src.estimation.bellman_error as be
 import src.policies.simulation_optimization_policies as opt
@@ -293,11 +293,11 @@ class GlucoseTransitionModel(object):
       v_mb_eval.append([v_(s, x) for s, x in grid])
 
     # Plots
-    plt.figure()
-    plt.plot(glucose_grid, v_mf_eval, col='red', label='model free')
-    plt.plot(glucose_grid, v_mb_eval, col='gray', label='ppd of model based values')
-    plt.legend()
-    plt.show()
+    # plt.figure()
+    # plt.plot(glucose_grid, v_mf_eval, col='red', label='model free')
+    # plt.plot(glucose_grid, v_mb_eval, col='gray', label='ppd of model based values')
+    # plt.legend()
+    # plt.show()
     return v_mf_eval, v_mb_eval
 
   def bellman_error_weighted_np_posterior_expectation(self, q, S_ref, A_ref, tau=1):
