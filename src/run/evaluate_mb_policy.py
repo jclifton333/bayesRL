@@ -104,11 +104,12 @@ def evaluate_glucose_mb_policy(replicate, method):
     def pi(s_, x_):
       return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
+  estimator.one_step_value_function_ppc(X, S, y)
   # Evaluate policy
   # v = None
-  v = evaluate_policy(T, pi)
+  # v = evaluate_policy(T, pi)
 
-  return v
+  return
 
 
 def run():
