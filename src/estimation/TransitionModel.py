@@ -12,7 +12,9 @@ import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
 import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
 import src.estimation.bellman_error as be
+import src.policies.simulation_optimization_policies as opt
 from theano import shared
 
 
@@ -248,6 +250,41 @@ class GlucoseTransitionModel(object):
     w_ = w_[:, np.newaxis, :]
     post_glucose_pdfs = (w_ * post_glucose_pdf_contribs).sum(axis=-1)
     return post_glucose_pdfs
+
+  def one_step_value_function_ppc(self, X, R):
+    """
+    Compare posterior predictive one-step value function to model-free one-step value function.
+    :param X:
+    :param R:
+    :return:
+    """
+    NUM_PP_SAMPLES = 100
+    NUM_MC_SAMPLES = 1000
+
+    grid = None  # Grid of s, x pairs at which to evaluate value functions
+
+    # Fit model-free value
+    reg_mf = RandomForestRegressor()
+    reg_mf.fit(X, R)
+    v = lambda s_, x_: np.max([reg_mf.predict(feature_function(s_, a_, x_).reshape(1, -1)) for a_ in range(2)])
+    v_mf_eval = [v(s, x) for s, x in grid]
+
+    # Get ppd for model-based value
+    v_mb_eval = []
+    for _ in range(NUM_PP_SAMPLES):
+      glucose_param = np.random.choice(self.trace)
+      transition_model = transition_model_from_np_parameter(glucose_param, self.draw_from_food_and_activity_ppd)
+      X_, S_, R_ = opt.simulate_from_transition_model(initial_state, initial_x, transition_model, 10, 2,
+                                                      lambda s, x: np.random.binomial(1, 0.3), feature_function,
+                                                      mc_rollouts=NUM_MC_SAMPLES)
+      reg_ = RandomForestRegressor()
+      reg_.fit(X_, R_)
+      q_ = lambda x_: reg_.predict(x_.reshape(1, -1))
+      v_ = lambda s_, x_: np.max([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
+
+      v_mb_eval.append([v_(s, x) for s, x in grid])
+
+    # Plots
 
   def bellman_error_weighted_np_posterior_expectation(self, q, S_ref, A_ref, tau=1):
     """

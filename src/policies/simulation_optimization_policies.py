@@ -16,18 +16,8 @@ def glucose_feature_function(s, a, x):
   return x_new
 
 
-def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, number_of_actions, rollout_policy,
-                     feature_function, mc_rollouts=1000, number_of_dp_iterations=0):
-  """
-  Solve for optimal policy using dynamic programming.
-
-  :param initial_x: initial features
-  :param transition_model:
-  :param time_horizon:
-  :param rollout_policy: policy for generating data only
-  :param number_of_dp_iterations:
-  :return:
-  """
+def simulate_from_transition_model(initial_state, initial_x, transition_model, time_horizon, number_of_actions,
+                                   rollout_policy, feature_function, mc_rollouts=1000):
   # Generate data for fqi
   x_dim = len(initial_x)
   s_dim = len(initial_state)
@@ -44,7 +34,24 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
       S = np.vstack((S, s))
       s, r = transition_model(np.array([x]))
       R = np.append(R, r)
+  return X, S, R
 
+
+def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, number_of_actions, rollout_policy,
+                     feature_function, mc_rollouts=1000, number_of_dp_iterations=0):
+  """
+  Solve for optimal policy using dynamic programming.
+
+  :param initial_x: initial features
+  :param transition_model:
+  :param time_horizon:
+  :param rollout_policy: policy for generating data only
+  :param number_of_dp_iterations:
+  :return:
+  """
+  # Generate data for fqi
+  X, S, R = simulate_from_transition_model(initial_state, initial_x, transition_model, time_horizon, number_of_actions,
+                                           rollout_policy, feature_function, mc_rollouts=mc_rollouts)
   # Do FQI
   reg = RandomForestRegressor()
   reg.fit(X, R)
