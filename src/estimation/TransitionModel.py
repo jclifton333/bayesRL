@@ -281,6 +281,8 @@ class GlucoseTransitionModel(object):
     v_mb_eval = []
     for _ in range(NUM_PP_SAMPLES):
       glucose_param = np.random.choice(self.trace)
+      initial_state_ix = np.random.choice(S.shape[0] - 1)
+      initial_x, initial_state = X[initial_state_ix], S[initial_state_ix + 1]
       transition_model = transition_model_from_np_parameter(glucose_param, self.draw_from_food_and_activity_ppd)
       X_, S_, R_ = opt.simulate_from_transition_model(initial_state, initial_x, transition_model, 10, 2,
                                                       lambda s, x: np.random.binomial(1, 0.3), feature_function,
