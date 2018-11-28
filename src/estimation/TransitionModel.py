@@ -262,7 +262,7 @@ class GlucoseTransitionModel(object):
     NUM_MC_SAMPLES = 1000
 
     glucose_grid = np.linspace(50, 200, 100)
-    s_mean = np.mean(S, axis=0)
+    s_mean = np.mean(np.vstack(S), axis=0)
     x_mean = np.mean(X, axis=0)
     grid = []  # Grid of s, x pairs at which to evaluate value functions
     for g in glucose_grid:
@@ -281,10 +281,8 @@ class GlucoseTransitionModel(object):
     v_mb_eval = []
     for _ in range(NUM_PP_SAMPLES):
       glucose_param = np.random.choice(self.trace)
-      initial_state_ix = np.random.choice(S.shape[0] - 1)
-      initial_x, initial_state = X[initial_state_ix], S[initial_state_ix + 1]
       transition_model = transition_model_from_np_parameter(glucose_param, self.draw_from_food_and_activity_ppd)
-      X_, S_, R_ = opt.simulate_from_transition_model(initial_state, initial_x, transition_model, 10, 2,
+      X_, S_, R_ = opt.simulate_from_transition_model(s_mean, x_mean, transition_model, 10, 2,
                                                       lambda s, x: np.random.binomial(1, 0.3), feature_function,
                                                       mc_rollouts=NUM_MC_SAMPLES)
       reg_ = RandomForestRegressor()
@@ -300,6 +298,7 @@ class GlucoseTransitionModel(object):
     plt.plot(glucose_grid, v_mb_eval, col='gray', label='ppd of model based values')
     plt.legend()
     plt.show()
+    return v_mf_eval, v_mb_eval
 
   def bellman_error_weighted_np_posterior_expectation(self, q, S_ref, A_ref, tau=1):
     """

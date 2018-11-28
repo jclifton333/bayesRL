@@ -61,15 +61,15 @@ def evaluate_glucose_mb_policy(replicate, method):
     y = Sp1[:, 0]
     estimator.fit(X, y)
 
-    # Get optimal policy under model
-    def rollout_policy(s_, x_):
-      return np.random.binomial(1, 0.3)
+    # # Get optimal policy under model
+    # def rollout_policy(s_, x_):
+    #   return np.random.binomial(1, 0.3)
 
-    initial_x = X[-1, :]
-    initial_state = S[0][-1, :]
-    transition_model = estimator.draw_from_ppd
-    feature_function = opt.glucose_feature_function
-    pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
+    # initial_x = X[-1, :]
+    # initial_state = S[0][-1, :]
+    # transition_model = estimator.draw_from_ppd
+    # feature_function = opt.glucose_feature_function
+    # pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
 
   elif method == 'random':
     def pi(s_, x_):
@@ -104,12 +104,12 @@ def evaluate_glucose_mb_policy(replicate, method):
     def pi(s_, x_):
       return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
-  estimator.one_step_value_function_ppc(X, S, y)
+  v_mb_, v_mf_ = estimator.one_step_value_function_ppc(X, S, y)
   # Evaluate policy
   # v = None
   # v = evaluate_policy(T, pi)
 
-  return
+  return v_mb_, v_mf_
 
 
 def run():
@@ -137,4 +137,4 @@ def run():
 
 
 if __name__ == "__main__":
-  run()
+  v_mb, v_mf = evaluate_glucose_mb_policy(0, 'np')
