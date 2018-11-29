@@ -116,7 +116,7 @@ def evaluate_glucose_mb_policy(replicate, method, truncate):
     transition_model = estimator.draw_from_ppd
     feature_function = opt.glucose_feature_function
     if truncate:
-      reference_distribution_for_truncation = X
+      reference_distribution_for_truncation = Sp1
     else:
       reference_distribution_for_truncation = None
     pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function,
@@ -166,8 +166,8 @@ def evaluate_glucose_mb_policy(replicate, method, truncate):
 
 
 def run():
-  N_REPLICATES_PER_METHOD = 10
-  N_PROCESSES = 2
+  N_REPLICATES_PER_METHOD = 20
+  N_PROCESSES = 20
 
   methods = ['np']
   truncate = True
@@ -183,7 +183,7 @@ def run():
     results = []
     pool = mp.Pool(N_PROCESSES)
     for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
-      res = pool.map(evaluate_partial, [2*rep, 2*rep + 1])
+      res = pool.map(evaluate_partial, range(rep*N_REPLICATES_PER_METHOD + rep*N_REPLICATES_PER_METHOD + N_PROCESSES))
       results += res
     method_name = '{}-truncate={}'.format(method, truncate)
     results_dict[method_name] = {'mean': float(np.mean(results)), 'se': float(np.std(results))}
@@ -193,6 +193,6 @@ def run():
 
 
 if __name__ == "__main__":
-  # run()
+  run()
   # trajectory_ppc(0)
-  evaluate_glucose_mb_policy(0, 'averaged')
+  # evaluate_glucose_mb_policy(0, 'averaged')
