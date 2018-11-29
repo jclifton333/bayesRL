@@ -293,12 +293,12 @@ class GlucoseTransitionModel(object):
       v_mb_eval.append([v_(s, x) for s, x in grid])
 
     # Plots
-    # plt.figure()
-    # plt.plot(glucose_grid, v_mf_eval, col='red', label='model free')
-    # plt.plot(glucose_grid, v_mb_eval, col='gray', label='ppd of model based values')
-    # plt.legend()
-    # plt.show()
-    return v_mf_eval, v_mb_eval
+    plt.figure()
+    plt.plot(glucose_grid, v_mf_eval, col='red', label='model free')
+    plt.plot(glucose_grid, v_mb_eval, col='gray', label='ppd of model based values')
+    plt.legend()
+    plt.show()
+    return v_mf_eval
 
   def bellman_error_weighted_np_posterior_expectation(self, q, S_ref, A_ref, tau=1):
     """

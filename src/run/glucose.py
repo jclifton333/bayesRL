@@ -11,7 +11,7 @@ import multiprocessing as mp
 import numpy as np
 import src.policies.rollout as rollout
 import src.estimation.density_estimation as dd
-from src.estimation.TransitionModel import GlucoseTransitionModel
+from src.estimation.TransitionModel import GlucoseTransitionModel, glucose_reward_function
 import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies

@@ -7,7 +7,7 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 from src.environments.Glucose import Glucose
-from src.estimation.TransitionModel import GlucoseTransitionModel
+from src.estimation.TransitionModel import GlucoseTransitionModel, glucose_reward_function
 import src.policies.simulation_optimization_policies as opt
 from sklearn.ensemble import RandomForestRegressor
 # import matplotlib.pyplot as plt
@@ -79,7 +79,8 @@ def evaluate_glucose_mb_policy(replicate, method):
     reg = RandomForestRegressor()
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     y = Sp1[:, 0]
-    reg.fit(X, y)
+    R = np.array([glucose_reward_function(g) for g in y])
+    reg.fit(X, R)
     q_ = lambda x_: reg.predict(x_.reshape(1, -1))
     feature_function = opt.glucose_feature_function
 
@@ -90,21 +91,22 @@ def evaluate_glucose_mb_policy(replicate, method):
     reg = RandomForestRegressor()
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     y = Sp1[:, 0]
+    R = np.array([glucose_reward_function(g) for g in y])
 
     # Step one
-    reg.fit(X, y)
+    reg.fit(X, R)
     q_ = lambda x_: reg.predict(x_.reshape(1, -1))
     feature_function = opt.glucose_feature_function
 
     # Step two
-    Q_ = y[:-1] + np.array([np.max([q_(feature_function(s, a, x)) for a in range(2)])
+    Q_ = R[:-1] + np.array([np.max([q_(feature_function(s, a, x)) for a in range(2)])
                             for s, x in zip(Sp1[:-1], X[1:])])
     reg.fit(X[:-1], Q_)
 
     def pi(s_, x_):
       return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
-  v_mb_, v_mf_ = estimator.one_step_value_function_ppc(X, S, y)
+  v_mb_, v_mf_ = estimator.one_step_value_function_ppc(X, S, R)
   # Evaluate policy
   # v = None
   # v = evaluate_policy(T, pi)
