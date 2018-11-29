@@ -10,7 +10,7 @@ from src.environments.Glucose import Glucose
 from src.estimation.TransitionModel import GlucoseTransitionModel, glucose_reward_function
 import src.policies.simulation_optimization_policies as opt
 from sklearn.ensemble import RandomForestRegressor
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import multiprocessing as mp
 from functools import partial
 import datetime
@@ -38,6 +38,47 @@ def evaluate_policy(time_horizon, policy, initial_state_and_x=None):
       actions.append(a)
     env_.step(actions)
   return np.mean(env_.R)
+
+
+def trajectory_ppc(replicate):
+  """
+  Generate data, fit np model, and compare observed trajectory to posterior predictive trajectories.
+
+  :return:
+  """
+  np.random.seed(replicate)
+
+  # Roll out to get data
+  n_patients = 20
+  T = 20
+  env = Glucose(n_patients)
+  env.reset()
+  env.step(np.random.binomial(1, 0.3, n_patients))
+
+  for t in range(T):
+    env.step(np.random.binomial(1, 0.3, n_patients))
+
+  # Fit model on data
+  estimator = GlucoseTransitionModel(method='np')
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  y = Sp1[:, 0]
+  estimator.fit(X, y)
+
+  # Simulate data starting at initial state of first patient
+  initial_state = env.S[0][0, :]
+  initial_x = env.X[0][0, :]
+  _, S_sim, R = opt.simulate_from_transition_model(initial_state, initial_x, estimator.draw_from_ppd, T, 2,
+                                                   lambda s, x: np.random.binomial(1, 0.3),
+                                                   opt.glucose_feature_function)
+
+  # PPC for different time points
+  times = [4, 9, 14, 19]
+  f, axarr = plt.subplots(len(times))
+  S_sim = np.array(S_sim)
+  for i, t in enumerate(times):
+    y, x, _ = axarr[i].hist(S_sim[:, t, 0])
+    axarr[i].vlines(S[0][t, 0], ymin=0, ymax=y.max())
+  plt.show()
 
 
 def evaluate_glucose_mb_policy(replicate, method):

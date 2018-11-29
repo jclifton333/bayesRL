@@ -30,7 +30,7 @@ def ppc_for_one_step_q_functions():
   # glucose = 50.
 
   ixs = [0, 50, 75]
-  f, axarr = plt.subplots(3)
+  f, axarr = plt.subplots(len(ixs))
   for i, ix in enumerate(ixs):
     y, x, _ = axarr[i].hist(v_mb[:, i])
     axarr[i].vlines(v_mf[i], ymin=0, ymax=y.max())

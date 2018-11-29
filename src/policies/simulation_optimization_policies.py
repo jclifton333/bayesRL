@@ -22,18 +22,21 @@ def simulate_from_transition_model(initial_state, initial_x, transition_model, t
   x_dim = len(initial_x)
   s_dim = len(initial_state)
   X = np.zeros((0, x_dim))
-  S = np.zeros((0, s_dim))
+  # S = np.zeros((0, s_dim))
+  S = []
   R = np.zeros(0)
   for rollout in range(mc_rollouts):
     s = initial_state
     x = initial_x
+    S_rep = np.zeros((0, s_dim))
     for t in range(time_horizon):
       a = rollout_policy(s, x)
       x = feature_function(s, a, x)
       X = np.vstack((X, x))
-      S = np.vstack((S, s))
+      S_dim = np.vstack((S_dim, s))
       s, r = transition_model(np.array([x]))
       R = np.append(R, r)
+    S.append(S_dim)
   return X, S, R
 
 
