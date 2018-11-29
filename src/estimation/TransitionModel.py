@@ -11,7 +11,10 @@ from scipy.stats import norm, multivariate_normal
 import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
-# import matplotlib.pyplot as plt
+try:
+  import matplotlib.pyplot as plt
+except:
+  pass
 from sklearn.ensemble import RandomForestRegressor
 import src.estimation.bellman_error as be
 import src.policies.simulation_optimization_policies as opt

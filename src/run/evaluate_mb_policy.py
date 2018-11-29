@@ -10,7 +10,10 @@ from src.environments.Glucose import Glucose
 from src.estimation.TransitionModel import GlucoseTransitionModel, glucose_reward_function
 import src.policies.simulation_optimization_policies as opt
 from sklearn.ensemble import RandomForestRegressor
-import matplotlib.pyplot as plt
+try:
+  import matplotlib.pyplot as plt
+except:
+  pass
 import multiprocessing as mp
 from functools import partial
 import datetime
@@ -68,7 +71,7 @@ def trajectory_ppc(replicate):
   initial_state = env.S[0][0, :]
   initial_x = env.X[0][0, :]
   _, S_sim, R = opt.simulate_from_transition_model(initial_state, initial_x, estimator.draw_from_ppd, T, 2,
-                                                   lambda s, x: np.random.binomial(1, 0.3),
+                                                   lambda s_, x_: np.random.binomial(1, 0.3),
                                                    opt.glucose_feature_function)
 
   # PPC for different time points
@@ -77,11 +80,13 @@ def trajectory_ppc(replicate):
   S_sim = np.array(S_sim)
   for i, t in enumerate(times):
     y, x, _ = axarr[i].hist(S_sim[:, t, 0])
-    axarr[i].vlines(S[0][t, 0], ymin=0, ymax=y.max())
+    axarr[i].vlines(env.S[0][t, 0], ymin=0, ymax=y.max())
   plt.show()
 
+  return
 
-def evaluate_glucose_mb_policy(replicate, method):
+
+def evaluate_glucose_mb_policy(replicate, method, truncate):
   np.random.seed(replicate)
 
   # Roll out to get data
@@ -110,7 +115,12 @@ def evaluate_glucose_mb_policy(replicate, method):
     initial_state = S[0][-1, :]
     transition_model = estimator.draw_from_ppd
     feature_function = opt.glucose_feature_function
-    pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
+    if truncate:
+      reference_distribution_for_truncation = X
+    else:
+      reference_distribution_for_truncation = None
+    pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function,
+                              reference_distribution_for_truncation=reference_distribution_for_truncation)
 
   elif method == 'random':
     def pi(s_, x_):
@@ -159,8 +169,9 @@ def run():
   N_REPLICATES_PER_METHOD = 10
   N_PROCESSES = 2
 
-  # methods = ['np', 'p', 'averaged']
-  methods = ['two_step']
+  methods = ['np']
+  truncate = True
+  # methods = ['two_step']
   results_dict = {}
   base_name = 'glucose-mb'
   prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -168,17 +179,20 @@ def run():
   fname = '{}_{}.yml'.format(prefix, suffix)
 
   for method in methods:
-    evaluate_partial = partial(evaluate_glucose_mb_policy, method=method)
+    evaluate_partial = partial(evaluate_glucose_mb_policy, method=method, truncate=truncate)
     results = []
     pool = mp.Pool(N_PROCESSES)
     for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
       res = pool.map(evaluate_partial, [2*rep, 2*rep + 1])
       results += res
-    results_dict[method] = {'mean': float(np.mean(results)), 'se': float(np.std(results))}
+    method_name = '{}-truncate={}'.format(method, truncate)
+    results_dict[method_name] = {'mean': float(np.mean(results)), 'se': float(np.std(results))}
     with open(fname, 'w') as outfile:
       yaml.dump(results_dict, outfile)
   print(results_dict)
 
 
 if __name__ == "__main__":
-  run()
+  # run()
+  # trajectory_ppc(0)
+  evaluate_glucose_mb_policy(0, 'averaged')

@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 from sklearn.ensemble import RandomForestRegressor
 import pdb
 
@@ -17,7 +18,34 @@ def glucose_feature_function(s, a, x):
 
 
 def simulate_from_transition_model(initial_state, initial_x, transition_model, time_horizon, number_of_actions,
-                                   rollout_policy, feature_function, mc_rollouts=1000):
+                                   rollout_policy, feature_function, mc_rollouts=1000,
+                                   reference_distribution_for_truncation=None):
+  """
+  :param reference_distribution_for_truncation: if array of feature vectors provided, then reject samples that
+  are outside bounds of those vectors.
+  """
+  if reference_distribution_for_truncation is not None:
+    max_ = np.max(reference_distribution_for_truncation, axis=0)
+    min_ = np.min(reference_distribution_for_truncation, axis=0)
+
+    def sample_from_transition_model(x):
+      s, r = transition_model(np.array([x]))
+      out_of_bounds = np.any(s > max_)*np.any(s < min_)
+      counter = 0.0
+      max_reject = 10
+      while counter < max_reject and out_of_bounds:
+        s, r = transition_model(np.array([x]))
+        out_of_bounds = np.any(s > max_)*np.any(s < min_)
+        counter += 1
+      if counter == max_reject:
+        logging.warning('Max rejections reached!')
+      return s, r
+
+  else:
+    def sample_from_transition_model(x):
+      s, r = transition_model([x])
+      return s, r
+
   # Generate data for fqi
   x_dim = len(initial_x)
   s_dim = len(initial_state)
@@ -33,15 +61,16 @@ def simulate_from_transition_model(initial_state, initial_x, transition_model, t
       a = rollout_policy(s, x)
       x = feature_function(s, a, x)
       X = np.vstack((X, x))
-      S_dim = np.vstack((S_dim, s))
-      s, r = transition_model(np.array([x]))
+      S_rep = np.vstack((S_rep, s))
+      s, r = sample_from_transition_model(x)
       R = np.append(R, r)
-    S.append(S_dim)
+    S.append(S_rep)
   return X, S, R
 
 
 def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, number_of_actions, rollout_policy,
-                     feature_function, mc_rollouts=1000, number_of_dp_iterations=0):
+                     feature_function, mc_rollouts=1000, number_of_dp_iterations=0,
+                     reference_distribution_for_truncation=None):
   """
   Solve for optimal policy using dynamic programming.
 
@@ -50,11 +79,14 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
   :param time_horizon:
   :param rollout_policy: policy for generating data only
   :param number_of_dp_iterations:
+  :param reference_distribution_for_truncation: if array of feature vectors provided, then reject samples that
+  are outside bounds of those vectors.
   :return:
   """
   # Generate data for fqi
   X, S, R = simulate_from_transition_model(initial_state, initial_x, transition_model, time_horizon, number_of_actions,
-                                           rollout_policy, feature_function, mc_rollouts=mc_rollouts)
+                                           rollout_policy, feature_function, mc_rollouts=mc_rollouts,
+                                           reference_distribution_for_truncation=reference_distribution_for_truncation)
   # Do FQI
   reg = RandomForestRegressor()
   reg.fit(X, R)
