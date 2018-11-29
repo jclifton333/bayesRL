@@ -17,8 +17,8 @@ def ppc_for_one_step_q_functions():
   :return:
   """
   # Get saved data
-  mf_fname = os.path.join(project_dir, 'run', 'results', 'glucose-mf-vfn_181128_203831.yml')
-  mb_fname = os.path.join(project_dir, 'run', 'results', 'glucose-vfn-ppd_181128_194407.yml')
+  mf_fname = os.path.join(project_dir, 'src', 'run', 'results', 'glucose-mf-vfn_181128_203831.yml')
+  mb_fname = os.path.join(project_dir, 'src', 'run', 'results', 'glucose-vfn-ppd_181128_194407.yml')
   mf = yaml.load(open(mf_fname, 'r'))
   mb = yaml.load(open(mb_fname, 'r'))
   v_mf = mf['v_mf']
@@ -29,8 +29,11 @@ def ppc_for_one_step_q_functions():
   # values were fixed at their observed means).  So e.g. v_mf[0] gives the estimated mf value function at
   # glucose = 50.
 
-  plt.hist(v_mb[:, 0])
-  plt.vlines(v_mf[0])
+  ixs = [0, 50, 75]
+  f, axarr = plt.subplots(3)
+  for i, ix in enumerate(ixs):
+    y, x, _ = axarr[i].hist(v_mb[:, i])
+    axarr[i].vlines(v_mf[i], ymin=0, ymax=y.max())
   plt.show()
 
   return
