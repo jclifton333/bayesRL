@@ -169,8 +169,8 @@ def run():
   N_REPLICATES_PER_METHOD = 20
   N_PROCESSES = 20
 
-  methods = ['np']
-  truncate = True
+  methods = ['np', 'p', 'averaged']
+  truncate = False
   # methods = ['two_step']
   results_dict = {}
   base_name = 'glucose-mb'

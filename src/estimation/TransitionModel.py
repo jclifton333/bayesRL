@@ -58,12 +58,12 @@ class GlucoseTransitionModel(object):
   def fit(self, X, y):
     self.X_ = X
     self.y_ = y
-    self.food_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
-    self.activity_nonzero = X[:, 4][np.where(X[:, 4] != 0.0)]
+    self.food_nonzero = X[:, 2][np.where(X[:, 2] != 0.0)]
+    self.activity_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
 
     # Food and activity are modeled with np density estimation in all cases
-    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 3])
-    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 4])
+    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2])
+    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3])
 
     if self.method == 'np':
       self.shared_x_np = shared(X)
@@ -324,8 +324,8 @@ class GlucoseTransitionModel(object):
       n += 1
     return posterior_expectation
 
-# Helpers
 
+# Helpers
 def transition_model_from_np_parameter(glucose_parameter, food_and_activity_model):
   """
   Fix glucose transition model at a certain parameter value, and use food and activity ppds.
