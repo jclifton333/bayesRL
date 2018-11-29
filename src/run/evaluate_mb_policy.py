@@ -61,15 +61,15 @@ def evaluate_glucose_mb_policy(replicate, method):
     y = Sp1[:, 0]
     estimator.fit(X, y)
 
-    # # Get optimal policy under model
-    # def rollout_policy(s_, x_):
-    #   return np.random.binomial(1, 0.3)
+    # Get optimal policy under model
+    def rollout_policy(s_, x_):
+      return np.random.binomial(1, 0.3)
 
-    # initial_x = X[-1, :]
-    # initial_state = S[0][-1, :]
-    # transition_model = estimator.draw_from_ppd
-    # feature_function = opt.glucose_feature_function
-    # pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
+    initial_x = X[-1, :]
+    initial_state = S[0][-1, :]
+    transition_model = estimator.draw_from_ppd
+    feature_function = opt.glucose_feature_function
+    pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function)
 
   elif method == 'random':
     def pi(s_, x_):
@@ -106,19 +106,20 @@ def evaluate_glucose_mb_policy(replicate, method):
     def pi(s_, x_):
       return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
-  v_mb_, v_mf_ = estimator.one_step_value_function_ppc(X, S, R)
+  # v_mb_, v_mf_ = estimator.one_step_value_function_ppc(X, S, R)
   # Evaluate policy
   # v = None
-  # v = evaluate_policy(T, pi)
+  v = evaluate_policy(T, pi)
 
-  return v_mb_, v_mf_
+  return v
 
 
 def run():
   N_REPLICATES_PER_METHOD = 10
   N_PROCESSES = 2
 
-  methods = ['np', 'p', 'averaged']
+  # methods = ['np', 'p', 'averaged']
+  methods = ['two_step']
   results_dict = {}
   base_name = 'glucose-mb'
   prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -139,11 +140,4 @@ def run():
 
 
 if __name__ == "__main__":
-  v_mb, v_mf = evaluate_glucose_mb_policy(0, 'np')
-  base_name = 'glucose-vfn-ppd'
-  prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
-  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-  fname = '{}_{}.yml'.format(prefix, suffix)
-  vfuns = {'v_mb': v_mb, 'v_mf': v_mf}
-  with open(fname, 'w') as outfile:
-    yaml.dump(vfuns, outfile)
+  run()
