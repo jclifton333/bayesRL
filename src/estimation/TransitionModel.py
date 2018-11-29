@@ -26,13 +26,14 @@ class GlucoseTransitionModel(object):
   COEF = np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4])
   SIGMA_GLUCOSE = 25
 
-  def __init__(self, method='np'):
+  def __init__(self, method='np', alpha_mean=0.0):
     """
 
     :param method: string in ['np', 'p', 'averaged']
     """
     assert method in ['np', 'p', 'averaged']
     self.method = method
+    self.alpha_mean = alpha_mean
 
     self.glucose_model = None
     self.glucose_trace = None
@@ -67,7 +68,7 @@ class GlucoseTransitionModel(object):
 
     if self.method == 'np':
       self.shared_x_np = shared(X)
-      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y)
+      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean)
     elif self.method == 'p':
       self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
       model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y)

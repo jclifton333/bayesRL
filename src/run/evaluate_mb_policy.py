@@ -86,7 +86,16 @@ def trajectory_ppc(replicate):
   return
 
 
-def evaluate_glucose_mb_policy(replicate, method, truncate):
+def evaluate_glucose_mb_policy(replicate, method, truncate, alpha_mean=0.0):
+  """
+
+  :param replicate:
+  :param method:
+  :param truncate:
+  :param alpha_mean: Prior hyperparameter, for mb policies.
+  :return:
+  """
+
   np.random.seed(replicate)
 
   # Roll out to get data
@@ -101,7 +110,7 @@ def evaluate_glucose_mb_policy(replicate, method, truncate):
 
   if method in ['np', 'p', 'averaged']:
     # Fit model on data
-    estimator = GlucoseTransitionModel(method=method)
+    estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean)
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     S = env.S
     y = Sp1[:, 0]
