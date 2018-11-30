@@ -232,7 +232,7 @@ def run():
 
 
 if __name__ == "__main__":
-  evaluate_glucose_mb_policy(0, 'p')
-  # run()
+  # evaluate_glucose_mb_policy(0, 'p')
+  run()
   # trajectory_ppc(0)
   # unconditional_density_ppc()
