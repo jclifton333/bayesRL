@@ -2,6 +2,7 @@ import sys
 import pdb
 import numpy as np
 import os
+import seaborn as sns
 this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
@@ -41,6 +42,32 @@ def evaluate_policy(time_horizon, policy, initial_state_and_x=None):
       actions.append(a)
     env_.step(actions)
   return np.mean(env_.R)
+
+
+def unconditional_density_ppc():
+  """
+  Plot observed histograms for food and activity against density estimates.
+
+  :return:
+  """
+  # Roll out to get data
+  n_patients = 20
+  T = 20
+  env = Glucose(n_patients)
+  env.reset()
+  env.step(np.random.binomial(1, 0.3, n_patients))
+
+  for t in range(T):
+    env.step(np.random.binomial(1, 0.3, n_patients))
+
+  # Fit model on data
+  estimator = GlucoseTransitionModel(method='np')
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  y = Sp1[:, 0]
+  estimator.fit(X, y)
+  estimator.plot()
+
+  return
 
 
 def trajectory_ppc(replicate):
@@ -86,7 +113,7 @@ def trajectory_ppc(replicate):
   return
 
 
-def evaluate_glucose_mb_policy(replicate, method, truncate, alpha_mean=0.0):
+def evaluate_glucose_mb_policy(replicate, method, truncate=False, alpha_mean=0.0):
   """
 
   :param replicate:
@@ -129,6 +156,7 @@ def evaluate_glucose_mb_policy(replicate, method, truncate, alpha_mean=0.0):
     else:
       reference_distribution_for_truncation = None
     pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function,
+                              number_of_dp_iterations=1,
                               reference_distribution_for_truncation=reference_distribution_for_truncation)
 
   elif method == 'random':
@@ -178,8 +206,10 @@ def run():
   N_REPLICATES_PER_METHOD = 20
   N_PROCESSES = 20
 
-  methods = ['np', 'p', 'averaged']
-  truncate = False
+  # methods = ['np', 'p', 'averaged']
+  alphas = [-1.0, 0.0, 0.5, 1.0, 5]
+  methods = [('np', alpha) for alpha in alphas]
+  # truncate = False
   # methods = ['two_step']
   results_dict = {}
   base_name = 'glucose-mb'
@@ -187,14 +217,14 @@ def run():
   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
   fname = '{}_{}.yml'.format(prefix, suffix)
 
-  for method in methods:
-    evaluate_partial = partial(evaluate_glucose_mb_policy, method=method, truncate=truncate)
+  for method, alpha_mean in methods:
+    evaluate_partial = partial(evaluate_glucose_mb_policy, method=method, alpha_mean=alpha_mean)
     results = []
     pool = mp.Pool(N_PROCESSES)
     for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
       res = pool.map(evaluate_partial, range(rep*N_REPLICATES_PER_METHOD + rep*N_REPLICATES_PER_METHOD + N_PROCESSES))
       results += res
-    method_name = '{}-truncate={}'.format(method, truncate)
+    method_name = '{}-alpha={}'.format(method, alpha_mean)
     results_dict[method_name] = {'mean': float(np.mean(results)), 'se': float(np.std(results))}
     with open(fname, 'w') as outfile:
       yaml.dump(results_dict, outfile)
@@ -204,4 +234,4 @@ def run():
 if __name__ == "__main__":
   run()
   # trajectory_ppc(0)
-  # evaluate_glucose_mb_policy(0, 'averaged')
+  # unconditional_density_ppc()

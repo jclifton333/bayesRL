@@ -13,7 +13,7 @@ def glucose_feature_function(s, a, x):
   :return:
   """
 
-  x_new = np.array([1.0, s[0], s[1], s[2], x[1], x[2], x[3], a, x[-2]])
+  x_new = np.array([1.0, s[0], s[1], s[2], x[1], x[2], x[3], a, x[-1]])
   return x_new
 
 
@@ -54,6 +54,7 @@ def simulate_from_transition_model(initial_state, initial_x, transition_model, t
   S = []
   R = np.zeros(0)
   for rollout in range(mc_rollouts):
+    print(rollout)
     s = initial_state
     x = initial_x
     S_rep = np.zeros((0, s_dim))
