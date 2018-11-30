@@ -143,7 +143,8 @@ class GlucoseTransitionModel(object):
   def draw_from_parametric_ppd(self, x):
     # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
     # Draw glucose
-    self.shared_x_p.set_value(x[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+    # self.shared_x_p.set_value(x[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+    self.shared_x_p.set_value(np.array(x)[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
     if self.method == 'averaged':
       glucose = pm.sample_ppc(self.trace[0], model=self.model[0], progressbar=False)['obs'][0, 0]
     else:
