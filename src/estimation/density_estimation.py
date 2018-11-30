@@ -56,9 +56,9 @@ def normal_bayesian_regression(X, y):
     mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
-  SAMPLES = 1000
-  BURN = 10000
-  # SAMPLES = BURN = 1
+  # SAMPLES = 1000
+  # BURN = 10000
+  SAMPLES = BURN = 1
 
   with model:
     # ToDo: different algo (conjugate?)
