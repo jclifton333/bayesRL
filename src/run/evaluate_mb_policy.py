@@ -2,7 +2,6 @@ import sys
 import pdb
 import numpy as np
 import os
-import seaborn as sns
 this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
