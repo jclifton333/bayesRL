@@ -206,8 +206,9 @@ def run():
   N_PROCESSES = 20
 
   # methods = ['np', 'p', 'averaged']
-  alphas = [-1.0, 0.0, 0.5, 1.0, 5]
-  methods = [('np', alpha) for alpha in alphas]
+  # alphas = [-1.0, 0.0, 0.5, 1.0, 5]
+  # methods = [('np', alpha) for alpha in alphas]
+  methods = [('p', 0), ('averaged', 0)] 
   # truncate = False
   # methods = ['two_step']
   results_dict = {}
@@ -221,7 +222,7 @@ def run():
     results = []
     pool = mp.Pool(N_PROCESSES)
     for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
-      res = pool.map(evaluate_partial, range(rep*N_REPLICATES_PER_METHOD + rep*N_REPLICATES_PER_METHOD + N_PROCESSES))
+      res = pool.map(evaluate_partial, range(20+rep*N_REPLICATES_PER_METHOD + 20+rep*N_REPLICATES_PER_METHOD + N_PROCESSES))
       results += res
     method_name = '{}-alpha={}'.format(method, alpha_mean)
     results_dict[method_name] = {'mean': float(np.mean(results)), 'se': float(np.std(results))}
