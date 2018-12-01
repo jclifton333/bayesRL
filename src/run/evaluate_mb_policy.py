@@ -69,6 +69,29 @@ def unconditional_density_ppc():
   return
 
 
+def plot_fitted_regression(alpha_mean=0.0):
+  np.random.seed(replicate)
+
+  # Roll out to get data
+  n_patients = 20
+  T = 20
+  env = Glucose(n_patients)
+  env.reset()
+  env.step(np.random.binomial(1, 0.3, n_patients))
+
+  for t in range(T):
+    env.step(np.random.binomial(1, 0.3, n_patients))
+
+  # Fit model on data
+  estimator = GlucoseTransitionModel(method='np', alpha_mean=0.0, test=True)
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  y = Sp1[:, 0]
+  estimator.fit(X, y)
+
+  estimator.plot_regression_line()
+  return
+
+
 def trajectory_ppc(replicate):
   """
   Generate data, fit np model, and compare observed trajectory to posterior predictive trajectories.

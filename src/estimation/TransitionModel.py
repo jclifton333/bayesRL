@@ -26,14 +26,16 @@ class GlucoseTransitionModel(object):
   COEF = np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4])
   SIGMA_GLUCOSE = 25
 
-  def __init__(self, method='np', alpha_mean=0.0):
+  def __init__(self, method='np', alpha_mean=0.0, test=False):
     """
 
     :param method: string in ['np', 'p', 'averaged']
+    :param test: if True, this is just for testing - only draw one sample in MCMC
     """
     assert method in ['np', 'p', 'averaged']
     self.method = method
     self.alpha_mean = alpha_mean
+    self.test = test
 
     self.glucose_model = None
     self.glucose_trace = None
@@ -63,20 +65,22 @@ class GlucoseTransitionModel(object):
     self.activity_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
 
     # Food and activity are modeled with np density estimation in all cases
-    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2])
-    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3])
+    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2], test=self.test)
+    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3],
+                                                                                                    test=self.test)
 
     if self.method == 'np':
       self.shared_x_np = shared(X)
-      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean)
+      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean,
+                                                       test=self.test)
     elif self.method == 'p':
       self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
-      model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y)
+      model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
     elif self.method == 'averaged':
       self.shared_x_np = shared(X)
       self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
-      model_np, trace_np = dd.dirichlet_mixture_regression(self.shared_x_np, y)
-      model_p, trace_p = dd.normal_bayesian_regression(self.shared_x_p, y)
+      model_np, trace_np = dd.dirichlet_mixture_regression(self.shared_x_np, y, test=self.test)
+      model_p, trace_p = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
       model_ = [model_p, model_np]
       trace_ = [trace_p, trace_np]
       self.compare = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')

@@ -41,7 +41,7 @@ def stick_breaking_for_unconditional(beta):
   return beta * portion_remaining
 
 
-def normal_bayesian_regression(X, y):
+def normal_bayesian_regression(X, y, test=False):
   """
 
   :param X:
@@ -56,9 +56,11 @@ def normal_bayesian_regression(X, y):
     mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
-  # SAMPLES = 1000
-  # BURN = 10000
-  SAMPLES = BURN = 1
+  if not test:
+    SAMPLES = 1000
+    BURN = 10000
+  else:
+    SAMPLES = BURN = 1
 
   with model:
     # ToDo: different algo (conjugate?)
@@ -68,7 +70,7 @@ def normal_bayesian_regression(X, y):
   return model, trace
 
 
-def dirichlet_mixture_regression(X, y, alpha_mean=0.0):
+def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   n, p = X.shape.eval()
   K = 20
   # X = shared(np.column_stack((np.ones(n), X)))
@@ -99,9 +101,11 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0):
   print('ready to go')
 
   # ToDo: can samples be 1 if we want multiple ppd samples??
-  SAMPLES = 1000
-  BURN = 10000
-  # SAMPLES = BURN = 1
+  if not test:
+    SAMPLES = 1000
+    BURN = 10000
+  else:
+    SAMPLES = BURN = 1
 
   with model:
     step = pm.Metropolis()
@@ -111,7 +115,7 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0):
   return model, trace
 
 
-def np_density_estimation(X):
+def np_density_estimation(X, test=False):
   """
   Density estimation of distribution of X using dirichlet mixture https://docs.pymc.io/notebooks/dp_mix.html.
   This is used for density estimation of Food and Activity, which are distributed as
@@ -122,9 +126,11 @@ def np_density_estimation(X):
   :param X: one-dimensional array of observations
   :return:
   """
-  # BURN = SAMPLES = 1
-  BURN = 10000
-  SAMPLES = 1000
+  if test:
+    BURN = SAMPLES = 1
+  else:
+    BURN = 10000
+    SAMPLES = 1000
 
   # Estimate p
   p = np.mean(X != 0.0)
