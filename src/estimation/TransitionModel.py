@@ -164,7 +164,45 @@ class GlucoseTransitionModel(object):
     """
     pass
 
-  def plot(self):
+  def plot_regression_line(self):
+    """
+    # ToDo: For np only!
+    Plot posterior predictive line and 95% credible bands.
+
+    :return:
+    """
+    # Get features at which to evaluate
+    test_glucose = np.linspace(50, 200, 50)
+    treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 0, 0, 1] for g in test_glucose])
+    no_treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 0, 0, 0] for g in test_glucose])
+
+    # From from ppd at each point
+    treat_glucoses = np.zeros((50, 100))  # 100 ppd draws at each of 50 values
+    no_treat_glucoses = np.zeros((50, 100))
+
+    for ix, x in enumerate(treat_test_features):
+      for draw in range(100):
+        g, r = self.draw_from_np_ppd([x])
+        treat_glucoses[ix, draw] = g
+    for ix, x in enumerate(no_treat_test_features):
+      for draw in range(100):
+        g, r = self.draw_from_np_ppd([x])
+        no_treat_glucoses[ix, draw] = g
+
+    treat_glucoses_mean = treat_glucoses.mean(axis=1)
+    no_treat_glucoses_mean = no_treat_glucoses.mean(axis=1)
+    treat_glucoses_credible = np.percentile(treat_glucoses, [2.5, 97.5], axis=1).T  # 50x2 array [lower credible bound, upper credible bound]
+    no_treat_glucoses_credible = np.percentile(no_treat_glucoses, [2.5, 97.5], axis=1).T
+
+    # Plot
+    plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Treatment')
+    plt.fill_between(test_glucose, treat_glucoses_credible[:, 0], treat_glucoses_credible[:, 1],
+                     label='95% PI for treatment curve')
+    plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No treatment')
+    plt.plot(test_glucose, no_treat_glucoses_credible, label='95% PI for no treatment curve')
+    plt.show()
+
+  def plot_density_estimates(self):
     """
     Plot some info associated with the posterior.
     :return:
