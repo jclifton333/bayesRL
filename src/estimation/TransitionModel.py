@@ -176,20 +176,22 @@ class GlucoseTransitionModel(object):
     :return:
     """
     # Get features at which to evaluate
+    NUM_PPD_SAMPLES = 1000
+
     test_glucose = np.linspace(50, 200, 50)
-    treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 0, 0, 1] for g in test_glucose])
-    no_treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 0, 0, 0] for g in test_glucose])
+    treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 1, 0] for g in test_glucose])
+    no_treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 0, 0] for g in test_glucose])
 
     # From from ppd at each point
-    treat_glucoses = np.zeros((50, 100))  # 100 ppd draws at each of 50 values
-    no_treat_glucoses = np.zeros((50, 100))
+    treat_glucoses = np.zeros((50, NUM_PPD_SAMPLES))  # 100 ppd draws at each of 50 values
+    no_treat_glucoses = np.zeros((50, NUM_PPD_SAMPLES))
 
     for ix, x in enumerate(treat_test_features):
-      for draw in range(100):
+      for draw in range(NUM_PPD_SAMPLES):
         g, r = self.draw_from_np_ppd([x])
         treat_glucoses[ix, draw] = g
     for ix, x in enumerate(no_treat_test_features):
-      for draw in range(100):
+      for draw in range(NUM_PPD_SAMPLES):
         g, r = self.draw_from_np_ppd([x])
         no_treat_glucoses[ix, draw] = g
 
@@ -199,12 +201,20 @@ class GlucoseTransitionModel(object):
     no_treat_glucoses_credible = np.percentile(no_treat_glucoses, [2.5, 97.5], axis=1).T
 
     # Plot
+    plt.figure()
     plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Treatment')
-    plt.fill_between(test_glucose, treat_glucoses_credible[:, 0], treat_glucoses_credible[:, 1],
+    plt.fill_between(test_glucose, treat_glucoses_credible[:, 0], treat_glucoses_credible[:, 1], alpha=0.2,
                      label='95% PI for treatment curve')
     plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No treatment')
-    plt.plot(test_glucose, no_treat_glucoses_credible, label='95% PI for no treatment curve')
-    plt.show()
+    plt.fill_between(test_glucose, no_treat_glucoses_credible[:, 0], no_treat_glucoses_credible[:, 1], alpha=0.2,
+                     label='95% PI for no treatment curve')
+    plt.title('Conditional glucose\nalpha={}'.format(self.alpha_mean))
+    plt.legend()
+    plt_name = 'conditional-glucose-alpha={}.png'.format(self.alpha_mean)
+    plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
+    plt.savefig(plt_name)
+    plt.close()
+    # plt.show()
 
   def plot_density_estimates(self):
     """

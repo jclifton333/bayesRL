@@ -69,9 +69,7 @@ def unconditional_density_ppc():
   return
 
 
-def plot_fitted_regression(alpha_mean=0.0):
-  np.random.seed(replicate)
-
+def plot_fitted_regression(alpha_mean=0.0, test=False):
   # Roll out to get data
   n_patients = 20
   T = 20
@@ -83,7 +81,7 @@ def plot_fitted_regression(alpha_mean=0.0):
     env.step(np.random.binomial(1, 0.3, n_patients))
 
   # Fit model on data
-  estimator = GlucoseTransitionModel(method='np', alpha_mean=0.0, test=True)
+  estimator = GlucoseTransitionModel(method='np', alpha_mean=alpha_mean, test=test)
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   y = Sp1[:, 0]
   estimator.fit(X, y)
@@ -229,9 +227,9 @@ def run():
   N_PROCESSES = 20
 
   # methods = ['np', 'p', 'averaged']
-  # alphas = [-1.0, 0.0, 0.5, 1.0, 5]
-  # methods = [('np', alpha) for alpha in alphas]
-  methods = [('p', 0), ('averaged', 0)] 
+  alphas = [-1.0, 0.0, 0.5, 1.0, 5]
+  methods = [('np', alpha) for alpha in alphas]
+  # methods = [('p', 0), ('averaged', 0)]
   # truncate = False
   # methods = ['two_step']
   results_dict = {}
@@ -255,7 +253,7 @@ def run():
 
 
 if __name__ == "__main__":
-  # evaluate_glucose_mb_policy(0, 'p')
   run()
-  # trajectory_ppc(0)
-  # unconditional_density_ppc()
+  # alpha_means = [-1.0, 0.0, 0.5, 1.0, 5.0]
+  # for alpha_mean in alpha_means:
+  #   plot_fitted_regression(alpha_mean=alpha_mean, test=False)

@@ -75,14 +75,13 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   K = 20
   # X = shared(np.column_stack((np.ones(n), X)))
   # X_for_model = shared(X, broadcastable=(False, True))
-
   # Specify model
   with pm.Model() as model:
     # Dirichlet priors
-    # alpha = pm.Normal('alpha', alpha_mean, 5.0, shape=K)
+    alpha = pm.Normal('alpha', alpha_mean, 5.0, shape=K)
     beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
     # v = norm_cdf(tt.dot(X, beta))
-    v = norm_cdf(alpha_mean + tt.dot(X, beta))
+    v = norm_cdf(alpha + tt.dot(X, beta))
     w = pm.Deterministic('w', stick_breaking_for_probit(v))
 
   print('dirichlet prior')
