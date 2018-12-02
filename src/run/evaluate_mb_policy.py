@@ -139,7 +139,7 @@ def trajectory_ppc(replicate):
   return
 
 
-def evaluate_glucose_mb_policy(replicate, method, truncate=False, alpha_mean=0.0):
+def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, alpha_mean=0.0):
   """
 
   :param replicate:
@@ -163,7 +163,7 @@ def evaluate_glucose_mb_policy(replicate, method, truncate=False, alpha_mean=0.0
 
   if method in ['np', 'p', 'averaged']:
     # Fit model on data
-    estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean)
+    estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean, test=test)
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     S = env.S
     y = Sp1[:, 0]
@@ -233,8 +233,8 @@ def run():
   N_PROCESSES = 20
 
   # methods = ['np', 'p', 'averaged']
-  alphas = [-1.0, 0.0, 0.5, 1.0, 5]
-  methods = [('np', alpha) for alpha in alphas]
+  alphas = [-1.0, 0.0, 0.5, 1.0, 5.0]
+  methods = [('np', alpha) for alpha in alphas] + [('p', 0), ('averaged', 0)]
   # methods = [('p', 0), ('averaged', 0)]
   # truncate = False
   # methods = ['two_step']
@@ -259,8 +259,9 @@ def run():
 
 
 if __name__ == "__main__":
-  # run()
+  run()
+  # evaluate_glucose_mb_policy(0, 'p')
   # alpha_means = [0.0, 0.5, 1.0, 5.0]
   # for alpha_mean in alpha_means:
   #   plot_fitted_regression(alpha_mean=alpha_mean, test=False)
-  estimator = rollout_and_fit_np_density()
+  # estimator = rollout_and_fit_np_density()

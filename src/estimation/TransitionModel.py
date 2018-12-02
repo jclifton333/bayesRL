@@ -22,7 +22,7 @@ from theano import shared
 
 
 class GlucoseTransitionModel(object):
-  FEATURE_INDICES_FOR_PARAMETRIC_MODEL = [0, 1, 2, 3, 7]
+  FEATURE_INDICES_FOR_PARAMETRIC_MODEL = [0, 1, 2, 3, 8]
   COEF = np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4])
   SIGMA_GLUCOSE = 25
 

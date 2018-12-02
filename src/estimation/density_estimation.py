@@ -50,15 +50,15 @@ def normal_bayesian_regression(X, y, test=False):
   """
   n, p = X.shape.eval()
   with pm.Model() as model:
-    beta = pm.Normal('beta', 0.0, 5.0, shape=3)
-    tau = pm.Gamma('tau', 0.001, 0.001, shape=1)
+    beta = pm.Normal('beta', 0.0, 5.0, shape=p)
+    tau = pm.Gamma('tau', 1, 1, shape=1)
     # mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
-    mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
+    mu_ = pm.Deterministic('mu', tt.dot(X, beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
   if not test:
     SAMPLES = 1000
-    BURN = 10000
+    BURN = 30000
   else:
     SAMPLES = BURN = 1
 
@@ -78,10 +78,10 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   # Specify model
   with pm.Model() as model:
     # Dirichlet priors
-    alpha = pm.Normal('alpha', alpha_mean, 5.0, shape=K)
+    # alpha = pm.Normal('alpha', alpha_mean, 5.0, shape=K)
     beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
-    # v = norm_cdf(tt.dot(X, beta))
-    v = norm_cdf(alpha + tt.dot(X, beta))
+    # v = norm_cdf(alpha + tt.dot(X, beta))
+    v = norm_cdf(alpha_mean + tt.dot(X, beta))
     w = pm.Deterministic('w', stick_breaking_for_probit(v))
 
   print('dirichlet prior')
@@ -102,7 +102,7 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   # ToDo: can samples be 1 if we want multiple ppd samples??
   if not test:
     SAMPLES = 1000
-    BURN = 50000
+    BURN = 30000
   else:
     SAMPLES = BURN = 1
 
