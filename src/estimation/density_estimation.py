@@ -102,16 +102,17 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   # ToDo: can samples be 1 if we want multiple ppd samples??
   if not test:
     SAMPLES = 1000
-    BURN = 50000
+    BURN = 100000
   else:
     SAMPLES = BURN = 1
 
   with model:
     # step = pm.NUTS()
-    # step = pm.Metropolis()
-    # trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
-    approx = pm.fit(n=30000, method=pm.ADVI())
-    trace = approx.sample(draws=SAMPLES)
+    step = pm.Metropolis()
+    # step = pm.HamiltonianMC()
+    trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
+    # approx = pm.fit(n=30000, method=pm.ADVI())
+    # trace = approx.sample(draws=SAMPLES)
 
   model.name = 'nonparametric'
   return model, trace
