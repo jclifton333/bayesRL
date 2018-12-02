@@ -70,12 +70,11 @@ class GlucoseTransitionModel(object):
                                                                                                     test=self.test)
 
     if self.method == 'np':
-      self.shared_x_np = shared(X)
-      model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean,
-                                                       test=self.test)
+      self.fit_np_conditional_density(X, y)
     elif self.method == 'p':
       self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
       model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
+      self.model, self.trace = model_, trace_
     elif self.method == 'averaged':
       self.shared_x_np = shared(X)
       self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
@@ -84,10 +83,16 @@ class GlucoseTransitionModel(object):
       model_ = [model_p, model_np]
       trace_ = [trace_p, trace_np]
       self.compare = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')
+      self.mode, self.trace = model_, trace_
 
-    self.model = model_
-    self.trace = trace_
+
     # self.compare = compare_
+
+  def fit_np_conditional_density(self, X, y):
+    self.shared_x_np = shared(X)
+    model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean,
+                                                     test=self.test)
+    self.model, self.trace = model_, trace_
 
   def draw_from_ppd(self, x):
     """

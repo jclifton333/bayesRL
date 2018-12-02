@@ -69,7 +69,7 @@ def unconditional_density_ppc():
   return
 
 
-def plot_fitted_regression(alpha_mean=0.0, test=False):
+def rollout_and_fit_np_density(alpha_mean=0.0, test=False):
   # Roll out to get data
   n_patients = 20
   T = 20
@@ -84,9 +84,15 @@ def plot_fitted_regression(alpha_mean=0.0, test=False):
   estimator = GlucoseTransitionModel(method='np', alpha_mean=alpha_mean, test=test)
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   y = Sp1[:, 0]
-  estimator.fit(X, y)
+  # estimator.fit(X, y)
+  estimator.fit_np_conditional_density(X, y)
+  return estimator
 
+
+def plot_conditional_density_estimates(alpha_mean=0.0, test=False):
+  estimator = rollout_and_fit_np_density(alpha_mean=alpha_mean, test=test)
   estimator.plot_regression_line()
+  estimator.plot_density_estimates()
   return
 
 
@@ -253,7 +259,8 @@ def run():
 
 
 if __name__ == "__main__":
-  run()
-  # alpha_means = [-1.0, 0.0, 0.5, 1.0, 5.0]
+  # run()
+  # alpha_means = [0.0, 0.5, 1.0, 5.0]
   # for alpha_mean in alpha_means:
   #   plot_fitted_regression(alpha_mean=alpha_mean, test=False)
+  estimator = rollout_and_fit_np_density()
