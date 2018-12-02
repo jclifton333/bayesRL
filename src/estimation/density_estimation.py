@@ -58,7 +58,7 @@ def normal_bayesian_regression(X, y, test=False):
 
   if not test:
     SAMPLES = 1000
-    BURN = 30000
+    BURN = 50000
   else:
     SAMPLES = BURN = 1
 
@@ -102,13 +102,16 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   # ToDo: can samples be 1 if we want multiple ppd samples??
   if not test:
     SAMPLES = 1000
-    BURN = 30000
+    BURN = 50000
   else:
     SAMPLES = BURN = 1
 
   with model:
-    step = pm.Metropolis()
-    trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
+    # step = pm.NUTS()
+    # step = pm.Metropolis()
+    # trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
+    approx = pm.fit(n=30000, method=pm.ADVI())
+    trace = approx.sample(draws=SAMPLES)
 
   model.name = 'nonparametric'
   return model, trace

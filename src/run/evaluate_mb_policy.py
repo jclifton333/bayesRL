@@ -91,6 +91,8 @@ def rollout_and_fit_np_density(alpha_mean=0.0, test=False):
 
 def plot_conditional_density_estimates(alpha_mean=0.0, test=False):
   estimator = rollout_and_fit_np_density(alpha_mean=alpha_mean, test=test)
+
+  # Conditional density plots
   estimator.plot_regression_line()
   estimator.plot_density_estimates()
   return
@@ -259,9 +261,9 @@ def run():
 
 
 if __name__ == "__main__":
-  run()
+  # run()
   # evaluate_glucose_mb_policy(0, 'p')
   # alpha_means = [0.0, 0.5, 1.0, 5.0]
   # for alpha_mean in alpha_means:
-  #   plot_fitted_regression(alpha_mean=alpha_mean, test=False)
-  # estimator = rollout_and_fit_np_density()
+  #   plot_conditional_density_estimates(alpha_mean=alpha_mean, test=False)
+  estimator = rollout_and_fit_np_density()
