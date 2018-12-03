@@ -63,11 +63,11 @@ class MAB(Bandit):
   def step(self, a):
     u = super(MAB, self).step(a)
     self.number_of_pulls[a] += 1
-    # self.estimated_means[a] += (u - self.estimated_means[a]) / self.number_of_pulls[a]
+    self.estimated_means[a] += (u - self.estimated_means[a]) / self.number_of_pulls[a]
     self.draws_from_each_arm[a] = np.append(self.draws_from_each_arm[a], u)
     std = np.std(self.draws_from_each_arm[a])
-    # self.estimated_vars[a] = std ** 2
-    # self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
+    self.estimated_vars[a] = std ** 2
+    self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
     return u
 
   def reset(self):
@@ -118,7 +118,8 @@ class MAB(Bandit):
       each_rep_result = dict()
       initial_model = {'sample_mean_list': copy.copy(self.estimated_means),
                        'number_of_pulls': copy.copy(self.number_of_pulls),
-                       'standard_error_list': copy.copy(self.standard_errors)}
+                       'standard_error_list': copy.copy(self.standard_errors),
+                       'sample_var_list': copy.copy(self.estimated_vars)}
 
       rewards = np.zeros((0, self.number_of_actions))
       regrets = np.zeros((0, self.number_of_actions))

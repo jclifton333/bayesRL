@@ -161,11 +161,15 @@ def stepwise_linear_epsilon(T, t, zeta):
   epsilon = sum(zeta[:j]) + ((T-t) - j*interval) * zeta[j] / interval
   return epsilon
 
+
 def information_expit_epsilon_decay(T, t, zeta, R, delta):
+  # 1, delta, R, R*delta, T-t, (T-t)*delta, (T-t)*R, (T-t)*R*delta
   covari = np.kron([1, T-t], np.kron([1, R],[1,delta]))
   return zeta[0] * expit(np.dot(zeta[1:9],covari))
 
 
+def bern_expit_epsilon_decay(T, s1, s2, n1, n2, zeta):
+  return zeta[0] * expit(np.dot([1, T-n1-n2, s1, s2, n1, n2], zeta[1:]))
 
 
 

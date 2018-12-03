@@ -37,12 +37,14 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
     # tuning_function = lambda a, t, c: 0.5 / (t + 1)
-    tuning_function = tuned_bandit.stepwise_linear_epsilon
+    tuning_function = tuned_bandit.expit_epsilon_decay
+#    tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
+    tuning_function_parameter = np.array([0.05, 49.,    2.5 ])
     # Estimated optimal for normal mab with high variance on good arm
-    tuning_function_parameter = np.array([0.2, 0.164, 0.2, 0.193, 0.189, 
-                                          0.087, 0.069, 0.159, 0.09, 0.015])
+#    tuning_function_parameter = np.array([0.2, 0.164, 0.2, 0.193, 0.189, 
+#                                          0.087, 0.069, 0.159, 0.09, 0.015])
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.mab_epsilon_greedy_policy
@@ -215,7 +217,7 @@ def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_
   estimated_vars = [d['estimated_vars'] for d in results]
   rewards = [d['rewards_list'] for d in results]
   actions = [d['actions_list'] for d in results]
-  
+  print(float(np.mean(cumulative_regret)), float(np.std(cumulative_regret))/np.sqrt(replicates))
   # Save results
   if save:
     results = {'T': float(T), 'mean_regret': float(np.mean(cumulative_regret)), 'std_regret': float(np.std(cumulative_regret)),
@@ -235,12 +237,12 @@ def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_
 
 if __name__ == '__main__':
   # episode('ucb-tune-posterior-sample', np.random.randint(low=1, high=1000))
-  # run('eps-decay-fixed')
+#   run('eps-decay-fixed', save=False)
   # run('eps')
-  # run('greedy')
+   run('greedy', save=False)
   # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
   # run('ts-decay-posterior-sample', T=10, monte_carlo_reps=100)
-  run('ucb', std=0.1, T=50, monte_carlo_reps=1000)
+#  run('ucb', std=0.1, T=50, monte_carlo_reps=1000)
   # run('ts-fixed', T=50, monte_carlo_reps=1000)
   # run('frequentist-ts', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
   # run('eps-decay', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)

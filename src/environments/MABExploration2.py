@@ -29,7 +29,7 @@ def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls,
   if info:
     R = standard_errors[1]/standard_errors[0]
     delta = estimated_means[1] - estimated_means[0]
-    epsilon = tuning_function(T, t, tuning_function_parameter, R=R, delta=delta)
+    epsilon = tuning_function(T, t, tuning_function_parameter, R, delta)
   else:
     epsilon = tuning_function(T, t, tuning_function_parameter)
   greedy_action = np.argmax(estimated_means)
@@ -62,6 +62,7 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
     estimated_means = initial_model['sample_mean_list']
     standard_errors = initial_model['standard_error_list']
     number_of_pulls = initial_model['number_of_pulls']
+    estimated_vars = initial_model['sample_var_list']
 
     # Get obs sequences for this rep
     rewards_sequence = rep_dict['rewards']
@@ -72,8 +73,10 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
-      action = policy(estimated_means, standard_errors, None, tuning_function,
-                      tuning_function_parameter, time_horizon, t, env, info)
+      action = policy(estimated_means, estimated_vars, None, tuning_function,
+                tuning_function_parameter, time_horizon, t, env, info)
+#      action = policy(estimated_means, standard_errors, None, tuning_function,
+#                      tuning_function_parameter, time_horizon, t, env, info)
 
       # Get reward and regret
       reward = rewards_sequence[t, action]
@@ -144,7 +147,8 @@ def bayesopt_under_true_model(seed, info, mc_reps=1000, T=50):
   
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=15, alpha=1e-4)
+  bo.maximize(init_points=50, n_iter=50, alpha=1e-4)
+#  bo.maximize(init_points=10, n_iter=15, alpha=1e-4)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   print(best_param)
@@ -191,10 +195,11 @@ def episode(policy_name, label, info, std=0.1, T=50, monte_carlo_reps=1000, post
     policy = mab_epsilon_greedy_policy
     if info:
       tuning_function = tuned_bandit.information_expit_epsilon_decay
-      tuning_function_parameter = np.array([1.4027, -1.1939,  -3.0006,   -4.2475,   -1.3999,  -1.6908,  -1.7127,  -2.4704,   0.7810])
+      tuning_function_parameter = np.array( [1.44604582, -1.04692838,  0.11755395, -2.35340744,  3.17611836, -3.83516477,
+ -3.64502149 , 1.77037848 , 1.02438715])
     else:
       tuning_function = tuned_bandit.expit_epsilon_decay
-      tuning_function_parameter = np.array([ 0.1340, 42.0165, 2.3149] )
+      tuning_function_parameter = np.array([0.05, 46.49084647, 2.5] )
 
   env = Bandit.NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[std**2, std**2])
 
@@ -246,8 +251,10 @@ def episode(policy_name, label, info, std=0.1, T=50, monte_carlo_reps=1000, post
 
 #    print('standard errors {}'.format(env.standard_errors))
 #    print('estimated vars {}'.format(env.estimated_vars))
-    action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                    tuning_function_parameter, T, t, env, info)
+    action = policy(env.estimated_means, env.estimated_vars, env.number_of_pulls, tuning_function,
+              tuning_function_parameter, T, t, env, info)
+#    action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+#                    tuning_function_parameter, T, t, env, info)
     res = env.step(action)
     u = res['Utility']
     actions_list.append(int(action))
@@ -269,8 +276,8 @@ def run(policy_name, info, save=True, mc_replicates=1000, T=50):
   """
 
   replicates = 96
-  num_cpus = int(mp.cpu_count())
-#  num_cpus = 4
+#  num_cpus = int(mp.cpu_count())
+  num_cpus = 10
   #replicates = 20
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -320,12 +327,12 @@ if __name__ == '__main__':
 #  bayesopt_under_true_model(seed=0, info=True)
 #  episode('eps-decay', 0, info=True, T=50)
 #  episode('eps-fixed-decay', 2, T=50)
-#  episode('eps', 0, info=False, T=50)
-#  run('eps', save=False, info=True)
-#  run('greedy', save=False, info=True)
-#  run('eps-decay', save=True, T=50, info=True)
-  run('eps-fixed-decay', save=False, T=50, info=True)
-  run('eps-fixed-decay', save=False, T=50, info=False)
+#  episode('eps', 0, info=True, T=50)
+#  run('eps', save=False)
+#  run('greedy', save=False, info=False)
+  run('eps-decay', save=True, T=50, info=True)
+#  run('eps-fixed-decay', save=False, T=50, info=False)
+#  run('eps-fixed-decay', save=False, T=50, info=False)
   #run('eps', save=False, T=50)
 #  episode('eps', 1, T=50)
 #  result = episode('eps', 0, T=1000)

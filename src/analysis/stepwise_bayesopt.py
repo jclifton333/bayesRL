@@ -21,10 +21,10 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50, list_of_reward_betas=[[-10, 0.4
 
   np.random.seed(seed)
   
-  sim_env = NormalCB(1, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
-            context_var=context_var, list_of_reward_vars=list_of_reward_vars)
+#  sim_env = NormalCB(1, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
+#            context_var=context_var, list_of_reward_vars=list_of_reward_vars)
   # env = NormalMAB(list_of_reward_mus=[0, 1], list_of_reward_vars=[1, 140])
-#  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[1**2, 1**2])
+  sim_env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[0.1**2, 0.1**2])
   # X = env.X
   # estimated_context_mean = np.mean(X, axis=0)
   # estimated_context_variance = np.cov(X, rowvar=False)
@@ -34,7 +34,8 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50, list_of_reward_betas=[[-10, 0.4
   # sim_env = NormalCB(list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
   #           context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1])
 #  sim_env = NormalMAB(list_of_reward_mus=env.list_of_reward_mus, list_of_reward_vars=env.list_of_reward_vars)
-  pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T, n_patients=1)
+#  pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T, n_patients=1)
+  pre_simulated_data = sim_env.generate_mc_samples(mc_rep, T)
   rollout_function_kwargs = {'pre_simulated_data': pre_simulated_data}
 
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
@@ -42,15 +43,18 @@ def bayes_optimize_zeta(seed, mc_rep=1000, T=50, list_of_reward_betas=[[-10, 0.4
 
   def objective(zeta0, zeta1, zeta2):
     zeta = np.array([zeta0, zeta1, zeta2])
-#    return rollout.mab_rollout_with_fixed_simulations(zeta, policies.mab_frequentist_ts_policy, T,
-#                                                      policies.expit_epsilon_decay, sim_env, **rollout_function_kwargs)
-    return rollout.normal_cb_rollout_with_fixed_simulations(zeta, policies.linear_cb_epsilon_greedy_policy, T,
-                                                     policies.expit_epsilon_decay, sim_env, **rollout_function_kwargs)
+    return rollout.mab_rollout_with_fixed_simulations(zeta, policies.mab_frequentist_ts_policy, T,
+                                                      policies.expit_epsilon_decay, sim_env, **rollout_function_kwargs)
+#    return rollout.normal_cb_rollout_with_fixed_simulations(zeta, policies.linear_cb_epsilon_greedy_policy, T,
+#                                                     policies.expit_epsilon_decay, sim_env, **rollout_function_kwargs)
 
   # bounds = {'zeta{}'.format(i): (0.0, 1.0) for i in range(10)}
   # explore_ = {'zeta{}'.format(i): [0.0] for i in range(10)}
-  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
-  bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
+#  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
+#  bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
+  bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
+    
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
   bo.maximize(init_points=10, n_iter=10, alpha=1e-4)
@@ -183,20 +187,20 @@ if __name__ == "__main__":
   # with open('bayes-opt-presimulated-normal-mab-low-var-1000.yml', 'w') as handle:
   #   yaml.dump(params_dict, handle)
 
-  pulls_list = [1]*24 + [5]*24 + [15]*24 + [25]*24
-  pool = mp.Pool(96)
-  res = pool.map(fixed_pulls, pulls_list)
+#  pulls_list = [1]*24 + [5]*24 + [15]*24 + [25]*24
+#  pool = mp.Pool(96)
+#  res = pool.map(fixed_pulls, pulls_list)
+#
+#  res_dict = {1: [], 5: [], 15: [], 25: []}
+#  for d in res:
+#    initial_pulls_ = d['num_initial_pulls']
+#    param_ = d['theta_opt']
+#    res_dict[initial_pulls_].append(param_)
+#  with open('initial-pulls-params-3.yml', 'w') as handle:
+#    yaml.dump(res_dict, handle)
+#  print('dumped')s
 
-  res_dict = {1: [], 5: [], 15: [], 25: []}
-  for d in res:
-    initial_pulls_ = d['num_initial_pulls']
-    param_ = d['theta_opt']
-    res_dict[initial_pulls_].append(param_)
-  with open('initial-pulls-params-3.yml', 'w') as handle:
-    yaml.dump(res_dict, handle)
-  print('dumped')
-
-  # p = bayes_optimize_zeta(0, T=50, mc_rep=1000)
+   p = bayes_optimize_zeta(0, T=50, mc_rep=1000)
   # num_initial_pulls_list = [5, 15, 25]
   # for num_initial_pulls in num_initial_pulls_list:
   #   env = NormalCB(num_initial_pulls, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
@@ -205,7 +209,7 @@ if __name__ == "__main__":
   #   p = bayes_optimize_zeta(0, T=50, mc_rep=1000, list_of_reward_betas=env.beta_hat_list,
   #                           context_mean=env.estimated_context_mean[1:], context_var=env.estimated_context_cov[1:, 1:],
   #                           list_of_reward_vars=np.array(env.sigma_hat_list)**2)
-  # print(p)
+   print(p)
 
   # plot_epsilon_sequences("bayes-opt-presimulated-normal-mab-low-var-1000.yml")
   # plot_approximate_epsilon_sequences_from_sims("normalmab-10-eps-decay-posterior-sample_180930_054446.yml")
