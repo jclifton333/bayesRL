@@ -91,13 +91,15 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
 
   with model:
     # Linear model
-    theta = pm.Normal('theta', 0.0, 10.0, shape=(p, K))
+    tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
+    lambda_ = pm.Uniform('lambda', 0, 5, shape=K)
+    theta = pm.Normal('theta', 0.0, tau=lambda_*tau, shape=(p, K))
     mu_ = pm.Deterministic('mu', tt.dot(X, theta))
 
   print('linear model')
 
   with model:
-    tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
+    # tau = pm.Gamma('tau', 1.0, 1.0, shape=K)
     obs = pm.NormalMixture('obs', w, mu_, tau=tau, observed=y)
 
   print('ready to go')
