@@ -235,11 +235,9 @@ def run():
   N_PROCESSES = 20
 
   # methods = ['np', 'p', 'averaged']
-  alphas = [-1.0, 0.0, 0.5, 1.0, 5.0]
-  methods = [('np', alpha) for alpha in alphas] + [('p', 0), ('averaged', 0)]
-  # methods = [('p', 0), ('averaged', 0)]
-  # truncate = False
-  # methods = ['two_step']
+  # alphas = [-1.0, 0.0, 0.5, 1.0, 5.0]
+  # methods = [('np', alpha) for alpha in alphas] + [('p', 0), ('averaged', 0)]
+  methods = [('np', 0.0), ('averaged', 0)]
   results_dict = {}
   base_name = 'glucose-mb'
   prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
@@ -261,10 +259,10 @@ def run():
 
 
 if __name__ == "__main__":
-  # run()
+  run()
   # evaluate_glucose_mb_policy(0, 'p')
   # alpha_means = [0.0, 0.5, 1.0, 5.0]
   # for alpha_mean in alpha_means:
   #   plot_conditional_density_estimates(alpha_mean=alpha_mean, test=False)
-  plot_conditional_density_estimates()
+  # plot_conditional_density_estimates()
   # estimator = rollout_and_fit_np_density()

@@ -182,7 +182,10 @@ class GlucoseTransitionModel(object):
     :return:
     """
     # Get features at which to evaluate
-    NUM_PPD_SAMPLES = 1000
+    if self.test:
+      NUM_PPD_SAMPLES = 1
+    else:
+      NUM_PPD_SAMPLES = 1000
 
     test_glucose = np.linspace(50, 200, 50)
     treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 1, 0] for g in test_glucose])
@@ -321,7 +324,7 @@ class GlucoseTransitionModel(object):
     post_glucose_pdf_contribs = norm.pdf(np.atleast_3d(x_grid), mu, sigma)
     # v_ = np.array([norm.cdf(np.dot(x, b)) for b in self.trace['beta'][:100]])
     # w_ = np.array([stick_breaking_for_probit_numpy_version(v_[i, 0, :]) for i in range(v_.shape[0])])
-    w_ = self.trace['w'][:, np.newaxis, :]
+    w_ = self.trace['w'][:100][:, np.newaxis, :]
     post_glucose_pdfs = (w_ * post_glucose_pdf_contribs).sum(axis=-1)
     return post_glucose_pdfs
 
