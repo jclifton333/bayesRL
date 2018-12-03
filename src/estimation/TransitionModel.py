@@ -83,12 +83,13 @@ class GlucoseTransitionModel(object):
       model_ = [model_p, model_np]
       trace_ = [trace_p, trace_np]
       self.compare = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')
-      self.mode, self.trace = model_, trace_
+      self.model, self.trace = model_, trace_
 
 
     # self.compare = compare_
 
   def fit_np_conditional_density(self, X, y):
+    self.X_, self.y_ = X, y
     self.shared_x_np = shared(X)
     model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean,
                                                      test=self.test)
@@ -144,8 +145,8 @@ class GlucoseTransitionModel(object):
     if self.method == 'averaged':
       glucose = pm.sample_ppc(self.trace[1], samples=1, model=self.model[1], progressbar=False)['obs'][0]
     else:
-      glucose = pm.sample_ppc(self.trace, samples=1, model=self.model, progressbar=False)['obs'][0]
-
+      # glucose = pm.sample_ppc(self.trace, samples=1, model=self.model, progressbar=False)['obs'][0]
+      glucose = pm.sample_ppc(self.trace, samples=1, model=self.model, progressbar=False)['obs'][0, 0]
     r = glucose_reward_function(glucose)
     return glucose, r
 
@@ -157,7 +158,7 @@ class GlucoseTransitionModel(object):
     if self.method == 'averaged':
       glucose = pm.sample_ppc(self.trace[0], model=self.model[0], progressbar=False)['obs'][0, 0]
     else:
-      glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=False)['obs'][0, 0]
+      glucose = pm.sample_ppc(self.trace, model=self.model, progressbar=True)['obs'][0, 0]
 
     r = glucose_reward_function(glucose)
     return glucose, r
@@ -192,6 +193,7 @@ class GlucoseTransitionModel(object):
     no_treat_glucoses = np.zeros((50, NUM_PPD_SAMPLES))
 
     for ix, x in enumerate(treat_test_features):
+      print(ix)
       for draw in range(NUM_PPD_SAMPLES):
         g, r = self.draw_from_np_ppd([x])
         treat_glucoses[ix, draw] = g
@@ -317,9 +319,9 @@ class GlucoseTransitionModel(object):
     # mu = mu[:, np.newaxis, :]
     sigma = sigma[:, np.newaxis, :]
     post_glucose_pdf_contribs = norm.pdf(np.atleast_3d(x_grid), mu, sigma)
-    v_ = np.array([norm.cdf(np.dot(x, b)) for b in self.trace['beta'][:100]])
-    w_ = np.array([stick_breaking_for_probit_numpy_version(v_[i, 0, :]) for i in range(v_.shape[0])])
-    w_ = w_[:, np.newaxis, :]
+    # v_ = np.array([norm.cdf(np.dot(x, b)) for b in self.trace['beta'][:100]])
+    # w_ = np.array([stick_breaking_for_probit_numpy_version(v_[i, 0, :]) for i in range(v_.shape[0])])
+    w_ = self.trace['w'][:, np.newaxis, :]
     post_glucose_pdfs = (w_ * post_glucose_pdf_contribs).sum(axis=-1)
     return post_glucose_pdfs
 

@@ -58,7 +58,7 @@ def normal_bayesian_regression(X, y, test=False):
 
   if not test:
     SAMPLES = 1000
-    BURN = 50000
+    BURN = 100000
   else:
     SAMPLES = BURN = 1
 
@@ -79,10 +79,13 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   with pm.Model() as model:
     # Dirichlet priors
     # alpha = pm.Normal('alpha', alpha_mean, 5.0, shape=K)
-    beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
+    # beta = pm.Normal('beta', 0.0, 5.0, shape=(p, K))
     # v = norm_cdf(alpha + tt.dot(X, beta))
-    v = norm_cdf(alpha_mean + tt.dot(X, beta))
-    w = pm.Deterministic('w', stick_breaking_for_probit(v))
+    alpha = pm.Gamma('alpha', 1.0, 1.0)
+    beta = pm.Beta('beta', 1.0, alpha, shape=K)
+    w = pm.Deterministic('w', stick_breaking_for_unconditional(beta))
+    # v = norm_cdf(tt.dot(X, beta))
+    # w = pm.Deterministic('w', stick_breaking_for_probit(v))
 
   print('dirichlet prior')
 
@@ -102,7 +105,7 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   # ToDo: can samples be 1 if we want multiple ppd samples??
   if not test:
     SAMPLES = 1000
-    BURN = 100000
+    BURN = 50000
   else:
     SAMPLES = BURN = 1
 
@@ -110,7 +113,8 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
     # step = pm.NUTS()
     step = pm.Metropolis()
     # step = pm.HamiltonianMC()
-    trace = pm.sample(SAMPLES, step, chains=2, tune=BURN, random_seed=SEED)
+    trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED, init='adapt_diag')
+    # trace = pm.sample(SAMPLES, chains=1, tune=BURN, random_seed=SEED, init='adapt_diag')
     # approx = pm.fit(n=30000, method=pm.ADVI())
     # trace = approx.sample(draws=SAMPLES)
 
