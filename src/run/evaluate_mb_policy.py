@@ -259,10 +259,10 @@ def run():
 
 
 if __name__ == "__main__":
-  run()
+  # run()
   # evaluate_glucose_mb_policy(0, 'p')
   # alpha_means = [0.0, 0.5, 1.0, 5.0]
   # for alpha_mean in alpha_means:
   #   plot_conditional_density_estimates(alpha_mean=alpha_mean, test=False)
   # plot_conditional_density_estimates()
-  # estimator = rollout_and_fit_np_density()
+  estimator = rollout_and_fit_np_density()

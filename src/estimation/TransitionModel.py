@@ -72,7 +72,8 @@ class GlucoseTransitionModel(object):
     if self.method == 'np':
       self.fit_np_conditional_density(X, y)
     elif self.method == 'p':
-      self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
+      # self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
+      self.shared_x_p = shared(X)
       model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
       self.model, self.trace = model_, trace_
     elif self.method == 'averaged':
@@ -282,9 +283,10 @@ class GlucoseTransitionModel(object):
     # Hypo
     plt.figure()
     plt.plot(x_plot, hypo0_pdfs.T, c='gray')
-    plt.plot(x_plot, hypo0_pdfs.mean(axis=0), c='k')
+    plt.plot(x_plot, hypo0_pdfs.mean(axis=0), c='k', label='Pointwise posterior mean, no treatment')
     plt.plot(x_plot, hypo1_pdfs.T, c='cyan')
-    plt.plot(x_plot, hypo1_pdfs.mean(axis=0), c='green')
+    plt.plot(x_plot, hypo1_pdfs.mean(axis=0), c='green', label='Pointwise posterior mean, treatment')
+    plt.legend()
     plt_name = 'conditional-glucose-hypo-alpha={}.png'.format(self.alpha_mean)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
     plt.savefig(plt_name)
@@ -294,9 +296,10 @@ class GlucoseTransitionModel(object):
     # Hyper
     plt.figure()
     plt.plot(x_plot, hyper0_pdfs.T, c='gray')
-    plt.plot(x_plot, hyper0_pdfs.mean(axis=0), c='k')
+    plt.plot(x_plot, hyper0_pdfs.mean(axis=0), c='k', label='Pointwise posterior mean, no treatment')
     plt.plot(x_plot, hyper1_pdfs.T, c='cyan')
-    plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green')
+    plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green', label='Pointwise posterior mean, treatment')
+    plt.legend()
     plt_name = 'conditional-glucose-hyper-alpha={}.png'.format(self.alpha_mean)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
     plt.savefig(plt_name)

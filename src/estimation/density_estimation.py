@@ -107,7 +107,7 @@ def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   # ToDo: can samples be 1 if we want multiple ppd samples??
   if not test:
     SAMPLES = 1000
-    BURN = 50000
+    BURN = 100000
   else:
     SAMPLES = BURN = 1
 
