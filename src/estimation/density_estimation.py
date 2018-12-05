@@ -50,9 +50,10 @@ def normal_bayesian_regression(X, y, test=False):
   """
   n, p = X.shape.eval()
   with pm.Model() as model:
-    beta = pm.Normal('beta', 0.0, 5.0, shape=p)
     tau = pm.Gamma('tau', 1, 1, shape=1)
     # mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
+    lambda_ = pm.Uniform('lambda', 0, 5)
+    beta = pm.Normal('beta', 0.0, lambda_*tau)
     mu_ = pm.Deterministic('mu', tt.dot(X, beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
