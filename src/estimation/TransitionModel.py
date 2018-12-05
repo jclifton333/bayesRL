@@ -155,7 +155,8 @@ class GlucoseTransitionModel(object):
     # ToDo: Still don't understand why sample_ppc doesn't return correct shape here
     # Draw glucose
     # self.shared_x_p.set_value(x[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
-    self.shared_x_p.set_value(np.array(x)[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+    # self.shared_x_p.set_value(np.array(x)[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+    self.shared_x_p.set_value(np.array(x))
     if self.method == 'averaged':
       glucose = pm.sample_ppc(self.trace[0], model=self.model[0], progressbar=False)['obs'][0, 0]
     else:
@@ -213,13 +214,13 @@ class GlucoseTransitionModel(object):
 
     # Plot
     plt.figure()
-    plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Treatment')
+    plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Insulin')
     plt.fill_between(test_glucose, treat_glucoses_credible[:, 0], treat_glucoses_credible[:, 1], alpha=0.2,
                      label='95% PI for treatment curve')
-    plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No treatment')
+    plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No insulin')
     plt.fill_between(test_glucose, no_treat_glucoses_credible[:, 0], no_treat_glucoses_credible[:, 1], alpha=0.2,
                      label='95% PI for no treatment curve')
-    plt.title('Conditional glucose\nalpha={}'.format(self.alpha_mean))
+    plt.title('Conditional glucose as function of previous glucose\nConditional DPM'.format(self.alpha_mean))
     plt.legend()
     plt_name = 'conditional-glucose-alpha={}.png'.format(self.alpha_mean)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
@@ -261,7 +262,7 @@ class GlucoseTransitionModel(object):
     # Posterior of hyper- and hypo-glycemic densities with and without treatment
     #  ToDo: Display true distributions, too
     # ToDo: Assuming method=np!
-    x_plot = np.linspace(np.min(self.X_[:, 1]), np.max(self.X_[:, 1]), 200)
+    x_plot = np.linspace(np.min(self.X_[:, 1]) - 10, np.max(self.X_[:, 1]), 200)
 
     # Test states
     hypoglycemic_0 = np.array([[1.0, 50, 0, 33, 50, 0, 0, 0, 0]])
@@ -282,10 +283,11 @@ class GlucoseTransitionModel(object):
     # Plot
     # Hypo
     plt.figure()
-    plt.plot(x_plot, hypo0_pdfs.T, c='gray')
-    plt.plot(x_plot, hypo0_pdfs.mean(axis=0), c='k', label='Pointwise posterior mean, no treatment')
-    plt.plot(x_plot, hypo1_pdfs.T, c='cyan')
-    plt.plot(x_plot, hypo1_pdfs.mean(axis=0), c='green', label='Pointwise posterior mean, treatment')
+    plt.plot(x_plot, hypo0_pdfs.T, c='gray', label='Posterior density draws, no insulin')
+    plt.plot(x_plot, hypo0_pdfs.mean(axis=0), c='k', label='Posterior predictive density, no insulin')
+    plt.plot(x_plot, hypo1_pdfs.T, c='cyan', label='Posterior density draws, insulin')
+    plt.plot(x_plot, hypo1_pdfs.mean(axis=0), c='green', label='Posterior predictive density, insulin')
+    plt.title('Posterior predictive glucose for hypoglycemic patient\nConditional DPM')
     plt.legend()
     plt_name = 'conditional-glucose-hypo-alpha={}.png'.format(self.alpha_mean)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
@@ -295,10 +297,11 @@ class GlucoseTransitionModel(object):
 
     # Hyper
     plt.figure()
-    plt.plot(x_plot, hyper0_pdfs.T, c='gray')
-    plt.plot(x_plot, hyper0_pdfs.mean(axis=0), c='k', label='Pointwise posterior mean, no treatment')
-    plt.plot(x_plot, hyper1_pdfs.T, c='cyan')
-    plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green', label='Pointwise posterior mean, treatment')
+    plt.plot(x_plot, hyper0_pdfs.T, c='gray', label='Posterior density draws, no insulin')
+    plt.plot(x_plot, hyper0_pdfs.mean(axis=0), c='k', label='Posterior predictive density, no insulin')
+    plt.plot(x_plot, hyper1_pdfs.T, c='cyan', label='Posterior density draws, insulin')
+    plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green', label='Pointwise posterior mean, insulin')
+    plt.title('Posterior predictive glucose for hyperglycemic patient\nConditional DPM')
     plt.legend()
     plt_name = 'conditional-glucose-hyper-alpha={}.png'.format(self.alpha_mean)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
