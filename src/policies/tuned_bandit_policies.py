@@ -168,6 +168,12 @@ def information_expit_epsilon_decay(T, t, zeta, R, delta):
   return zeta[0] * expit(np.dot(zeta[1:9],covari))
 
 
+def information_expit_epsilon_decay2(T, t, zeta, delta):
+  # 1, delta, T-t, (T-t)*delta
+  covari = np.kron([1, T-t], [1,delta])
+  return zeta[0] * expit(np.dot(zeta[1:],covari))
+
+
 def bern_expit_epsilon_decay(T, s1, s2, n1, n2, zeta):
   return zeta[0] * expit(np.dot([1, T-n1-n2, s1, s2, n1, n2], zeta[1:]))
 

@@ -40,6 +40,21 @@ def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls,
   return action
 
 
+def mab_epsilon_greedy_policy2(estimated_means, standard_errors, number_of_pulls, tuning_function,
+                              tuning_function_parameter, T, t, env, info):
+  if info:
+    delta = abs(estimated_means[1] - estimated_means[0])
+    epsilon = tuning_function(T, t, tuning_function_parameter, delta)
+  else:
+    epsilon = tuning_function(T, t, tuning_function_parameter)
+  greedy_action = np.argmax(estimated_means)
+  if np.random.random() < epsilon:
+    action = np.random.choice(2)
+  else:
+    action = greedy_action
+  return action
+
+
 def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_horizon, tuning_function, env, 
                                        info, **kwargs):
   """
@@ -102,9 +117,12 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
   # zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9])
   if info:
-    def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
-      zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
+    def objective(zeta0, zeta1, zeta2, zeta3, zeta4):
+      zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4])
       return rollout_function(zeta, policy, time_horizon, tuning_function, env, info, **rollout_function_kwargs)
+#    def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
+#      zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
+#      return rollout_function(zeta, policy, time_horizon, tuning_function, env, info, **rollout_function_kwargs)
   else:
     def objective(zeta0, zeta1, zeta2):
       zeta = np.array([zeta0, zeta1, zeta2])
@@ -179,12 +197,17 @@ def episode(policy_name, label, info, std=0.1, T=50, monte_carlo_reps=1000, post
   elif policy_name == "eps-decay":
     tune = True
     posterior_sample = True
-    policy = mab_epsilon_greedy_policy
+    policy = mab_epsilon_greedy_policy2
     if info:
-      tuning_function_parameter = np.concatenate(([0.05],np.random.uniform(-0.5,0.5,8)))
-      bounds = {'zeta0': (0.05,2.0),'zeta1': (-5.0, 5.0),'zeta2': (-5.0,5.0),'zeta3': (-5.0,5.0),'zeta4': (-5.0,5.0),'zeta5': (-5.0,5.0),'zeta6': (-5.0,5.0),'zeta7': (-5.0,5.0), 'zeta8': (-5.0,5.0)}
-      explore_ = {'zeta0': [0.05,0.1,0.0,1.0, 0.1],'zeta1': [0.0,0.0,0.0,0.0,-122.5],'zeta2': [0.0,0.0,0.0,0.0,0.0],'zeta3': [0.0,0.0,0.0,0.0,0.0],'zeta4': [0.0,0.0,0.0,0.0,0.0],'zeta5': [0.0,0.0,0.0,0.0,2.5],'zeta6': [0.0,0.0,0.0,0.0,0.0],'zeta7': [0.0,0.0,0.0,0.0,0.0], 'zeta8': [0.0,0.0,0.0,0.0,0.0]}
-      tuning_function = tuned_bandit.information_expit_epsilon_decay
+#      tuning_function_parameter = np.concatenate(([0.05],np.random.uniform(-0.5,0.5,8)))
+#      bounds = {'zeta0': (0.05,2.0),'zeta1': (-5.0, 5.0),'zeta2': (-5.0,5.0),'zeta3': (-5.0,5.0),'zeta4': (-5.0,5.0),'zeta5': (-5.0,5.0),'zeta6': (-5.0,5.0),'zeta7': (-5.0,5.0), 'zeta8': (-5.0,5.0)}
+#      explore_ = {'zeta0': [0.05,0.1,0.0,1.0, 0.1],'zeta1': [0.0,0.0,0.0,0.0,-122.5],'zeta2': [0.0,0.0,0.0,0.0,0.0],'zeta3': [0.0,0.0,0.0,0.0,0.0],'zeta4': [0.0,0.0,0.0,0.0,0.0],'zeta5': [0.0,0.0,0.0,0.0,2.5],'zeta6': [0.0,0.0,0.0,0.0,0.0],'zeta7': [0.0,0.0,0.0,0.0,0.0], 'zeta8': [0.0,0.0,0.0,0.0,0.0]}
+#      tuning_function = tuned_bandit.information_expit_epsilon_decay
+      tuning_function_parameter = np.concatenate(([0.05],np.random.uniform(-0.5,0.5,4)))
+      bounds = {'zeta0': (0.05,2.0),'zeta1': (-5.0, 5.0),'zeta2': (-5.0,5.0),'zeta3': (-5.0,5.0), 'zeta4': (-5.0,5.0)}
+      explore_ = {'zeta0': [0.05,0.1,0.0,1.0, 0.1],'zeta1': [0.0,0.0,0.0,0.0,-122.5],'zeta2': [0.0,0.0,0.0,0.0,0.0],
+                  'zeta3': [0.0,0.0,0.0,0.0,0.0],'zeta4': [0.0,0.0,0.0,0.0,0.0]}
+      tuning_function = tuned_bandit.information_expit_epsilon_decay2
     else:
       tuning_function_parameter = np.array([0.05, 1.0, 0.01]) 
       bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
@@ -277,7 +300,7 @@ def run(policy_name, info, save=True, mc_replicates=1000, T=50):
 
   replicates = 96
 #  num_cpus = int(mp.cpu_count())
-  num_cpus = 10
+  num_cpus = 32
   #replicates = 20
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -310,7 +333,7 @@ def run(policy_name, info, save=True, mc_replicates=1000, T=50):
                'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
                'rewards': rewards, 'actions': actions}
 
-    base_name = 'info-mab-{}'.format(policy_name)
+    base_name = 'info-mab-onlydelta-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
