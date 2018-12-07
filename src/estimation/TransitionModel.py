@@ -72,9 +72,7 @@ class GlucoseTransitionModel(object):
     if self.method == 'np':
       self.fit_np_conditional_density(X, y)
     elif self.method == 'p':
-      # self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
-      self.shared_x_p = shared(X)
-      model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
+      self.fit_p_conditional_density(X, y)
       self.model, self.trace = model_, trace_
     elif self.method == 'averaged':
       self.shared_x_np = shared(X)
@@ -89,8 +87,15 @@ class GlucoseTransitionModel(object):
 
     # self.compare = compare_
 
+  def fit_p_conditional_density(self, X, y):
+    self.X_, self.y_ = X, y
+    self.shared_x_p = shared(X)
+    model_, trace_ = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
+    self.model, self.trace = model_, trace_
+
   def fit_np_conditional_density(self, X, y):
     self.X_, self.y_ = X, y
+    # self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])  # ToDo: Make sure these are the right indices!
     self.shared_x_np = shared(X)
     model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean,
                                                      test=self.test)
@@ -283,11 +288,11 @@ class GlucoseTransitionModel(object):
     # Plot
     # Hypo
     plt.figure()
-    plt.plot(x_plot, hypo0_pdfs.T, c='gray', label='Posterior density draws, no insulin')
+    plt.plot(x_plot, hypo0_pdfs.T, c='gray')
     plt.plot(x_plot, hypo0_pdfs.mean(axis=0), c='k', label='Posterior predictive density, no insulin')
-    plt.plot(x_plot, hypo1_pdfs.T, c='cyan', label='Posterior density draws, insulin')
+    plt.plot(x_plot, hypo1_pdfs.T, c='cyan')
     plt.plot(x_plot, hypo1_pdfs.mean(axis=0), c='green', label='Posterior predictive density, insulin')
-    plt.title('Posterior predictive glucose for hypoglycemic patient\nConditional DPM')
+    plt.title('Posterior conditional glucose densities (hypoglycemic patient)\nConditional DPM')
     plt.legend()
     plt_name = 'conditional-glucose-hypo-alpha={}.png'.format(self.alpha_mean)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
@@ -297,11 +302,11 @@ class GlucoseTransitionModel(object):
 
     # Hyper
     plt.figure()
-    plt.plot(x_plot, hyper0_pdfs.T, c='gray', label='Posterior density draws, no insulin')
+    plt.plot(x_plot, hyper0_pdfs.T, c='gray')
     plt.plot(x_plot, hyper0_pdfs.mean(axis=0), c='k', label='Posterior predictive density, no insulin')
-    plt.plot(x_plot, hyper1_pdfs.T, c='cyan', label='Posterior density draws, insulin')
-    plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green', label='Pointwise posterior mean, insulin')
-    plt.title('Posterior predictive glucose for hyperglycemic patient\nConditional DPM')
+    plt.plot(x_plot, hyper1_pdfs.T, c='cyan')
+    plt.plot(x_plot, hyper1_pdfs.mean(axis=0), c='green', label='Posterior predictive density, insulin')
+    plt.title('Posterior conditional glucose densities (hyperglycemic) patient\nConditional DPM')
     plt.legend()
     plt_name = 'conditional-glucose-hyper-alpha={}.png'.format(self.alpha_mean)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
@@ -397,8 +402,8 @@ class GlucoseTransitionModel(object):
     n = 1
     for param in self.trace:
       transition_model = transition_model_from_np_parameter(param, self.draw_from_food_and_activity_ppd)
-      bellman_error = be.transition_distribution_bellman_error(q, transition_model, S_ref, A_ref, feature_function,
-                                                               reward_function, gamma, 2)
+      bellman_error = be.transition_distribution_bellman_error(q, transition_model, S_ref, A_ref,
+                                                               opt.glucose_feature_function, reward_function, gamma, 2)
       exp_bellman_error = np.exp(-tau/2 * bellman_error)
       posterior_expectation += (param * exp_bellman_error - posterior_expectation) / n
       n += 1

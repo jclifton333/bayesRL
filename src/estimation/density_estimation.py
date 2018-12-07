@@ -52,8 +52,8 @@ def normal_bayesian_regression(X, y, test=False):
   with pm.Model() as model:
     tau = pm.Gamma('tau', 1, 1)
     # mu_ = pm.Deterministic('mu', tt.dot(X[:, :3], beta))
-    lambda_ = pm.Uniform('lambda', 0, 5)
-    beta = pm.Normal('beta', 0.0, lambda_*tau, shape=p)
+    lambda_ = pm.Gamma('lambda', 1, 1)
+    beta = pm.Normal('beta', 0.0, tau*lambda_, shape=p)
     mu_ = pm.Deterministic('mu', tt.dot(X, beta))
     obs = pm.Normal('obs', mu_, tau=tau, observed=y)
 
@@ -65,7 +65,8 @@ def normal_bayesian_regression(X, y, test=False):
 
   with model:
     # ToDo: different algo (conjugate?)
-    step = pm.NUTS()
+    # step = pm.NUTS()
+    step = pm.Metropolis()
     trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
   return model, trace

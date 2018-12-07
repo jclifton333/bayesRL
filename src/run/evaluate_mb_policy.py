@@ -1,3 +1,8 @@
+"""
+Functions for assessing model-based glucose policies.
+"""
+
+
 import sys
 import pdb
 import numpy as np
@@ -69,7 +74,7 @@ def unconditional_density_ppc():
   return
 
 
-def rollout_and_fit_np_density(alpha_mean=0.0, test=False):
+def rollout_and_fit_density(method='np', alpha_mean=0.0, test=False):
   # Roll out to get data
   n_patients = 20
   T = 20
@@ -81,16 +86,16 @@ def rollout_and_fit_np_density(alpha_mean=0.0, test=False):
     env.step(np.random.binomial(1, 0.3, n_patients))
 
   # Fit model on data
-  estimator = GlucoseTransitionModel(method='np', alpha_mean=alpha_mean, test=test)
+  estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean, test=test)
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   y = Sp1[:, 0]
   # estimator.fit(X, y)
-  estimator.fit_np_conditional_density(X, y)
+  estimator.fit_p_conditional_density(X, y)
   return estimator
 
 
 def plot_conditional_density_estimates(alpha_mean=0.0, test=False):
-  estimator = rollout_and_fit_np_density(alpha_mean=alpha_mean, test=test)
+  estimator = rollout_and_fit_density(method='np', alpha_mean=alpha_mean, test=test)
 
   # Conditional density plots
   estimator.plot_regression_line()
@@ -138,6 +143,56 @@ def trajectory_ppc(replicate):
     axarr[i].vlines(env.S[0][t, 0], ymin=0, ymax=y.max())
   plt.show()
 
+  return
+
+
+def fit_and_compare_mb_and_mf_policies(test=False):
+  # Fit mb policy
+  estimator = rollout_and_fit_density(method='np', test=test)
+
+  # ToDo: implement function to encapsulate fitting mb policy
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  S = env.S
+  y = Sp1[:, 0]
+  estimator.fit(X, y)
+
+  # Get optimal policy under model
+  def rollout_policy(s_, x_):
+    return np.random.binomial(1, 0.3)
+
+  initial_x = X[-1, :]
+  initial_state = S[0][-1, :]
+  transition_model = estimator.draw_from_ppd
+  feature_function = opt.glucose_feature_function
+  if truncate:
+    reference_distribution_for_truncation = Sp1
+  else:
+    reference_distribution_for_truncation = None
+  policy_mb = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function,
+                                   number_of_dp_iterations=1,
+                                   reference_distribution_for_truncation=reference_distribution_for_truncation)
+
+  # Fit mf policy
+  reg = RandomForestRegressor()
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  y = Sp1[:, 0]
+  R = np.array([glucose_reward_function(g) for g in y])
+
+  # Step one
+  reg.fit(X, R)
+  q_ = lambda x_: reg.predict(x_.reshape(1, -1))
+  feature_function = opt.glucose_feature_function
+
+  # Step two
+  Q_ = R[:-1] + np.array([np.max([q_(feature_function(s, a, x)) for a in range(2)])
+                          for s, x in zip(Sp1[:-1], X[1:])])
+  reg.fit(X[:-1], Q_)
+
+  def policy_mf(s_, x_):
+    return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
+
+  # Compare
+  opt.compare_glucose_policies(np.array([80, 0, 0]), 0, 1, policy_mf, policy_mb)
   return
 
 
@@ -260,9 +315,9 @@ def run():
 
 if __name__ == "__main__":
   # run()
-  # evaluate_glucose_mb_policy(0, 'p')
+  # evaluate_glucose_mb_policy(0, 'p', test=True)
   # alpha_means = [0.0, 0.5, 1.0, 5.0]
   # for alpha_mean in alpha_means:
   #   plot_conditional_density_estimates(alpha_mean=alpha_mean, test=False)
   # plot_conditional_density_estimates()
-  estimator = rollout_and_fit_np_density()
+  estimator = rollout_and_fit_density(method='p')

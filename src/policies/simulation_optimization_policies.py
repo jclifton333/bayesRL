@@ -1,6 +1,8 @@
 import numpy as np
+import copy
 import logging
 from sklearn.ensemble import RandomForestRegressor
+import matplotlib.pyplot as plt
 import pdb
 
 
@@ -110,3 +112,53 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
     return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(number_of_actions)])
 
   return pi_opt
+
+
+def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_to_vary_2, policy_1, policy_2):
+  """
+  Visualize glucose policies on a grid of two covariates (keeping the others in fixed_covariates fixed.)
+
+  :param fixed_covariates:
+  :param coordinate_to_vary_1: index of first covariate to vary
+  :param coordinate_to_vary_2: index of second covariate to vary
+  :param policy_1:
+  :param policy_2:
+  :return:
+  """
+  NUM_GRIDPOINTS = 50
+
+  x_ = np.array([1.0, 80.0, 0, 2, 85.0, 1.5, -1, 0, 1])  # Need x from prveious time step for glucose policies
+
+  # Get grid of values at which to evaluate policy
+  if coordinate_to_vary_1 == 0:  # Glucose
+    grid_1 = np.linspace(50, 200, NUM_GRIDPOINTS)
+  else:  # Food or ex
+    grid_1 = np.linspace(-3, 3, NUM_GRIDPOINTS)
+  if coordinate_to_vary_2 == 0:  # Glucose
+    grid_2 = np.linspace(50, 200, NUM_GRIDPOINTS)
+  else:  # Food or ex
+    grid_2 = np.linspace(-3, 3, NUM_GRIDPOINTS)
+
+  # Evaluate each policy on grid
+  policy_1_on_grid = np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS))
+  policy_2_on_grid = np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS))
+  for i, s_i in enumerate(grid_1):
+    for j, s_j in enumerate(grid_2):
+      s_ij = copy.copy(fixed_covariates)
+      s_ij[coordinate_to_vary_1] = s_i
+      s_ij[coordinate_to_vary_2] = s_j
+      policy_1_ij = policy_1(s_ij, x_)
+      policy_2_ij = policy_2(s_ij, x_)
+      policy_1_on_grid[i, j] = policy_1_ij
+      policy_2_on_grid[i, j] = policy_2_ij
+
+  # Visualize policies
+  f, axarr = plt.subplot(2)
+  axarr[0].imshow(policy_1_on_grid)
+  axarr[1].imshow(policy_2_on_grid)
+  plt.show()
+
+  return
+
+
+
