@@ -20,7 +20,7 @@ def glucose_feature_function(s, a, x):
   return x_new
 
 
-def simulate_from_transition_model(X_obs, S_obs, transition_model, time_horizon, number_of_actions,
+def simulate_from_transition_model(X_obs, transition_model, time_horizon, number_of_actions,
                                    rollout_policy, feature_function, mc_rollouts=100,
                                    reference_distribution_for_truncation=None):
   """
@@ -58,7 +58,7 @@ def simulate_from_transition_model(X_obs, S_obs, transition_model, time_horizon,
   X = []
   R = []
 
-  for s_obs, x_obs in zip(S_obs, X_obs):
+  for x_obs in X_obs:
     for rep in range(NUMBER_OF_REPS_PER_X):
       s, r = sample_from_transition_model(x_obs)
       S.append(s)

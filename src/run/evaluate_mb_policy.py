@@ -160,7 +160,6 @@ def fit_and_compare_mb_and_mf_policies(test=False):
     env.step(np.random.binomial(1, 0.3, n_patients))
   # ToDo: implement function to encapsulate fitting mb policy
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  S = np.vstack([env.S[j][:-1] for j in range(env.nPatients)])
   y = Sp1[:, 0]
   estimator = GlucoseTransitionModel(test=test)
   estimator.fit(X, y)
@@ -169,12 +168,10 @@ def fit_and_compare_mb_and_mf_policies(test=False):
   def rollout_policy(s_, x_):
     return np.random.binomial(1, 0.3)
 
-  initial_x = X[-1, :]
-  initial_state = S[0][-1, :]
   transition_model = estimator.draw_from_ppd
   feature_function = opt.glucose_feature_function
   reference_distribution_for_truncation = None
-  policy_mb = opt.solve_for_pi_opt(S, X, transition_model, T, 2, rollout_policy, feature_function,
+  policy_mb = opt.solve_for_pi_opt(X, transition_model, T, 2, rollout_policy, feature_function,
                                    number_of_dp_iterations=1,
                                    reference_distribution_for_truncation=reference_distribution_for_truncation)
 
