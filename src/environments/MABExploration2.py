@@ -56,7 +56,7 @@ def mab_epsilon_greedy_policy2(estimated_means, standard_errors, number_of_pulls
 
 
 def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_horizon, tuning_function, env, 
-                                       info, **kwargs):
+                                       info, quantile, **kwargs):
   """
   Evaluate MAB exploration policy on already-generated data.
   :param kwargs: contain key pre_simlated_data, which is mc_rep-length list of dictionaries, which contain lists of
@@ -69,9 +69,13 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
   :return:
   """
 
+  #percentile desired; use median here
+  quant = 50
+
   pre_simulated_data = kwargs['pre_simulated_data']
   mean_cumulative_regret = 0.0
   optimal_reward = np.max(env.list_of_reward_mus)
+  regrets = []
   for rep, rep_dict in enumerate(pre_simulated_data):
     initial_model = rep_dict['initial_model']
     estimated_means = initial_model['sample_mean_list']
@@ -105,13 +109,17 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
       sample_mean_at_action = (reward - estimated_means[action]) / number_of_pulls[action]
       estimated_means[action] = sample_mean_at_action
       standard_errors[action] = np.sqrt(np.mean((rewards_at_each_arm[action] - sample_mean_at_action)**2))
-
-    mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
+    if quantile:
+      regrets.append(regret_for_rep)
+    else:
+      mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
+  if quantile:
+    mean_cumulative_regret = np.percentile(regrets,quant)
   return mean_cumulative_regret
 
 
 def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
-             rollout_function_kwargs, bounds, explore_, info, positive_zeta=False):
+             rollout_function_kwargs, bounds, explore_, info, quantile, positive_zeta=False):
 
   # Assuming 10 params!
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
@@ -119,14 +127,14 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   if info:
     def objective(zeta0, zeta1, zeta2, zeta3, zeta4):
       zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4])
-      return rollout_function(zeta, policy, time_horizon, tuning_function, env, info, **rollout_function_kwargs)
+      return rollout_function(zeta, policy, time_horizon, tuning_function, env, info, quantile, **rollout_function_kwargs)
 #    def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
 #      zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
 #      return rollout_function(zeta, policy, time_horizon, tuning_function, env, info, **rollout_function_kwargs)
   else:
     def objective(zeta0, zeta1, zeta2):
       zeta = np.array([zeta0, zeta1, zeta2])
-      return rollout_function(zeta, policy, time_horizon, tuning_function, env, info, **rollout_function_kwargs)
+      return rollout_function(zeta, policy, time_horizon, tuning_function, env, info, quantile, **rollout_function_kwargs)
   
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
@@ -139,7 +147,7 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
 
 
 # Modify this and bayesopt_under_true_model to work for MABs
-def bayesopt_under_true_model(seed, info, mc_reps=1000, T=50):
+def bayesopt_under_true_model(seed, info, quantile, mc_reps=1000, T=50):
   np.random.seed(seed)
   env = Bandit.NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[0.1**2, 0.1**2])
   pre_simulated_data = env.generate_mc_samples(mc_reps, T)
@@ -154,14 +162,14 @@ def bayesopt_under_true_model(seed, info, mc_reps=1000, T=50):
     tuning_function = tuned_bandit.information_expit_epsilon_decay
     def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8):
       zeta = np.array([zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8])
-      return rollout_function(zeta, policy, T, tuning_function, env, info, **rollout_function_kwargs)
+      return rollout_function(zeta, policy, T, tuning_function, env, info, quantile, **rollout_function_kwargs)
   else:
     bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
     tuning_function = tuned_bandit.expit_epsilon_decay
     def objective(zeta0, zeta1, zeta2):
       zeta = np.array([zeta0, zeta1, zeta2])
-      return rollout_function(zeta, policy, T, tuning_function, env, info, **rollout_function_kwargs)
+      return rollout_function(zeta, policy, T, tuning_function, env, info, quantile, **rollout_function_kwargs)
   
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
@@ -173,7 +181,7 @@ def bayesopt_under_true_model(seed, info, mc_reps=1000, T=50):
   return best_param
 
 
-def episode(policy_name, label, info, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False):
+def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False):
   np.random.seed(label)
   
   positive_zeta = False
@@ -269,7 +277,7 @@ def episode(policy_name, label, info, std=0.1, T=50, monte_carlo_reps=1000, post
       tuning_function_parameter = bayesopt(mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env, monte_carlo_reps,
                                                {'pre_simulated_data': pre_simulated_data},
-                                               bounds, explore_, info, positive_zeta=positive_zeta)
+                                               bounds, explore_, info, quantile, positive_zeta=positive_zeta)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
 #    print('standard errors {}'.format(env.standard_errors))
@@ -292,7 +300,7 @@ def episode(policy_name, label, info, std=0.1, T=50, monte_carlo_reps=1000, post
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
     
-def run(policy_name, info, save=True, mc_replicates=1000, T=50):
+def run(policy_name, info, quantile=False, save=True, mc_replicates=1000, T=50):
   """
 
   :return:
@@ -305,7 +313,7 @@ def run(policy_name, info, save=True, mc_replicates=1000, T=50):
   results = []
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name, monte_carlo_reps=mc_replicates, T=T, info=info)
+  episode_partial = partial(episode, policy_name, monte_carlo_reps=mc_replicates, T=T, info=info, quantile=quantile)
 
   results = pool.map(episode_partial, range(replicates))
   #results = episode_partial(1)
