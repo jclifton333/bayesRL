@@ -147,13 +147,22 @@ def trajectory_ppc(replicate):
 
 
 def fit_and_compare_mb_and_mf_policies(test=False):
-  # Fit mb policy
-  estimator = rollout_and_fit_density(method='np', test=test)
+  np.random.seed(0)
 
+  # Roll out to get data
+  n_patients = 20
+  T = 20
+  env = Glucose(n_patients)
+  env.reset()
+  env.step(np.random.binomial(1, 0.3, n_patients))
+
+  for t in range(T):
+    env.step(np.random.binomial(1, 0.3, n_patients))
   # ToDo: implement function to encapsulate fitting mb policy
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  S = env.S
+  S = np.vstack([env.S[j][:-1] for j in range(env.nPatients)])
   y = Sp1[:, 0]
+  estimator = GlucoseTransitionModel(test=test)
   estimator.fit(X, y)
 
   # Get optimal policy under model
@@ -164,11 +173,8 @@ def fit_and_compare_mb_and_mf_policies(test=False):
   initial_state = S[0][-1, :]
   transition_model = estimator.draw_from_ppd
   feature_function = opt.glucose_feature_function
-  if truncate:
-    reference_distribution_for_truncation = Sp1
-  else:
-    reference_distribution_for_truncation = None
-  policy_mb = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function,
+  reference_distribution_for_truncation = None
+  policy_mb = opt.solve_for_pi_opt(S, X, transition_model, T, 2, rollout_policy, feature_function,
                                    number_of_dp_iterations=1,
                                    reference_distribution_for_truncation=reference_distribution_for_truncation)
 
@@ -314,10 +320,4 @@ def run():
 
 
 if __name__ == "__main__":
-  # run()
-  # evaluate_glucose_mb_policy(0, 'p', test=True)
-  # alpha_means = [0.0, 0.5, 1.0, 5.0]
-  # for alpha_mean in alpha_means:
-  #   plot_conditional_density_estimates(alpha_mean=alpha_mean, test=False)
-  # plot_conditional_density_estimates()
-  estimator = rollout_and_fit_density(method='p')
+  fit_and_compare_mb_and_mf_policies(test=False)

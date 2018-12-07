@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 import logging
+from matplotlib import colors
 from sklearn.ensemble import RandomForestRegressor
 import matplotlib.pyplot as plt
 import pdb
@@ -19,13 +20,17 @@ def glucose_feature_function(s, a, x):
   return x_new
 
 
-def simulate_from_transition_model(initial_state, initial_x, transition_model, time_horizon, number_of_actions,
+def simulate_from_transition_model(X_obs, S_obs, transition_model, time_horizon, number_of_actions,
                                    rollout_policy, feature_function, mc_rollouts=100,
                                    reference_distribution_for_truncation=None):
   """
+  ToDo: Simulate from each x in observed X instead of rolling out
+
   :param reference_distribution_for_truncation: if array of feature vectors provided, then reject samples that
   are outside bounds of those vectors.
   """
+  NUMBER_OF_REPS_PER_X = 100
+
   if reference_distribution_for_truncation is not None:
     max_ = np.max(reference_distribution_for_truncation, axis=0)
     min_ = np.min(reference_distribution_for_truncation, axis=0)
@@ -49,34 +54,20 @@ def simulate_from_transition_model(initial_state, initial_x, transition_model, t
       return s, r
 
   # Generate data for fqi
-  x_dim = len(initial_x)
-  s_dim = len(initial_state)
-  # X = np.zeros((0, x_dim))
-  # S = np.zeros((0, s_dim))
   S = []
   X = []
   R = []
-  for rollout in range(mc_rollouts):
-    print(rollout)
-    s = initial_state
-    x = initial_x
-    S_rep = np.zeros((0, s_dim))
-    X_rep = np.zeros((0, x_dim))
-    R_rep = np.zeros(0)
-    for t in range(time_horizon):
-      a = rollout_policy(s, x)
-      x = feature_function(s, a, x)
-      X_rep = np.vstack((X_rep, x))
-      S_rep = np.vstack((S_rep, s))
-      s, r = sample_from_transition_model(x)
-      R_rep = np.append(R_rep, r)
-    S.append(S_rep)
-    X.append(X_rep)
-    R.append(R_rep)
+
+  for s_obs, x_obs in zip(S_obs, X_obs):
+    for rep in range(NUMBER_OF_REPS_PER_X):
+      s, r = sample_from_transition_model(x_obs)
+      S.append(s)
+      R.append(r)
+      X.append(x_obs)
   return X, S, R
 
 
-def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, number_of_actions, rollout_policy,
+def solve_for_pi_opt(S_obs, X_obs, transition_model, time_horizon, number_of_actions, rollout_policy,
                      feature_function, mc_rollouts=100, number_of_dp_iterations=0,
                      reference_distribution_for_truncation=None):
   """
@@ -92,13 +83,10 @@ def solve_for_pi_opt(initial_state, initial_x, transition_model, time_horizon, n
   :return:
   """
   # Generate data for fqi
-  X, S, R = simulate_from_transition_model(initial_state, initial_x, transition_model, time_horizon, number_of_actions,
+  X, S, R = simulate_from_transition_model(X_obs, S_obs, transition_model, time_horizon, number_of_actions,
                                            rollout_policy, feature_function, mc_rollouts=mc_rollouts,
                                            reference_distribution_for_truncation=reference_distribution_for_truncation)
   # Do FQI
-  X = np.vstack([X_[:-1, :] for X_ in X])
-  S = np.vstack([S_[1:, :] for S_ in S])
-  R = np.hstack([R_[1:] for R_ in R])
   reg = RandomForestRegressor()
   reg.fit(X, R)
   q_ = lambda x_: reg.predict(x_.reshape(1, -1))
@@ -153,9 +141,15 @@ def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_
       policy_2_on_grid[i, j] = policy_2_ij
 
   # Visualize policies
-  f, axarr = plt.subplot(2)
-  axarr[0].imshow(policy_1_on_grid)
-  axarr[1].imshow(policy_2_on_grid)
+  cmap = colors.ListedColormap(['white', 'red'])
+  bounds = [0, 0.5, 1]
+  norm = colors.BoundaryNorm(bounds, cmap.N)
+  f, axarr = plt.subplots(2)
+  img = axarr[0].imshow(policy_1_on_grid, cmap=cmap, norm=norm,
+                        extent=[np.min(grid_1), np.max(grid_1), np.max(grid_2), np.min(grid_2)])
+  axarr[1].imshow(policy_2_on_grid, cmap=cmap, norm=norm,
+                  extent=[np.min(grid_1), np.max(grid_1), np.max(grid_2), np.min(grid_2)])
+  plt.colorbar(img, cmap=cmap, norm=norm, boundaries=bounds)
   plt.show()
 
   return
