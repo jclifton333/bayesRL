@@ -1,9 +1,12 @@
 import numpy as np
 import copy
 import logging
-from matplotlib import colors
 from sklearn.ensemble import RandomForestRegressor
-import matplotlib.pyplot as plt
+try:
+  from matplotlib import colors
+  import matplotlib.pyplot as plt
+except:
+  pass
 import pdb
 
 

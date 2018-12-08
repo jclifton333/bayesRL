@@ -299,7 +299,7 @@ def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, al
 
     def true_transition_model(x):
       f, e = env.generate_food_and_activity()
-      g = np.dot(x, env.COEF) + np.random.normal(0, env.SIGMA_GLUCOSE)
+      g = np.dot(x, env.COEF) + np.random.normal(0, env.SIGMA_NOISE)
       return np.array([g, f, e]), glucose_reward_function(g)
 
     pi = opt.solve_for_pi_opt(X, true_transition_model, T, 2, rollout_policy, feature_function,
