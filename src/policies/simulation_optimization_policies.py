@@ -57,18 +57,18 @@ def simulate_from_transition_model(X_obs, transition_model, time_horizon, number
       return s, r
 
   # Generate data for fqi
-  S = []
-  X = []
-  R = []
+  S = np.zeros((0, 3)) 
+  X = np.zeros((0, X.shape[0]))
+  R = np.zeros(0)
 
   print('number of obss: {}'.format(X_obs.shape[0]))
   for x_obs in X_obs:
     for rep in range(NUMBER_OF_REPS_PER_X):
       print(rep)
       s, r = sample_from_transition_model(x_obs)
-      S.append(s)
-      R.append(r)
-      X.append(x_obs)
+      S = np.vstack((S, s))
+      R = np.append(R, r)
+      X = np.vstack((X, x))
   return X, S, R
 
 
@@ -103,7 +103,6 @@ def solve_for_pi_opt(X_obs, transition_model, time_horizon, number_of_actions, r
 
   def pi_opt(s_, x_):
     return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(number_of_actions)])
-
   return pi_opt
 
 

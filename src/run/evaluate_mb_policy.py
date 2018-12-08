@@ -45,6 +45,7 @@ def evaluate_policy(time_horizon, policy, initial_state_and_x=None):
       a = policy(s, x)
       actions.append(a)
     env_.step(actions)
+  pdb.set_trace()
   return np.mean(env_.R)
 
 
@@ -293,6 +294,7 @@ def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, al
   elif method == 'true_model':
     # Get policy under true model
     feature_function = opt.glucose_feature_function
+    X, Sp1 = env.get_state_transitions_as_x_y_pair()
 
     def rollout_policy(s_, x_):
       return np.random.binomial(1, 0.3)
@@ -341,4 +343,5 @@ def run():
 
 
 if __name__ == "__main__":
-  fit_and_compare_mb_and_mf_policies(test=False)
+  # fit_and_compare_mb_and_mf_policies(test=False)
+  evaluate_glucose_mb_policy(0, method='true_model')
