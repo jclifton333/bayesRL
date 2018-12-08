@@ -102,15 +102,14 @@ def solve_for_pi_opt(S_obs, X_obs, transition_model, time_horizon, number_of_act
   return pi_opt
 
 
-def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_to_vary_2, policy_1, policy_2):
+def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_to_vary_2, policy_list):
   """
   Visualize glucose policies on a grid of two covariates (keeping the others in fixed_covariates fixed.)
 
   :param fixed_covariates:
   :param coordinate_to_vary_1: index of first covariate to vary
   :param coordinate_to_vary_2: index of second covariate to vary
-  :param policy_1:
-  :param policy_2:
+  :param policy_list: list of tuples (policy name (str), policy (function))
   :return:
   """
   NUM_GRIDPOINTS = 50
@@ -128,23 +127,22 @@ def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_
     grid_2 = np.linspace(-3, 3, NUM_GRIDPOINTS)
 
   # Evaluate each policy on grid
-  policy_1_on_grid = np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS))
-  policy_2_on_grid = np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS))
+  policies_on_grid = [np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS)) for _ in range(len(policy_list))]
   for i, s_i in enumerate(grid_1):
     for j, s_j in enumerate(grid_2):
       s_ij = copy.copy(fixed_covariates)
       s_ij[coordinate_to_vary_1] = s_i
       s_ij[coordinate_to_vary_2] = s_j
-      policy_1_ij = policy_1(s_ij, x_)
-      policy_2_ij = policy_2(s_ij, x_)
-      policy_1_on_grid[i, j] = policy_1_ij
-      policy_2_on_grid[i, j] = policy_2_ij
+      for policy, policy_on_grid in zip(policy_list, policies_on_grid):
+        policy_on_grid[i, j] = policy[1](s_ij, x_)
 
   # Visualize policies
   cmap = colors.ListedColormap(['white', 'red'])
   bounds = [0, 0.5, 1]
   norm = colors.BoundaryNorm(bounds, cmap.N)
-  f, axarr = plt.subplots(2)
+  f, axarr = plt.subplots(len(policies_on_grid))
+  for ix in range(len(policies_on_grid)):
+    
   img = axarr[0].imshow(policy_1_on_grid, cmap=cmap, norm=norm,
                         extent=[np.min(grid_1), np.max(grid_1), np.max(grid_2), np.min(grid_2)])
   axarr[1].imshow(policy_2_on_grid, cmap=cmap, norm=norm,

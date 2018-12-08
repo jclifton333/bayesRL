@@ -194,8 +194,20 @@ def fit_and_compare_mb_and_mf_policies(test=False):
   def policy_mf(s_, x_):
     return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
+  # Get policy under true model
+  env = Glucose()
+
+  def true_transition_model(x):
+    f, e = env.generate_food_and_activity()
+    g = np.dot(env.COEF, x) + np.random.normal(0, env.SIGMA_GLUCOSE)
+    return np.array([g, f, e])
+  policy_true = opt.solve_for_pi_opt(X, true_transition_model, T, 2, rollout_policy, feature_function,
+                                     number_of_dp_iterations=1,
+                                     reference_distribution_for_truncation=reference_distribution_for_truncation)
+  policy_list = [('policy_true', policy_true), ('policy_mb', policy_mb), ('policy_mf', policy_mf)]
+
   # Compare
-  opt.compare_glucose_policies(np.array([80, 0, 0]), 0, 1, policy_mf, policy_mb)
+  opt.compare_glucose_policies(np.array([80, 0, 0]), 0, 1, policy_list)
   return
 
 
