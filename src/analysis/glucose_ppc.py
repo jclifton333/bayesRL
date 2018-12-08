@@ -8,6 +8,7 @@ sys.path.append(project_dir)
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
+from src.run.evaluate_mb_policy import rollout_and_fit_unconditional_density
 
 
 def ppc_for_one_step_q_functions():
@@ -39,9 +40,17 @@ def ppc_for_one_step_q_functions():
   return
 
 
-if __name__ == "__main__":
-  ppc_for_one_step_q_functions()
+def ppc_for_unconditional_density_estimates():
+  """
+  Compare posterior predictive densities with true densities.
+  :return:
+  """
+  estimator = rollout_and_fit_unconditional_density()
+  estimator.plot_unconditional_density_estimates()
 
+
+if __name__ == "__main__":
+  ppc_for_unconditional_density_estimates()
 
 
 

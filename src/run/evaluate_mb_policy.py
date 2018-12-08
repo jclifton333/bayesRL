@@ -75,6 +75,25 @@ def unconditional_density_ppc():
   return
 
 
+def rollout_and_fit_unconditional_density(test=False):
+  # Roll out to get data
+  n_patients = 20
+  T = 20
+  env = Glucose(n_patients)
+  env.reset()
+  env.step(np.random.binomial(1, 0.3, n_patients))
+
+  for t in range(T):
+    env.step(np.random.binomial(1, 0.3, n_patients))
+
+  # Fit model on data
+  estimator = GlucoseTransitionModel(test=test)
+  X, _ = env.get_state_transitions_as_x_y_pair()
+  estimator.fit_unconditional_densities(X)
+  pdb.set_trace()
+  return estimator
+
+
 def rollout_and_fit_density(method='np', alpha_mean=0.0, test=False):
   # Roll out to get data
   n_patients = 20
@@ -343,5 +362,6 @@ def run():
 
 
 if __name__ == "__main__":
+  rollout_and_fit_unconditional_density()
   # fit_and_compare_mb_and_mf_policies(test=False)
-  evaluate_glucose_mb_policy(0, method='true_model')
+  # evaluate_glucose_mb_policy(0, method='true_model')

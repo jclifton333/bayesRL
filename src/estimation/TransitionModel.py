@@ -65,9 +65,7 @@ class GlucoseTransitionModel(object):
     self.activity_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
 
     # Food and activity are modeled with np density estimation in all cases
-    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2], test=self.test)
-    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3],
-                                                                                                    test=self.test)
+    self.fit_unconditional_densities(X)
 
     if self.method == 'np':
       self.fit_np_conditional_density(X, y)
@@ -84,7 +82,6 @@ class GlucoseTransitionModel(object):
       self.compare = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')
       self.model, self.trace = model_, trace_
 
-
     # self.compare = compare_
 
   def fit_p_conditional_density(self, X, y):
@@ -100,6 +97,11 @@ class GlucoseTransitionModel(object):
     model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean,
                                                      test=self.test)
     self.model, self.trace = model_, trace_
+
+  def fit_unconditional_densities(self, X):
+    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2], test=self.test)
+    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3],
+                                                                                                    test=self.test)
 
   def draw_from_ppd(self, x):
     """
@@ -233,37 +235,7 @@ class GlucoseTransitionModel(object):
     plt.close()
     # plt.show()
 
-  def plot_density_estimates(self):
-    """
-    Plot some info associated with the posterior.
-    :return:
-    """
-    # Posterior of food, activity densities; following https://docs.pymc.io/notebooks/dp_mix.html
-    # Food
-    # f, axarr = plt.subplots(2)
-
-    # x_plot_food = np.linspace(np.min(self.X_[:, 3]), np.max(self.X_[:, 2]), 200)
-    # post_food_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_food),
-    #                                   self.food_trace['mu'][:, np.newaxis, :],
-    #                                   1.0 / np.sqrt(self.food_trace['lambda'] * self.food_trace['tau'])[:, np.newaxis, :])
-    # post_food_pdfs = (self.food_trace['w'][:, np.newaxis, :] * post_food_pdf_contribs).sum(axis=-1)
-    # axarr[0].hist(self.food_nonzero, normed=True, alpha=0.5)
-    # axarr[0].plot(x_plot_food, post_food_pdfs.T, c='gray', label='Posterior sample densities')
-    # axarr[0].plot(x_plot_food, post_food_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
-    # # axarr[0].title('Posterior density estimates for food')
-
-    # # Activity
-    # x_plot_activity = np.linspace(np.min(self.X_[:, 3]), np.max(self.X_[:, 2]), 200)
-    # post_activity_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_activity),
-    #                                   self.activity_trace['mu'][:, np.newaxis, :],
-    #                                   1.0 / np.sqrt(self.activity_trace['lambda'] * self.activity_trace['tau'])[:, np.newaxis, :])
-    # post_activity_pdfs = (self.activity_trace['w'][:, np.newaxis, :] * post_activity_pdf_contribs).sum(axis=-1)
-    # axarr[1].hist(self.activity_nonzero, normed=True, alpha=0.5)
-    # axarr[1].plot(x_plot_activity, post_activity_pdfs.T, c='gray', label='Posterior sample densities')
-    # axarr[1].plot(x_plot_activity, post_activity_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
-    # axarr[1].title('Posterior density estimates for activity')
-    # plt.show()
-
+  def plot_conditional_density_estimates(self):
     # Posterior of hyper- and hypo-glycemic densities with and without treatment
     #  ToDo: Display true distributions, too
     # ToDo: Assuming method=np!
@@ -313,6 +285,39 @@ class GlucoseTransitionModel(object):
     plt.savefig(plt_name)
     plt.close()
     # plt.show()
+
+  def plot_unconditional_density_estimates(self):
+    """
+    Plot some info associated with the posterior.
+    :return:
+    """
+    # Posterior of food, activity densities; following https://docs.pymc.io/notebooks/dp_mix.html
+    Food
+    f, axarr = plt.subplots(2)
+
+    x_plot_food = np.linspace(np.min(self.X_[:, 3]), np.max(self.X_[:, 2]), 200)
+    post_food_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_food),
+                                      self.food_trace['mu'][:, np.newaxis, :],
+                                      1.0 / np.sqrt(self.food_trace['lambda'] * self.food_trace['tau'])[:, np.newaxis, :])
+    post_food_pdfs = (self.food_trace['w'][:, np.newaxis, :] * post_food_pdf_contribs).sum(axis=-1)
+    axarr[0].hist(self.food_nonzero, normed=True, alpha=0.5)
+    axarr[0].plot(x_plot_food, post_food_pdfs.T, c='gray', label='Posterior sample densities')
+    axarr[0].plot(x_plot_food, post_food_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
+    axarr[0].set_title('Posterior density estimates for food')
+
+    # Activity
+    x_plot_activity = np.linspace(np.min(self.X_[:, 3]), np.max(self.X_[:, 2]), 200)
+    post_activity_pdf_contribs = norm.pdf(np.atleast_3d(x_plot_activity),
+                                      self.activity_trace['mu'][:, np.newaxis, :],
+                                      1.0 / np.sqrt(self.activity_trace['lambda'] * self.activity_trace['tau'])[:, np.newaxis, :])
+    post_activity_pdfs = (self.activity_trace['w'][:, np.newaxis, :] * post_activity_pdf_contribs).sum(axis=-1)
+    axarr[1].hist(self.activity_nonzero, normed=True, alpha=0.5)
+    axarr[1].plot(x_plot_activity, post_activity_pdfs.T, c='gray', label='Posterior sample densities')
+    axarr[1].plot(x_plot_activity, post_activity_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
+    axarr[1].set_title('Posterior density estimates for activity')
+    plt.show()
+
+
 
   def true_glucose_pdf_at_x(self, x, x_grid):
     mu = np.dot(x, self.COEF)
