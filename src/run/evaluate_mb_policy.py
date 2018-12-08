@@ -161,24 +161,23 @@ def fit_and_compare_mb_and_mf_policies(test=False):
   # ToDo: implement function to encapsulate fitting mb policy
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   y = Sp1[:, 0]
-  estimator = GlucoseTransitionModel(test=test)
-  estimator.fit(X, y)
 
-  # Get optimal policy under model
+  # Get policy under true model
+  env = Glucose()
+  feature_function = opt.glucose_feature_function
+
   def rollout_policy(s_, x_):
     return np.random.binomial(1, 0.3)
 
-  transition_model = estimator.draw_from_ppd
-  feature_function = opt.glucose_feature_function
-  reference_distribution_for_truncation = None
-  policy_mb = opt.solve_for_pi_opt(X, transition_model, T, 2, rollout_policy, feature_function,
-                                   number_of_dp_iterations=1,
-                                   reference_distribution_for_truncation=reference_distribution_for_truncation)
+  def true_transition_model(x):
+    f, e = env.generate_food_and_activity()
+    g = np.dot(x, env.COEF) + np.random.normal(0, env.SIGMA_GLUCOSE)
+    return np.array([g, f, e]), glucose_reward_function(g)
 
+  policy_true = opt.solve_for_pi_opt(X, true_transition_model, T, 2, rollout_policy, feature_function,
+                                     number_of_dp_iterations=1)
   # Fit mf policy
   reg = RandomForestRegressor()
-  X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  y = Sp1[:, 0]
   R = np.array([glucose_reward_function(g) for g in y])
 
   # Step one
@@ -194,20 +193,19 @@ def fit_and_compare_mb_and_mf_policies(test=False):
   def policy_mf(s_, x_):
     return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
-  # Get policy under true model
-  env = Glucose()
+  # Get optimal policy under model
+  estimator = GlucoseTransitionModel(test=test)
+  estimator.fit(X, y)
 
-  def true_transition_model(x):
-    f, e = env.generate_food_and_activity()
-    g = np.dot(env.COEF, x) + np.random.normal(0, env.SIGMA_GLUCOSE)
-    return np.array([g, f, e])
-  policy_true = opt.solve_for_pi_opt(X, true_transition_model, T, 2, rollout_policy, feature_function,
-                                     number_of_dp_iterations=1,
-                                     reference_distribution_for_truncation=reference_distribution_for_truncation)
+  transition_model = estimator.draw_from_ppd
+
+  policy_mb = opt.solve_for_pi_opt(X, transition_model, T, 2, rollout_policy, feature_function,
+                                   number_of_dp_iterations=1)
   policy_list = [('policy_true', policy_true), ('policy_mb', policy_mb), ('policy_mf', policy_mf)]
 
   # Compare
   opt.compare_glucose_policies(np.array([80, 0, 0]), 0, 1, policy_list)
+
   return
 
 
@@ -292,6 +290,20 @@ def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, al
     def pi(s_, x_):
       return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
+  elif method == 'true_model':
+    # Get policy under true model
+    feature_function = opt.glucose_feature_function
+
+    def rollout_policy(s_, x_):
+      return np.random.binomial(1, 0.3)
+
+    def true_transition_model(x):
+      f, e = env.generate_food_and_activity()
+      g = np.dot(x, env.COEF) + np.random.normal(0, env.SIGMA_GLUCOSE)
+      return np.array([g, f, e]), glucose_reward_function(g)
+
+    pi = opt.solve_for_pi_opt(X, true_transition_model, T, 2, rollout_policy, feature_function,
+                              number_of_dp_iterations=1)
   # v_mb_, v_mf_ = estimator.one_step_value_function_ppc(X, S, R)
   # Evaluate policy
   # v = None

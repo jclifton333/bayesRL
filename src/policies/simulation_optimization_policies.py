@@ -29,7 +29,7 @@ def simulate_from_transition_model(X_obs, transition_model, time_horizon, number
   :param reference_distribution_for_truncation: if array of feature vectors provided, then reject samples that
   are outside bounds of those vectors.
   """
-  NUMBER_OF_REPS_PER_X = 100
+  NUMBER_OF_REPS_PER_X = 20
 
   if reference_distribution_for_truncation is not None:
     max_ = np.max(reference_distribution_for_truncation, axis=0)
@@ -58,8 +58,10 @@ def simulate_from_transition_model(X_obs, transition_model, time_horizon, number
   X = []
   R = []
 
+  print('number of obss: {}'.format(X_obs.shape[0]))
   for x_obs in X_obs:
     for rep in range(NUMBER_OF_REPS_PER_X):
+      print(rep)
       s, r = sample_from_transition_model(x_obs)
       S.append(s)
       R.append(r)
@@ -67,7 +69,7 @@ def simulate_from_transition_model(X_obs, transition_model, time_horizon, number
   return X, S, R
 
 
-def solve_for_pi_opt(S_obs, X_obs, transition_model, time_horizon, number_of_actions, rollout_policy,
+def solve_for_pi_opt(X_obs, transition_model, time_horizon, number_of_actions, rollout_policy,
                      feature_function, mc_rollouts=100, number_of_dp_iterations=0,
                      reference_distribution_for_truncation=None):
   """
@@ -83,7 +85,7 @@ def solve_for_pi_opt(S_obs, X_obs, transition_model, time_horizon, number_of_act
   :return:
   """
   # Generate data for fqi
-  X, S, R = simulate_from_transition_model(X_obs, S_obs, transition_model, time_horizon, number_of_actions,
+  X, S, R = simulate_from_transition_model(X_obs, transition_model, time_horizon, number_of_actions,
                                            rollout_policy, feature_function, mc_rollouts=mc_rollouts,
                                            reference_distribution_for_truncation=reference_distribution_for_truncation)
   # Do FQI
@@ -142,12 +144,9 @@ def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_
   norm = colors.BoundaryNorm(bounds, cmap.N)
   f, axarr = plt.subplots(len(policies_on_grid))
   for ix in range(len(policies_on_grid)):
-    
-  img = axarr[0].imshow(policy_1_on_grid, cmap=cmap, norm=norm,
-                        extent=[np.min(grid_1), np.max(grid_1), np.max(grid_2), np.min(grid_2)])
-  axarr[1].imshow(policy_2_on_grid, cmap=cmap, norm=norm,
-                  extent=[np.min(grid_1), np.max(grid_1), np.max(grid_2), np.min(grid_2)])
-  plt.colorbar(img, cmap=cmap, norm=norm, boundaries=bounds)
+    axarr[ix].imshow(policies_on_grid[ix], cmap=cmap, norm=norm,
+                     extent=[np.min(grid_1), np.max(grid_1), np.max(grid_2), np.min(grid_2)])
+    axarr[ix].set_title(policy_list[ix][0])
   plt.show()
 
   return
