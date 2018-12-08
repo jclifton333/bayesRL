@@ -59,10 +59,9 @@ class GlucoseTransitionModel(object):
     self.y_ = None
 
   def fit(self, X, y):
-    self.X_ = X
-    self.y_ = y
-    self.food_nonzero = X[:, 2][np.where(X[:, 2] != 0.0)]
-    self.activity_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
+    # self.X_ = X
+    # self.y_ = y
+
 
     # Food and activity are modeled with np density estimation in all cases
     self.fit_unconditional_densities(X)
@@ -99,6 +98,9 @@ class GlucoseTransitionModel(object):
     self.model, self.trace = model_, trace_
 
   def fit_unconditional_densities(self, X):
+    self.food_nonzero = X[:, 2][np.where(X[:, 2] != 0.0)]
+    self.activity_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
+    self.X_ = X
     self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2], test=self.test)
     self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3],
                                                                                                     test=self.test)
@@ -292,7 +294,6 @@ class GlucoseTransitionModel(object):
     :return:
     """
     # Posterior of food, activity densities; following https://docs.pymc.io/notebooks/dp_mix.html
-    Food
     f, axarr = plt.subplots(2)
 
     x_plot_food = np.linspace(np.min(self.X_[:, 3]), np.max(self.X_[:, 2]), 200)

@@ -40,17 +40,17 @@ def ppc_for_one_step_q_functions():
   return
 
 
-def ppc_for_unconditional_density_estimates():
+def ppc_for_unconditional_density_estimates(test=False):
   """
   Compare posterior predictive densities with true densities.
   :return:
   """
-  estimator = rollout_and_fit_unconditional_density()
+  estimator = rollout_and_fit_unconditional_density(test=test)
   estimator.plot_unconditional_density_estimates()
 
 
 if __name__ == "__main__":
-  ppc_for_unconditional_density_estimates()
+  ppc_for_unconditional_density_estimates(test=False)
 
 
 

@@ -45,34 +45,7 @@ def evaluate_policy(time_horizon, policy, initial_state_and_x=None):
       a = policy(s, x)
       actions.append(a)
     env_.step(actions)
-  pdb.set_trace()
   return np.mean(env_.R)
-
-
-def unconditional_density_ppc():
-  """
-  Plot observed histograms for food and activity against density estimates.
-
-  :return:
-  """
-  # Roll out to get data
-  n_patients = 20
-  T = 20
-  env = Glucose(n_patients)
-  env.reset()
-  env.step(np.random.binomial(1, 0.3, n_patients))
-
-  for t in range(T):
-    env.step(np.random.binomial(1, 0.3, n_patients))
-
-  # Fit model on data
-  estimator = GlucoseTransitionModel(method='np')
-  X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  y = Sp1[:, 0]
-  estimator.fit(X, y)
-  estimator.plot()
-
-  return
 
 
 def rollout_and_fit_unconditional_density(test=False):
@@ -90,7 +63,6 @@ def rollout_and_fit_unconditional_density(test=False):
   estimator = GlucoseTransitionModel(test=test)
   X, _ = env.get_state_transitions_as_x_y_pair()
   estimator.fit_unconditional_densities(X)
-  pdb.set_trace()
   return estimator
 
 
