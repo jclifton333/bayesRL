@@ -69,8 +69,8 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
   :return:
   """
 
-  #percentile desired; use median here
-  quant = 50
+  #percentile desired
+  quant = 75
 
   pre_simulated_data = kwargs['pre_simulated_data']
   mean_cumulative_regret = 0.0
@@ -181,7 +181,7 @@ def bayesopt_under_true_model(seed, info, quantile, mc_reps=1000, T=50):
   return best_param
 
 
-def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False, tune_stop):
+def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False):
   np.random.seed(label)
   
   positive_zeta = False
@@ -230,8 +230,14 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
       #tuning_function_parameter = np.array( [1.44604582, -1.04692838,  0.11755395, -2.35340744,  3.17611836, -3.83516477,
 # -3.64502149 , 1.77037848 , 1.02438715])
       if quantile:
+        # quant=75
+        #tuning_function_parameter = np.array( [ 0,0,0,0,0,0,0,0,0])
+        # quant=50
         tuning_function_parameter = np.array( [ 0.57164622,  4.62324166,  2.88626605, -3.49861048, -2.62096877, -1.86222763,
   2.89669445,  0.20207411,  2.21622908])
+        # quant=25
+        #tuning_function_parameter = np.array( [ 1.05237299, -0.25368232,  3.20527386, -4.67019178,  1.7334421,  -1.79493075,
+  #1.66812503, -2.9827348,  4.49922889])
       else:
         tuning_function_parameter = np.array( [0.66225065, -4.8710143,  -0.79380959, -3.31694182, -3.22201959, -3.80354823,
   0.44470104,  2.75075175, -2.97245318])
@@ -240,7 +246,12 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
       # obtained from quantile=false
       #tuning_function_parameter = np.array([0.05, 46.49084647, 2.5] )
       if quantile:
+        # quant=75
+        #tuning_function_parameter = np.array([0.15838401, 40.12500059, 2.21946538] )
+        # quant=50
         tuning_function_parameter = np.array([0.05, 44.06308915, 2.5] )
+        # quant=25
+        #tuning_function_parameter = np.array([0.05, 46.77405996, 2.5] )
       else:
         tuning_function_parameter = np.array([0.05, 47.22640834, 1.36518539] )
 
@@ -262,7 +273,7 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
 
-    if tune and t <= tune_stop:
+    if tune:
       print("########### Time: "+str(t)+"; Replicate: "+str(label)+" ############")
       if posterior_sample:
         reward_means = []
@@ -312,7 +323,7 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
     
-def run(policy_name, info, quantile=False, save=True, mc_replicates=1000, T=50, tune_stop = 1):
+def run(policy_name, info, quantile=False, save=True, mc_replicates=1000, T=50):
   """
 
   :return:
@@ -325,7 +336,7 @@ def run(policy_name, info, quantile=False, save=True, mc_replicates=1000, T=50, 
   results = []
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name, monte_carlo_reps=mc_replicates, T=T, info=info, quantile=quantile,tune_stop = tune_stop)
+  episode_partial = partial(episode, policy_name, monte_carlo_reps=mc_replicates, T=T, info=info, quantile=quantile)
 
   results = pool.map(episode_partial, range(replicates))
   #results = episode_partial(1)
@@ -367,21 +378,22 @@ if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
 #  bayesopt_under_true_model(seed=0, info=False)
-#  bayesopt_under_true_model(seed=0, info=True, quantile=True)
-#  bayesopt_under_true_model(seed=0, info=True, quantile=False)
-#  bayesopt_under_true_model(seed=0, info=False, quantile=True)
-#  bayesopt_under_true_model(seed=0, info=False, quantile=False)
+  bayesopt_under_true_model(seed=0, info=True, quantile=True)
+  #bayesopt_under_true_model(seed=0, info=True, quantile=False)
+  bayesopt_under_true_model(seed=0, info=False, quantile=True)
+  #bayesopt_under_true_model(seed=0, info=False, quantile=False)
 #  episode('eps-decay', 0, info=True, T=50)
 #  episode('eps-fixed-decay', 2, T=50)
 #  episode('eps', 0, info=True, T=50)
 #  run('eps', save=False)
 #  run('greedy', save=False, info=False)
 #  run('eps-decay', save=True, T=50, info=True, quantile=True)
+#  run('eps-decay', save=True, T=50, info=True, quantile=False)
 #  run('eps-decay', save=True, T=50, info=False, quantile=True)
-  run('eps-fixed-decay', save=False, T=50, info=True,quantile=True)
-  run('eps-fixed-decay', save=False, T=50, info=True,quantile=False)
-  run('eps-fixed-decay', save=False, T=50, info=False,quantile=True)
-  run('eps-fixed-decay', save=False, T=50, info=False,quantile=False)
+#  run('eps-fixed-decay', save=False, T=50, info=True,quantile=True)
+#  run('eps-fixed-decay', save=False, T=50, info=True,quantile=False)
+#  run('eps-fixed-decay', save=False, T=50, info=False,quantile=True)
+#  run('eps-fixed-decay', save=False, T=50, info=False,quantile=False)
 #  run('eps-fixed-decay', save=False, T=50, info=False)
   #run('eps', save=False, T=50)
 #  episode('eps', 1, T=50)
