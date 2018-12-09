@@ -23,16 +23,17 @@ def glucose_feature_function(s, a, x):
   return x_new
 
 
-def simulate_from_transition_model(X_obs, transition_model, time_horizon, number_of_actions,
-                                   rollout_policy, feature_function, mc_rollouts=100,
-                                   reference_distribution_for_truncation=None):
+def simulate_from_transition_model(X_obs, transition_model, test=False, reference_distribution_for_truncation=None):
   """
   ToDo: Simulate from each x in observed X instead of rolling out
 
   :param reference_distribution_for_truncation: if array of feature vectors provided, then reject samples that
   are outside bounds of those vectors.
   """
-  NUMBER_OF_REPS_PER_X = 20
+  if test:
+    NUMBER_OF_REPS_PER_X=1
+  else:
+    NUMBER_OF_REPS_PER_X = 20
 
   if reference_distribution_for_truncation is not None:
     max_ = np.max(reference_distribution_for_truncation, axis=0)
@@ -58,7 +59,7 @@ def simulate_from_transition_model(X_obs, transition_model, time_horizon, number
 
   # Generate data for fqi
   S = np.zeros((0, 3)) 
-  X = np.zeros((0, X.shape[0]))
+  X = np.zeros((0, X_obs.shape[1]))
   R = np.zeros(0)
 
   print('number of obss: {}'.format(X_obs.shape[0]))
@@ -68,13 +69,13 @@ def simulate_from_transition_model(X_obs, transition_model, time_horizon, number
       s, r = sample_from_transition_model(x_obs)
       S = np.vstack((S, s))
       R = np.append(R, r)
-      X = np.vstack((X, x))
+      X = np.vstack((X, x_obs))
   return X, S, R
 
 
 def solve_for_pi_opt(X_obs, transition_model, time_horizon, number_of_actions, rollout_policy,
                      feature_function, mc_rollouts=100, number_of_dp_iterations=0,
-                     reference_distribution_for_truncation=None):
+                     reference_distribution_for_truncation=None, test=False):
   """
   Solve for optimal policy using dynamic programming.
 
@@ -88,8 +89,7 @@ def solve_for_pi_opt(X_obs, transition_model, time_horizon, number_of_actions, r
   :return:
   """
   # Generate data for fqi
-  X, S, R = simulate_from_transition_model(X_obs, transition_model, time_horizon, number_of_actions,
-                                           rollout_policy, feature_function, mc_rollouts=mc_rollouts,
+  X, S, R = simulate_from_transition_model(X_obs, transition_model, test=test,
                                            reference_distribution_for_truncation=reference_distribution_for_truncation)
   # Do FQI
   reg = RandomForestRegressor()
@@ -106,7 +106,7 @@ def solve_for_pi_opt(X_obs, transition_model, time_horizon, number_of_actions, r
   return pi_opt
 
 
-def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_to_vary_2, policy_list):
+def compare_glucose_policies(policy_list, label):
   """
   Visualize glucose policies on a grid of two covariates (keeping the others in fixed_covariates fixed.)
 
@@ -117,39 +117,73 @@ def compare_glucose_policies(fixed_covariates, coordinate_to_vary_1, coordinate_
   :return:
   """
   NUM_GRIDPOINTS = 50
+  number_of_policies = len(policy_list)
 
   x_ = np.array([1.0, 80.0, 0, 2, 85.0, 1.5, -1, 0, 1])  # Need x from prveious time step for glucose policies
+  s_ = np.array([80.0, 0.0, 0.0])
 
-  # Get grid of values at which to evaluate policy
-  if coordinate_to_vary_1 == 0:  # Glucose
-    grid_1 = np.linspace(50, 200, NUM_GRIDPOINTS)
-  else:  # Food or ex
-    grid_1 = np.linspace(-3, 3, NUM_GRIDPOINTS)
-  if coordinate_to_vary_2 == 0:  # Glucose
-    grid_2 = np.linspace(50, 200, NUM_GRIDPOINTS)
-  else:  # Food or ex
-    grid_2 = np.linspace(-3, 3, NUM_GRIDPOINTS)
+  glucose_grid = np.linspace(50, 200, NUM_GRIDPOINTS)
+  food_grid = exercise_grid = np.linspace(-25, 25, NUM_GRIDPOINTS)
+
+  # Initialize policies, varying 2 covariates and keeping one fixed
+  food_and_glucose_policies = [np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS)) for _ in range(number_of_policies)]
+  exercise_and_glucose_policies = [np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS)) for _ in range(number_of_policies)]
+  food_and_exercise_policies_normal = [np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS)) for _ in range(number_of_policies)]
+  food_and_exercise_policies_hypo = [np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS)) for _ in range(number_of_policies)]
+  food_and_exercise_policies_hyper = [np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS)) for _ in range(number_of_policies)]
 
   # Evaluate each policy on grid
-  policies_on_grid = [np.zeros((NUM_GRIDPOINTS, NUM_GRIDPOINTS)) for _ in range(len(policy_list))]
-  for i, s_i in enumerate(grid_1):
-    for j, s_j in enumerate(grid_2):
-      s_ij = copy.copy(fixed_covariates)
-      s_ij[coordinate_to_vary_1] = s_i
-      s_ij[coordinate_to_vary_2] = s_j
-      for policy, policy_on_grid in zip(policy_list, policies_on_grid):
-        policy_on_grid[i, j] = policy[1](s_ij, x_)
+  for i, f in enumerate(food_grid):
+    for j, e in enumerate(exercise_grid):
+      s_ij_normal = [85, f, e]
+      s_ij_hyper = [150, f, e]
+      s_ij_hypo = [55, f, e]
+
+      for policy_ix, policy_tuple in enumerate(policy_list):
+        food_and_exercise_policies_hyper[policy_ix][i, j] = policy_tuple[1](s_ij_hyper, x_)
+        food_and_exercise_policies_normal[policy_ix][i, j] = policy_tuple[1](s_ij_normal, x_)
+        food_and_exercise_policies_hypo[policy_ix][i, j] = policy_tuple[1](s_ij_hypo, x_)
+
+  for i, g in enumerate(glucose_grid):
+    for j, f in enumerate(food_grid):
+      s_ij = [g, f, 0]
+      for policy_ix, policy_tuple in enumerate(policy_list):
+        food_and_glucose_policies[policy_ix][i, j] = policy_tuple[1](s_ij, x_)
+    for j, e in enumerate(exercise_grid):
+      s_ij = [g, 0, e]
+      for policy_ix, policy_tuple in enumerate(policy_list):
+        exercise_and_glucose_policies[policy_ix][i, j] = policy_tuple[1](s_ij, x_)
 
   # Visualize policies
   cmap = colors.ListedColormap(['white', 'red'])
   bounds = [0, 0.5, 1]
   norm = colors.BoundaryNorm(bounds, cmap.N)
-  f, axarr = plt.subplots(len(policies_on_grid))
-  for ix in range(len(policies_on_grid)):
-    axarr[ix].imshow(policies_on_grid[ix], cmap=cmap, norm=norm,
-                     extent=[np.min(grid_1), np.max(grid_1), np.max(grid_2), np.min(grid_2)])
-    axarr[ix].set_title(policy_list[ix][0])
-  plt.show()
+  fig, axarr = plt.subplots(nrows=number_of_policies, ncols=5)
+  for ix in range(number_of_policies):
+    axarr[ix, 0].imshow(food_and_glucose_policies[ix], cmap=cmap, norm=norm,
+                        extent=[np.min(glucose_grid), np.max(glucose_grid), np.max(food_grid), np.min(food_grid)])
+    axarr[ix, 1].imshow(exercise_and_glucose_policies[ix], cmap=cmap, norm=norm,
+                        extent=[np.min(glucose_grid), np.max(glucose_grid), np.max(exercise_grid),
+                                np.min(exercise_grid)])
+    axarr[ix, 2].imshow(food_and_exercise_policies_normal[ix], cmap=cmap, norm=norm,
+                        extent=[np.min(food_grid), np.max(food_grid), np.max(exercise_grid), np.min(exercise_grid)])
+    axarr[ix, 3].imshow(food_and_exercise_policies_hypo[ix], cmap=cmap, norm=norm,
+                        extent=[np.min(food_grid), np.max(food_grid), np.max(exercise_grid), np.min(exercise_grid)])
+    axarr[ix, 4].imshow(food_and_exercise_policies_hyper[ix], cmap=cmap, norm=norm,
+                        extent=[np.min(food_grid), np.max(food_grid), np.max(exercise_grid), np.min(exercise_grid)])
+
+    # Set row and column titles
+    axarr[ix, 0].set_ylabel(policy_list[ix][0], rotation=0, size='large')
+    if ix == 0:
+      axarr[ix, 0].set_title('Food x glucose\n(Exercise=0)')
+      axarr[ix, 1].set_title('Exercise x glucose\n(Food=0)')
+      axarr[ix, 2].set_title('Food x exercise\n(Glucose=85)')
+      axarr[ix, 3].set_title('Food x exercise\n(Glucose=55)')
+      axarr[ix, 4].set_title('Food x exercise\n(Glucose=150)')
+  fig.tight_layout()
+  plt_name = 'policy-comparison-{}.png'.format(label)
+  plt.savefig(plt_name)
+  # plt.show()
 
   return
 

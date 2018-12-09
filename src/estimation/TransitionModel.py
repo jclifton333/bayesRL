@@ -16,6 +16,7 @@ try:
 except:
   pass
 from sklearn.ensemble import RandomForestRegressor
+from src.environments.Glucose import Glucose
 import src.estimation.bellman_error as be
 import src.policies.simulation_optimization_policies as opt
 from theano import shared
@@ -23,10 +24,10 @@ from theano import shared
 
 class GlucoseTransitionModel(object):
   FEATURE_INDICES_FOR_PARAMETRIC_MODEL = [0, 1, 2, 3, 8]
-  COEF = np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4])
-  SIGMA_GLUCOSE = 25
+  COEF = Glucose.COEF
+  SIGMA_GLUCOSE = Glucose.SIGMA_GLUCOSE
 
-  def __init__(self, method='np', alpha_mean=0.0, test=False):
+  def __init__(self, method='np', use_true_food_and_exercise_distributions=False, alpha_mean=0.0, test=False):
     """
 
     :param method: string in ['np', 'p', 'averaged']
@@ -34,6 +35,7 @@ class GlucoseTransitionModel(object):
     """
     assert method in ['np', 'p', 'averaged']
     self.method = method
+    self.use_true_food_and_exercise_distributions = use_true_food_and_exercise_distributions
     self.alpha_mean = alpha_mean
     self.test = test
 
@@ -61,8 +63,6 @@ class GlucoseTransitionModel(object):
   def fit(self, X, y):
     # self.X_ = X
     # self.y_ = y
-
-
     # Food and activity are modeled with np density estimation in all cases
     self.fit_unconditional_densities(X)
 
@@ -98,12 +98,13 @@ class GlucoseTransitionModel(object):
     self.model, self.trace = model_, trace_
 
   def fit_unconditional_densities(self, X):
-    self.food_nonzero = X[:, 2][np.where(X[:, 2] != 0.0)]
-    self.activity_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
     self.X_ = X
-    self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2], test=self.test)
-    self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3],
-                                                                                                    test=self.test)
+    if not self.use_true_food_and_exercise_distributions:
+      self.food_nonzero = X[:, 2][np.where(X[:, 2] != 0.0)]
+      self.activity_nonzero = X[:, 3][np.where(X[:, 3] != 0.0)]
+      self.food_model, self.food_trace, self.food_nonzero_prob = dd.np_density_estimation(X[:, 2], test=self.test)
+      self.activity_model, self.activity_trace, self.activity_nonzero_prob = dd.np_density_estimation(X[:, 3],
+                                                                                                      test=self.test)
 
   def draw_from_ppd(self, x):
     """
@@ -135,17 +136,20 @@ class GlucoseTransitionModel(object):
     return s, r
 
   def draw_from_food_and_activity_ppd(self):
-    # Draw food
-    if np.random.random() < self.food_nonzero_prob:
-      food = 0.0
-    else:
-      food = pm.sample_ppc(self.food_trace, model=self.food_model, samples=1, progressbar=False)['obs'][0, 0]
+    if not self.use_true_food_and_exercise_distributions:
+      # Draw food
+      if np.random.random() < self.food_nonzero_prob:
+        food = 0.0
+      else:
+        food = pm.sample_ppc(self.food_trace, model=self.food_model, samples=1, progressbar=False)['obs'][0, 0]
 
-    # Draw activity
-    if np.random.random() < self.activity_nonzero_prob:
-      activity = 0.0
+      # Draw activity
+      if np.random.random() < self.activity_nonzero_prob:
+        activity = 0.0
+      else:
+        activity = pm.sample_ppc(self.activity_trace, model=self.activity_model, progressbar=False)['obs'][0, 0]
     else:
-      activity = pm.sample_ppc(self.activity_trace, model=self.activity_model, progressbar=False)['obs'][0, 0]
+      food, activity = Glucose.generate_food_and_activity()
 
     return food, activity
 
@@ -293,6 +297,15 @@ class GlucoseTransitionModel(object):
     Plot some info associated with the posterior.
     :return:
     """
+    # Collect ppd draws
+    food_ppd = []
+    act_ppd = []
+    for rep in range(100):
+      f = pm.sample_ppc(self.food_trace, model=self.food_model, samples=1, progressbar=False)['obs'][0, 0]
+      e = pm.sample_ppc(self.activity_trace, model=self.activity_model, progressbar=False)['obs'][0, 0]
+      food_ppd.append(f)
+      act_ppd.append(e)
+
     # Posterior of food, activity densities; following https://docs.pymc.io/notebooks/dp_mix.html
     f, axarr = plt.subplots(2)
 
@@ -301,10 +314,12 @@ class GlucoseTransitionModel(object):
                                       self.food_trace['mu'][:, np.newaxis, :],
                                       1.0 / np.sqrt(self.food_trace['lambda'] * self.food_trace['tau'])[:, np.newaxis, :])
     post_food_pdfs = (self.food_trace['w'][:, np.newaxis, :] * post_food_pdf_contribs).sum(axis=-1)
-    axarr[0].hist(self.food_nonzero, normed=True, alpha=0.5)
+    axarr[0].hist(self.food_nonzero, normed=True, alpha=0.5, label='Observed food')
+    axarr[0].hist(food_ppd, normed=True, alpha=0.5, label='Food ppd')
     axarr[0].plot(x_plot_food, post_food_pdfs.T, c='gray', label='Posterior sample densities')
     axarr[0].plot(x_plot_food, post_food_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
     axarr[0].set_title('Posterior density estimates for food')
+    # axarr[0].legend()
 
     # Activity
     x_plot_activity = np.linspace(np.min(self.X_[:, 3]), np.max(self.X_[:, 2]), 200)
@@ -312,10 +327,12 @@ class GlucoseTransitionModel(object):
                                       self.activity_trace['mu'][:, np.newaxis, :],
                                       1.0 / np.sqrt(self.activity_trace['lambda'] * self.activity_trace['tau'])[:, np.newaxis, :])
     post_activity_pdfs = (self.activity_trace['w'][:, np.newaxis, :] * post_activity_pdf_contribs).sum(axis=-1)
-    axarr[1].hist(self.activity_nonzero, normed=True, alpha=0.5)
+    axarr[1].hist(self.activity_nonzero, normed=True, alpha=0.5, label='Observed activity')
+    axarr[1].hist(act_ppd, normed=True, alpha=0.5, label='Act ppd')
     axarr[1].plot(x_plot_activity, post_activity_pdfs.T, c='gray', label='Posterior sample densities')
     axarr[1].plot(x_plot_activity, post_activity_pdfs.mean(axis=0), c='k', label='Posterior pointwise expected density')
     axarr[1].set_title('Posterior density estimates for activity')
+    # axarr[1].legend()
     plt.show()
 
 

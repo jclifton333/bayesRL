@@ -25,6 +25,13 @@ class Glucose(object):
 
   MU_ACTIVITY_MOD = 31
   SIGMA_ACTIVITY_MOD = 5
+  COEF = np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4])
+  SIGMA_NOISE = 5
+  MU_FOOD = 0
+  SIGMA_FOOD = 10
+  MU_ACTIVITY = 0
+  SIGMA_ACTIVITY = 10
+  PROB_ACTIVITY = PROB_FOOD = 0.6
 
   # Coefficients correspond to
   # intercept, current glucose food activity, previous glucose food activity, current action, previous action
@@ -33,10 +40,7 @@ class Glucose(object):
   HYPOGLYCEMIC = np.array([50, 0, 33, 50, 0, 0, 0, 0])
   HYPERGLYCEMIC = np.array([200, 0, 30, 200, 0, 0, 78, 0])
 
-  def __init__(self, nPatients=1, COEF=np.array([10, 0.9, 0.1, -0.01, 0.0, 0.1, -0.01, -10, -4]), SIGMA_NOISE=5,
-               prob_food=0.6, MU_FOOD=0, SIGMA_FOOD=10,
-               prob_activity=0.6, MU_ACTIVITY=0, SIGMA_ACTIVITY=10,
-               x_initials=None, sx_initials=None):
+  def __init__(self, nPatients=1, x_initials=None, sx_initials=None):
     self.R = [[]] * nPatients  # List of rewards at each time step
     self.A = [[]] * nPatients  # List of actions at each time step
     self.X = [[]] * nPatients  # List of features (previous and current states) at each time step
@@ -48,14 +52,7 @@ class Glucose(object):
     self.last_state = [None] * nPatients
     self.last_action = [None] * nPatients
     self.nPatients = nPatients
-    self.COEF = COEF
-    self.SIGMA_NOISE = SIGMA_NOISE
-    self.MU_FOOD = MU_FOOD
-    self.SIGMA_FOOD = SIGMA_FOOD
-    self.MU_ACTIVITY = MU_ACTIVITY
-    self.SIGMA_ACTIVITY = SIGMA_ACTIVITY
-    self.prob_food = prob_food
-    self.prob_activity = prob_activity
+
     self.x_initials = x_initials
     self.sx_initials = sx_initials
 
@@ -93,15 +90,16 @@ class Glucose(object):
 
     return np.mean(r, axis=0)
 
-  def generate_food_and_activity(self):
+  @classmethod
+  def generate_food_and_activity(cls):
     """
 
     :return:
     """
-    food = np.random.normal(self.MU_FOOD, self.SIGMA_FOOD)
-    food = np.multiply(np.random.random() < self.prob_food, food)
-    activity = np.random.normal(self.MU_ACTIVITY, self.SIGMA_ACTIVITY)
-    activity = np.multiply(np.random.random() < self.prob_activity, activity)
+    food = np.random.normal(Glucose.MU_FOOD, Glucose.SIGMA_FOOD)
+    food = np.multiply(np.random.random() < Glucose.PROB_FOOD, food)
+    activity = np.random.normal(Glucose.MU_ACTIVITY, Glucose.SIGMA_ACTIVITY)
+    activity = np.multiply(np.random.random() < Glucose.PROB_ACTIVITY, activity)
     return food, activity
 
   def reset(self):

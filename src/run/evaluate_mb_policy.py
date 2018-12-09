@@ -138,7 +138,7 @@ def trajectory_ppc(replicate):
   return
 
 
-def fit_and_compare_mb_and_mf_policies(test=False):
+def fit_and_compare_mb_and_mf_policies(test=False, use_true_food_and_exercise_distributions=False, label=''):
   np.random.seed(0)
 
   # Roll out to get data
@@ -167,7 +167,7 @@ def fit_and_compare_mb_and_mf_policies(test=False):
     return np.array([g, f, e]), glucose_reward_function(g)
 
   policy_true = opt.solve_for_pi_opt(X, true_transition_model, T, 2, rollout_policy, feature_function,
-                                     number_of_dp_iterations=1)
+                                     number_of_dp_iterations=1, test=test)
   # Fit mf policy
   reg = RandomForestRegressor()
   R = np.array([glucose_reward_function(g) for g in y])
@@ -186,22 +186,23 @@ def fit_and_compare_mb_and_mf_policies(test=False):
     return np.argmax([q_(feature_function(s_, a_, x_)) for a_ in range(2)])
 
   # Get optimal policy under model
-  estimator = GlucoseTransitionModel(test=test)
+  estimator = GlucoseTransitionModel(test=test,
+                                     use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions)
   estimator.fit(X, y)
 
   transition_model = estimator.draw_from_ppd
 
   policy_mb = opt.solve_for_pi_opt(X, transition_model, T, 2, rollout_policy, feature_function,
-                                   number_of_dp_iterations=1)
+                                   number_of_dp_iterations=1, test=test)
   policy_list = [('policy_true', policy_true), ('policy_mb', policy_mb), ('policy_mf', policy_mf)]
 
   # Compare
-  opt.compare_glucose_policies(np.array([80, 0, 0]), 0, 1, policy_list)
+  opt.compare_glucose_policies(policy_list, label=label)
 
   return
 
 
-def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, alpha_mean=0.0):
+def evaluate_glucose_mb_policy(replicate, method, true_food_and_ex=False, test=False, truncate=False, alpha_mean=0.0):
   """
 
   :param replicate:
@@ -225,7 +226,8 @@ def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, al
 
   if method in ['np', 'p', 'averaged']:
     # Fit model on data
-    estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean, test=test)
+    estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean, test=test,
+                                       use_true_food_and_exercise_distributions=true_food_and_ex)
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     S = env.S
     y = Sp1[:, 0]
@@ -243,7 +245,8 @@ def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, al
       reference_distribution_for_truncation = Sp1
     else:
       reference_distribution_for_truncation = None
-    pi = opt.solve_for_pi_opt(initial_state, initial_x, transition_model, T, 2, rollout_policy, feature_function,
+    pi = opt.solve_for_pi_opt(X, transition_model, T, 2, rollout_policy, feature_function,
+                              test=test,
                               number_of_dp_iterations=1,
                               reference_distribution_for_truncation=reference_distribution_for_truncation)
 
@@ -296,7 +299,7 @@ def evaluate_glucose_mb_policy(replicate, method, test=False, truncate=False, al
       return np.array([g, f, e]), glucose_reward_function(g)
 
     pi = opt.solve_for_pi_opt(X, true_transition_model, T, 2, rollout_policy, feature_function,
-                              number_of_dp_iterations=1)
+                              test=test, number_of_dp_iterations=1)
   # v_mb_, v_mf_ = estimator.one_step_value_function_ppc(X, S, R)
   # Evaluate policy
   # v = None
@@ -312,21 +315,22 @@ def run():
   # methods = ['np', 'p', 'averaged']
   # alphas = [-1.0, 0.0, 0.5, 1.0, 5.0]
   # methods = [('np', alpha) for alpha in alphas] + [('p', 0), ('averaged', 0)]
-  methods = [('np', 0.0), ('averaged', 0)]
+  methods = [('np', 0.0, False), ('np', 0.0, True), ('true_model', 0.0, True)]
   results_dict = {}
   base_name = 'glucose-mb'
   prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
   fname = '{}_{}.yml'.format(prefix, suffix)
 
-  for method, alpha_mean in methods:
-    evaluate_partial = partial(evaluate_glucose_mb_policy, method=method, alpha_mean=alpha_mean)
+  for method, true_food_and_ex, alpha_mean in methods:
+    evaluate_partial = partial(evaluate_glucose_mb_policy, method=method, true_food_and_ex=true_food_and_ex,
+                               alpha_mean=alpha_mean)
     results = []
     pool = mp.Pool(N_PROCESSES)
     for rep in range(int(N_REPLICATES_PER_METHOD / N_PROCESSES)):
       res = pool.map(evaluate_partial, range(20+rep*N_REPLICATES_PER_METHOD + 20+rep*N_REPLICATES_PER_METHOD + N_PROCESSES))
       results += res
-    method_name = '{}-alpha={}'.format(method, alpha_mean)
+    method_name = '{}-alpha={}-true-food={}'.format(method, alpha_mean, true_food_and_ex)
     results_dict[method_name] = {'mean': float(np.mean(results)), 'se': float(np.std(results))}
     with open(fname, 'w') as outfile:
       yaml.dump(results_dict, outfile)
@@ -334,6 +338,9 @@ def run():
 
 
 if __name__ == "__main__":
-  rollout_and_fit_unconditional_density()
-  # fit_and_compare_mb_and_mf_policies(test=False)
-  # evaluate_glucose_mb_policy(0, method='true_model')
+  # rollout_and_fit_unconditional_density()
+  # fit_and_compare_mb_and_mf_policies(test=False, use_true_food_and_exercise_distributions=True,
+  #                                    label='true-dbns')
+  # fit_and_compare_mb_and_mf_policies(test=False, use_true_food_and_exercise_distributions=False,
+  #                                    label='estimate-dbns')
+  evaluate_glucose_mb_policy(0, method='true_model', true_food_and_ex=False, test=True)
