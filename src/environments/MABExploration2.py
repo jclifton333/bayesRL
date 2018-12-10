@@ -146,7 +146,6 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   return best_param
 
 
-# Modify this and bayesopt_under_true_model to work for MABs
 def bayesopt_under_true_model(seed, info, quantile, mc_reps=1000, T=50):
   np.random.seed(seed)
   env = Bandit.NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[0.1**2, 0.1**2])
@@ -181,7 +180,7 @@ def bayesopt_under_true_model(seed, info, quantile, mc_reps=1000, T=50):
   return best_param
 
 
-def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False):
+def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False,tune_start=-1,tune_stop=-1):
   np.random.seed(label)
   
   positive_zeta = False
@@ -238,6 +237,9 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
         # quant=25
         #tuning_function_parameter = np.array( [ 1.05237299, -0.25368232,  3.20527386, -4.67019178,  1.7334421,  -1.79493075,
   #1.66812503, -2.9827348,  4.49922889])
+        # quant=10
+        #tuning_function_parameter = np.array( [ 0.74892287, -3.25033099,  0.23110947, -4.87311224, -3.53732692, -4.62473731,
+ #-0.83820035,  3.56393163, -2.76060575])
       else:
         tuning_function_parameter = np.array( [0.66225065, -4.8710143,  -0.79380959, -3.31694182, -3.22201959, -3.80354823,
   0.44470104,  2.75075175, -2.97245318])
@@ -252,6 +254,8 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
         tuning_function_parameter = np.array([0.05, 44.06308915, 2.5] )
         # quant=25
         #tuning_function_parameter = np.array([0.05, 46.77405996, 2.5] )
+        # quant=10
+        #tuning_function_parameter = np.array([0.08315987, 23.61019458,  2.44128153] )
       else:
         tuning_function_parameter = np.array([0.05, 47.22640834, 1.36518539] )
 
@@ -273,7 +277,7 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
 
-    if tune:
+    if tune and (t >= tune_start) and (t<tune_stop):
       print("########### Time: "+str(t)+"; Replicate: "+str(label)+" ############")
       if posterior_sample:
         reward_means = []
@@ -323,7 +327,7 @@ def episode(policy_name, label, info, quantile, std=0.1, T=50, monte_carlo_reps=
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
     
-def run(policy_name, info, quantile=False, save=True, mc_replicates=1000, T=50):
+def run(policy_name, info, quantile=False, save=True, mc_replicates=1000, T=50,tune_start=-1,tune_stop=-1):
   """
 
   :return:
@@ -336,7 +340,7 @@ def run(policy_name, info, quantile=False, save=True, mc_replicates=1000, T=50):
   results = []
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name, monte_carlo_reps=mc_replicates, T=T, info=info, quantile=quantile)
+  episode_partial = partial(episode, policy_name, monte_carlo_reps=mc_replicates, T=T, info=info, quantile=quantile,tune_start=tune_start,tune_stop=tune_stop)
 
   results = pool.map(episode_partial, range(replicates))
   #results = episode_partial(1)
@@ -378,16 +382,17 @@ if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
 #  bayesopt_under_true_model(seed=0, info=False)
-  bayesopt_under_true_model(seed=0, info=True, quantile=True)
+  #bayesopt_under_true_model(seed=1, info=True, quantile=True)
   #bayesopt_under_true_model(seed=0, info=True, quantile=False)
-  bayesopt_under_true_model(seed=0, info=False, quantile=True)
+  #bayesopt_under_true_model(seed=0, info=False, quantile=True)
   #bayesopt_under_true_model(seed=0, info=False, quantile=False)
 #  episode('eps-decay', 0, info=True, T=50)
 #  episode('eps-fixed-decay', 2, T=50)
 #  episode('eps', 0, info=True, T=50)
 #  run('eps', save=False)
 #  run('greedy', save=False, info=False)
-#  run('eps-decay', save=True, T=50, info=True, quantile=True)
+  run('eps-decay', save=True, T=50, info=True, quantile=True,tune_start=10,tune_stop=11)
+  run('eps-decay', save=True, T=50, info=True, quantile=False,tune_start=10,tune_stop=11)
 #  run('eps-decay', save=True, T=50, info=True, quantile=False)
 #  run('eps-decay', save=True, T=50, info=False, quantile=True)
 #  run('eps-fixed-decay', save=False, T=50, info=True,quantile=True)
