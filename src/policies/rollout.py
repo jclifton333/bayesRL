@@ -143,6 +143,7 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
 
     # For updating linear model estimates incrementally
     beta_hat_list = initial_linear_model['beta_hat_list']
+    Xprime_X_list = initial_linear_model['Xprime_X_list']
     Xprime_X_inv_list = initial_linear_model['Xprime_X_inv_list']
     X_list = initial_linear_model['X_list']
     y_list = initial_linear_model['y_list']
@@ -158,31 +159,36 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
     regret_for_rep = 0.0
 
     for t in range(time_horizon):
-      # Draw context and draw arm based on policy
-      context = context_sequence[t]
-      action = policy(beta_hat_list, sampling_cov_list, context, tuning_function,
-                      tuning_function_parameter, time_horizon, t, env)
+      context_block = context_sequence[t]
+      rewards_block = rewards_sequence[t]
+      regrets_block = regrets_sequence[t]
 
-      # Get reward and regret
-      reward = rewards_sequence[t, action]
-      # regret = regrets_sequence[t, action]
-      regret_for_rep += reward
+      for patient in range(context_block.shape[0]):
 
-      # Update model
-      linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_inv_list[action], context,
-                                                    X_dot_y_list[action], reward)
-      beta_hat_list[action] = linear_model_results['beta_hat']
-      y_list[action] = linear_model_results['y']
-      X_list[action] = linear_model_results['X']
-      Xprime_X_inv_list[action] = linear_model_results['Xprime_X_inv']
-      X_dot_y_list[action] = linear_model_results['X_dot_y']
-      sampling_cov_list[action] = linear_model_results['sample_cov']
-      sigma_hat_list[action] = linear_model_results['sigma_hat']
+        # Draw context and draw arm based on policy
+        context = context_block[patient, :]
+        action = policy(beta_hat_list, sampling_cov_list, context, tuning_function,
+                        tuning_function_parameter, time_horizon, t, env)
+
+        # Get reward and regret
+        reward = rewards_block[patient, action]
+        regret = regrets_block[patient, action]
+        regret_for_rep += regret
+
+        # Update model
+        linear_model_results = la.update_linear_model(X_list[action], y_list[action], Xprime_X_list[action],
+                                                      Xprime_X_inv_list[action], context, X_dot_y_list[action], reward)
+        beta_hat_list[action] = linear_model_results['beta_hat']
+        y_list[action] = linear_model_results['y']
+        X_list[action] = linear_model_results['X']
+        Xprime_X_inv_list[action] = linear_model_results['Xprime_X_inv']
+        Xprime_X_list[action] = linear_model_results['Xprime_X']
+        X_dot_y_list[action] = linear_model_results['X_dot_y']
+        sampling_cov_list[action] = linear_model_results['sample_cov']
+        sigma_hat_list[action] = linear_model_results['sigma_hat']
 
     mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
   return mean_cumulative_regret
-
-
 
 
 def mHealth_rollout(tuning_function_parameter, policy, time_horizon, estimated_context_mean,
@@ -280,9 +286,11 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
   pre_simulated_data = kwargs['pre_simulated_data']
   mean_cumulative_regret = 0.0
+  optimal_reward = np.max(env.list_of_reward_mus)
   for rep, rep_dict in enumerate(pre_simulated_data):
     initial_model = rep_dict['initial_model']
     estimated_means = initial_model['sample_mean_list']
+    standard_errors = initial_model['standard_error_list']
     number_of_pulls = initial_model['number_of_pulls']
 
     # Get obs sequences for this rep
@@ -290,20 +298,25 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
     regrets_sequence = rep_dict['regrets']
     regret_for_rep = 0.0
 
+    rewards_at_each_arm = [np.array([]) for _ in range(env.number_of_actions)]
+
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
-      action = policy(estimated_means, None, None, tuning_function,
+      action = policy(estimated_means, standard_errors, None, tuning_function,
                       tuning_function_parameter, time_horizon, t, env)
 
       # Get reward and regret
       reward = rewards_sequence[t, action]
       # regret = regrets_sequence[t, action]
+      rewards_at_each_arm[action] = np.append(rewards_at_each_arm[action], reward)
       number_of_pulls[action] += 1
-      regret_for_rep += reward
+      expected_reward = env.list_of_reward_mus[action]
+      regret_for_rep += (expected_reward-optimal_reward)
 
       # Update model
       sample_mean_at_action = (reward - estimated_means[action]) / number_of_pulls[action]
       estimated_means[action] = sample_mean_at_action
+      standard_errors[action] = np.sqrt(np.mean((rewards_at_each_arm[action] - sample_mean_at_action)**2))
 
     mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
   return mean_cumulative_regret
