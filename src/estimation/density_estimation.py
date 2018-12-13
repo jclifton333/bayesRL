@@ -215,14 +215,14 @@ def I1_and_I2_hat(X, y, h1, h2):
     I1_hat += (num_1_i / sum_k2_i**2) / n
     I2_hat += (num_2_i / sum_k2_i) / n
 
-  return I1_hat, I2_hat
+  return I1_hat - 2*I2_hat
 
 
 def least_squares_cv_bandwidth(X, y):
   pass
 
 
-def two_step_ckde_cv_error(X, y, b0, b1, b2):
+def two_step_ckde_cv(X, y):
   """
   Compute loocv error for two step conditional kde with bandwidths b0, b1, b2 (see two_step_ckde for what these do).
 
@@ -238,7 +238,17 @@ def two_step_ckde_cv_error(X, y, b0, b1, b2):
   b0 = least_squares_cv_bandwidth(X, y)  # ToDo: implement this
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  return
+  bandwidth_grid = [0.01, 0.1, 1]
+  b1 = b2 = None
+  best_err = float("inf")
+  for b1_ in bandwidth_grid:
+    for b2_ in bandwidth_grid:
+      err = I1_and_I2_hat(X, y, b1_, b2_)
+      if err < best_err:
+        b1 = b1_
+        b2 = b2_
+
+  return b0, b1, b2
 
 
 def two_step_ckde(X, y):
@@ -249,7 +259,7 @@ def two_step_ckde(X, y):
   :param y:
   :return:
   """
-  def two_step_ckde(b0, b1, b2):
+  def get_two_step_ckde_from_bandwidth(b0, b1, b2):
     """
 
     :param x:
