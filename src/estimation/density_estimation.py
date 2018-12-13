@@ -197,7 +197,6 @@ def I1_and_I2_hat(X, y, h1, h2):
   k1 = lambda x: gaussian_kernel(x, h1)
   k2 = lambda x: gaussian_kernel(x, h2)
   ksqrt2_h1 = lambda x: gaussian_kernel(x, np.sqrt(2)*h1)
-  sum_k2 = []  # \sum_{j != i} k2(x_i - x_j) ; used in both I_1, I_2
 
   I1_hat = 0.0
   I2_hat = 0.0
@@ -208,20 +207,19 @@ def I1_and_I2_hat(X, y, h1, h2):
       if j != i:
         for k in range(n):
           if k != i:
-            num_1_i += k2(X[i] - X[j]) * k2(X[i] - X[k]) * ksqrt2_h1(y[k] - y[j])
+            k2_ij = k2(X[i] - X[j])
+            k1_ij = k1(y[i] - y[j])
+            num_1_i += k2_ij * k2(X[i] - X[k]) * ksqrt2_h1(y[k] - y[j])
+            num_2_i += k2_ij * k1_ij
         sum_k2_i += k2(X[i] - X[j])
     I1_hat += (num_1_i / sum_k2_i**2) / n
-    sum_k2.append(sum_k2_i)
+    I2_hat += (num_2_i / sum_k2_i) / n
 
-  # Get I2_hat
-
-
+  return I1_hat, I2_hat
 
 
-
-
-
-
+def least_squares_cv_bandwidth(X, y):
+  pass
 
 
 def two_step_ckde_cv_error(X, y, b0, b1, b2):
@@ -237,7 +235,7 @@ def two_step_ckde_cv_error(X, y, b0, b1, b2):
   """
   # Do bandwidth selection in two steps
   # Step 1: select b0 with least-squares CV
-  b0 = least_squares_np_regression_cv(X, y)  # ToDo: implement this
+  b0 = least_squares_cv_bandwidth(X, y)  # ToDo: implement this
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
   return
