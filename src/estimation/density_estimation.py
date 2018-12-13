@@ -18,6 +18,7 @@ from statsmodels.nonparametric.kernel_regression import KernelReg
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import LinearRegression
 import numpy as np
+from numba import njit
 import scipy as sp
 import pandas as pd
 import theano
@@ -73,22 +74,6 @@ def normal_bayesian_regression(X, y, test=False):
     trace = pm.sample(SAMPLES, step, chains=1, tune=BURN, random_seed=SEED)
 
   return model, trace
-
-
-def gaussian_kernel(x, bandwidth):
-  """
-  Helper for density estimation.
-
-  :param x:
-  :param bandwidth:
-  :return:
-  """
-  return np.exp(-np.dot(x, x) / bandwidth) / bandwidth
-
-
-
-
-
 
 
 def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
@@ -186,6 +171,7 @@ def np_density_estimation(X, test=False):
 
 # Frequentist CDE
 # Referring to https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
+@njit
 def I1_and_I2_hat(X, y, h1, h2):
   """
   Helper function for CV bandwidth selection from pdf pg 6.
@@ -197,24 +183,21 @@ def I1_and_I2_hat(X, y, h1, h2):
   :return:
   """
   n, p = X.shape
-  k1 = lambda x: gaussian_kernel(x, h1)
-  k2 = lambda x: gaussian_kernel(x, h2)
-  ksqrt2_h1 = lambda x: gaussian_kernel(x, np.sqrt(2)*h1)
-
   I1_hat = 0.0
   I2_hat = 0.0
   for i in range(n):
     num_1_i = 0.0
+    num_2_i = 0.0
     sum_k2_i = 0.0
     for j in range(n):
       if j != i:
         for k in range(n):
           if k != i:
-            k2_ij = k2(X[i] - X[j])
-            k1_ij = k1(y[i] - y[j])
-            num_1_i += k2_ij * k2(X[i] - X[k]) * ksqrt2_h1(y[k] - y[j])
+            k2_ij = gaussian_kernel(X[i] - X[j], h2)
+            k1_ij = gaussian_kernel_1d(y[i] - y[j], h1)
+            num_1_i += k2_ij * gaussian_kernel(X[i] - X[k], h2) * gaussian_kernel_1d(y[k] - y[j], np.sqrt(2) * h1)
             num_2_i += k2_ij * k1_ij
-        sum_k2_i += k2(X[i] - X[j])
+        sum_k2_i += gaussian_kernel(X[i] - X[j], h2)
     I1_hat += (num_1_i / sum_k2_i**2) / n
     I2_hat += (num_2_i / sum_k2_i) / n
 
@@ -225,12 +208,13 @@ def least_squares_cv(X, y, b0):
   X_k = pairwise_kernels(X, metric="rbf", **{'gamma': 1 / b0})
   reg = LinearRegression()
   reg.fit(X_k, y)
-  H = np.dot(X_k, np.dot(np.linalg.inv(np.dot(X_k.T, X_k)), X_k.T))
+  H = np.dot(X_k, np.dot(np.linalg.inv(np.dot(X_k.T, X_k) + 0.01*np.eye(X_k.shape[1])), X_k.T))
   loo_residual = (reg.predict(X_k) - y) / (1 - np.diag(H))
   loo_error = np.dot(loo_residual, loo_residual)
   return loo_error
 
 
+@njit
 def nw_conditional_mean(x, b0, X, y):
   """
   Get the Nadaraya-Watson estimator of the conditional mean of y given x (using Gaussian kernel).
@@ -259,11 +243,12 @@ def two_step_ckde_cv(X, y):
   """
   # Do bandwidth selection in two steps
   # Step 1: select b0 with least-squares CV
-  b0_bandwidth_grid = [0.01, 0.1, 1]
+  b0_bandwidth_grid = [0.01, 0.1, 1.0]
   b0 = None
   best_err = float("inf")
   for b0_ in b0_bandwidth_grid:
-    err = least_squares_cv(X, y)
+    print(b0_)
+    err = least_squares_cv(X, y, b0_)
     if err < best_err:
       b0 = b0_
 
@@ -274,11 +259,12 @@ def two_step_ckde_cv(X, y):
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  bandwidth_grid = [0.01, 0.1, 1]
+  bandwidth_grid = [0.01, 0.1, 1.0]
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:
     for b2_ in bandwidth_grid:
+      print(b1_, b2_)
       err = I1_and_I2_hat(X, e_hat, b1_, b2_)
       if err < best_err:
         b1 = b1_
@@ -318,3 +304,26 @@ def two_step_ckde(X, y):
     return y
 
   return sample_from_conditional_kde
+
+
+@njit
+def gaussian_kernel(x, bandwidth):
+  """
+  Helper for density estimation.
+
+  :param x:
+  :param bandwidth:
+  :return:
+  """
+  return np.exp(-np.dot(x, x) / bandwidth) / bandwidth
+
+
+@njit
+def gaussian_kernel_1d(y, bandwidth):
+  return np.exp(-y*y / bandwidth) / bandwidth
+
+
+if __name__ == "__main__":
+  X = np.random.normal(size=(100, 3))
+  y = np.dot(X, np.ones(3)) + np.random.normal(size=100)
+  two_step_ckde(X, y)
