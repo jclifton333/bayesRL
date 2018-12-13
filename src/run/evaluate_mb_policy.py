@@ -315,14 +315,14 @@ def run():
   # methods = ['np', 'p', 'averaged']
   # alphas = [-1.0, 0.0, 0.5, 1.0, 5.0]
   # methods = [('np', alpha) for alpha in alphas] + [('p', 0), ('averaged', 0)]
-  methods = [('np', 0.0, False), ('np', 0.0, True), ('true_model', 0.0, True)]
+  methods = [('np', 0.0, False), ('np', 0.0, True)]
   results_dict = {}
   base_name = 'glucose-mb'
   prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
   fname = '{}_{}.yml'.format(prefix, suffix)
 
-  for method, true_food_and_ex, alpha_mean in methods:
+  for method, alpha_mean, true_food_and_ex in methods:
     evaluate_partial = partial(evaluate_glucose_mb_policy, method=method, true_food_and_ex=true_food_and_ex,
                                alpha_mean=alpha_mean)
     results = []

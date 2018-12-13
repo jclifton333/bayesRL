@@ -72,6 +72,22 @@ def normal_bayesian_regression(X, y, test=False):
   return model, trace
 
 
+def gaussian_kernel(x, bandwidth):
+  """
+  Helper for density estimation.
+
+  :param x:
+  :param bandwidth:
+  :return:
+  """
+  return np.exp(-np.dot(x, x) / bandwidth) / bandwidth
+
+
+
+
+
+
+
 def dirichlet_mixture_regression(X, y, alpha_mean=0.0, test=False):
   n, p = X.shape.eval()
   K = 20
@@ -164,3 +180,55 @@ def np_density_estimation(X, test=False):
 
   return model, trace, p
 
+
+# Frequentist CDE
+
+def two_step_ckde_cv_error(X, y, b0, b1, b2):
+  """
+  Compute loocv error for two step conditional kde with bandwidths b0, b1, b2 (see two_step_ckde for what these do).
+
+  :param X:
+  :param y:
+  :param b0:
+  :param b1:
+  :param b2:
+  :return:
+  """
+  # Do bandwidth selection in two steps
+  # Step 1: select b0 with least-squares CV
+  b0 = least_squares_np_regression_cv(X, y)  # ToDo: implement this
+
+  # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
+
+
+def two_step_ckde(X, y):
+  """
+  Frequentist conditional kernel density estimator from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
+
+  :param X:
+  :param y:
+  :return:
+  """
+  def two_step_ckde(b0, b1, b2):
+    """
+
+    :param x:
+    :param b0: Bandwidths
+    :param b1:
+    :param b2:
+    :return:
+    """
+    # First step: ND conditional mean
+    K_b0 = np.array([np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
+                     for x in X])
+    conditional_mean_estimate = np.dot(K_b0, y) / np.sum(K_b0, axis=1)
+
+    # Second step: density estimation
+    e_hat = y - conditional_mean_estimate
+    K_b2 = np.array([np.array([gaussian_kernel(x - x_i, b2) for x_i in X])
+                     for x in X])
+    K_b1 = np.array([np.array([gaussian_kernel(e - e_i, b1) for e_i in e_hat])
+                     for e in e_hat])
+    g_hat = np.dot(K_b1, K_b2) / np.sum(K_b2, axis=1)
+    return
+  return
