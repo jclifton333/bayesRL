@@ -231,6 +231,21 @@ def least_squares_cv(X, y, b0):
   return loo_error
 
 
+def nw_conditional_mean(x, b0, X, y):
+  """
+  Get the Nadaraya-Watson estimator of the conditional mean of y given x (using Gaussian kernel).
+
+  :param x:
+  :param b0: Bandwidth
+  :param X:
+  :param y:
+  :return:
+  """
+  K = np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
+  m_x = np.dot(K, y) / np.sum(K)
+  return m_x
+
+
 def two_step_ckde_cv(X, y):
   """
   Compute loocv error for two step conditional kde with bandwidths b0, b1, b2 (see two_step_ckde for what these do).
@@ -252,19 +267,24 @@ def two_step_ckde_cv(X, y):
     if err < best_err:
       b0 = b0_
 
-  # ToDo: target should be residuals from first-step estimator (y - m(x)), not y!
+  # Get residuals of resulting np regression
+  K_b0 = np.array([np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
+                   for x in X])
+  conditional_mean_estimate = np.dot(K_b0, y) / np.sum(K_b0, axis=1)
+  e_hat = y - conditional_mean_estimate
+
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
   bandwidth_grid = [0.01, 0.1, 1]
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:
     for b2_ in bandwidth_grid:
-      err = I1_and_I2_hat(X, y, b1_, b2_)
+      err = I1_and_I2_hat(X, e_hat, b1_, b2_)
       if err < best_err:
         b1 = b1_
         b2 = b2_
 
-  return b0, b1, b2
+  return b0, b1, b2, e_hat
 
 
 def two_step_ckde(X, y):
@@ -276,14 +296,7 @@ def two_step_ckde(X, y):
   :return:
   """
   # Select bandwidth with CV
-  b0, b1, b2 = two_step_ckde_cv(X, y)
-
-  # Fit estimator using chosen bandwidths
-  # First step: ND conditional mean
-  K_b0 = np.array([np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
-                   for x in X])
-  conditional_mean_estimate = np.dot(K_b0, y) / np.sum(K_b0, axis=1)
-  e_hat = y - conditional_mean_estimate
+  b0, b1, b2, e_hat = two_step_ckde_cv(X, y)
 
   # Return sampling function
   def sample_from_conditional_kde(x_):
@@ -300,7 +313,7 @@ def two_step_ckde(X, y):
     mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
 
     # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
-    m_x = None  # ToDo: implement function for getting conditional mean!
+    m_x = nw_conditional_mean(x_, b0, X, y)
     y = np.random.normal(loc=m_x + e_hat[mixture_component], scale=b1)
     return y
 
