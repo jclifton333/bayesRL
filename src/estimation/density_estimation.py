@@ -14,6 +14,9 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 import pymc3 as pm
+from statsmodels.nonparametric.kernel_regression import KernelReg
+from sklearn.metrics.pairwise import pairwise_kernels
+from sklearn.linear_model import LinearRegression
 import numpy as np
 import scipy as sp
 import pandas as pd
@@ -218,8 +221,14 @@ def I1_and_I2_hat(X, y, h1, h2):
   return I1_hat - 2*I2_hat
 
 
-def least_squares_cv_bandwidth(X, y):
-  pass
+def least_squares_cv(X, y, b0):
+  X_k = pairwise_kernels(X, metric="rbf", **{'gamma': 1 / b0})
+  reg = LinearRegression()
+  reg.fit(X_k, y)
+  H = np.dot(X_k, np.dot(np.linalg.inv(np.dot(X_k.T, X_k)), X_k.T))
+  loo_residual = (reg.predict(X_k) - y) / (1 - np.diag(H))
+  loo_error = np.dot(loo_residual, loo_residual)
+  return loo_error
 
 
 def two_step_ckde_cv(X, y):
@@ -235,8 +244,15 @@ def two_step_ckde_cv(X, y):
   """
   # Do bandwidth selection in two steps
   # Step 1: select b0 with least-squares CV
-  b0 = least_squares_cv_bandwidth(X, y)  # ToDo: implement this
+  b0_bandwidth_grid = [0.01, 0.1, 1]
+  b0 = None
+  best_err = float("inf")
+  for b0_ in b0_bandwidth_grid:
+    err = least_squares_cv(X, y)
+    if err < best_err:
+      b0 = b0_
 
+  # ToDo: target should be residuals from first-step estimator (y - m(x)), not y!
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
   bandwidth_grid = [0.01, 0.1, 1]
   b1 = b2 = None
@@ -259,26 +275,33 @@ def two_step_ckde(X, y):
   :param y:
   :return:
   """
-  def get_two_step_ckde_from_bandwidth(b0, b1, b2):
+  # Select bandwidth with CV
+  b0, b1, b2 = two_step_ckde_cv(X, y)
+
+  # Fit estimator using chosen bandwidths
+  # First step: ND conditional mean
+  K_b0 = np.array([np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
+                   for x in X])
+  conditional_mean_estimate = np.dot(K_b0, y) / np.sum(K_b0, axis=1)
+  e_hat = y - conditional_mean_estimate
+
+  # Return sampling function
+  def sample_from_conditional_kde(x_):
     """
 
-    :param x:
-    :param b0: Bandwidths
-    :param b1:
-    :param b2:
+    :param x_: Covariates at which to sample from conditional density.
     :return:
     """
-    # First step: ND conditional mean
-    K_b0 = np.array([np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
-                     for x in X])
-    conditional_mean_estimate = np.dot(K_b0, y) / np.sum(K_b0, axis=1)
+    # Get mixing weights
+    K_b2 = np.array([gaussian_kernel(x_ - x_i, b2) for x_i in X])
+    mixing_weights = K_b2 / np.sum(K_b2)
 
-    # Second step: density estimation
-    e_hat = y - conditional_mean_estimate
-    K_b2 = np.array([np.array([gaussian_kernel(x - x_i, b2) for x_i in X])
-                     for x in X])
-    K_b1 = np.array([np.array([gaussian_kernel(e - e_i, b1) for e_i in e_hat])
-                     for e in e_hat])
-    g_hat = np.dot(K_b1, K_b2) / np.sum(K_b2, axis=1)
-    return
-  return
+    # Sample normal from mixture
+    mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
+
+    # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
+    m_x = None  # ToDo: implement function for getting conditional mean!
+    y = np.random.normal(loc=m_x + e_hat[mixture_component], scale=b1)
+    return y
+
+  return sample_from_conditional_kde
