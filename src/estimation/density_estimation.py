@@ -182,6 +182,47 @@ def np_density_estimation(X, test=False):
 
 
 # Frequentist CDE
+# Referring to https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
+def I1_and_I2_hat(X, y, h1, h2):
+  """
+  Helper function for CV bandwidth selection from pdf pg 6.
+
+  :param X:
+  :param y:
+  :param K_h1:
+  :param K_h2:
+  :return:
+  """
+  n, p = X.shape
+  k1 = lambda x: gaussian_kernel(x, h1)
+  k2 = lambda x: gaussian_kernel(x, h2)
+  ksqrt2_h1 = lambda x: gaussian_kernel(x, np.sqrt(2)*h1)
+  sum_k2 = []  # \sum_{j != i} k2(x_i - x_j) ; used in both I_1, I_2
+
+  I1_hat = 0.0
+  I2_hat = 0.0
+  for i in range(n):
+    num_1_i = 0.0
+    sum_k2_i = 0.0
+    for j in range(n):
+      if j != i:
+        for k in range(n):
+          if k != i:
+            num_1_i += k2(X[i] - X[j]) * k2(X[i] - X[k]) * ksqrt2_h1(y[k] - y[j])
+        sum_k2_i += k2(X[i] - X[j])
+    I1_hat += (num_1_i / sum_k2_i**2) / n
+    sum_k2.append(sum_k2_i)
+
+  # Get I2_hat
+
+
+
+
+
+
+
+
+
 
 def two_step_ckde_cv_error(X, y, b0, b1, b2):
   """
@@ -199,6 +240,7 @@ def two_step_ckde_cv_error(X, y, b0, b1, b2):
   b0 = least_squares_np_regression_cv(X, y)  # ToDo: implement this
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
+  return
 
 
 def two_step_ckde(X, y):
