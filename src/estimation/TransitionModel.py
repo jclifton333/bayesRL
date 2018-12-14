@@ -44,12 +44,6 @@ class GlucoseTransitionModel(ABC):
     self.activity_nonzero = None
     self.y_ = None
 
-    self.glucose_model = None
-    self.glucose_trace = None
-    self.compare = None
-    self.shared_x_np = None
-    self.shared_x_p = None
-
   def fit(self, X, y):
     self.fit_unconditional_densities(X)
     self.fit_conditional_densities(X, y)
@@ -78,6 +72,35 @@ class KdeGlucoseModel(GlucoseTransitionModel):
                                     use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions,
                                     test=test)
 
+  def fit_conditional_densities(self, X, y):
+    # Conditional kde from https: // www.ssc.wisc.edu / ~bhansen / papers / ncde.pdf
+    self.X_, self.y_ = X, y
+    self.b0, self.b1, self.b2, self.e_hat = dd.two_step_ckde_cv(self.X, self.y)
+
+  def draw_from_conditional_kde(self, x):
+    """
+
+    :param x_: Covariates at which to sample from conditional density.
+    :return:
+    """
+    # Get mixing weights
+    K_b2 = np.array([dd.gaussian_kernel(x_ - x_i, self.b2) for x_i in self.X])
+    mixing_weights = K_b2 / np.sum(K_b2)
+
+    # Sample normal from mixture
+    mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
+
+    # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
+    m_x = nw_conditional_mean(x_, self.b0, self.X, self.y)
+    glucose = np.random.normal(loc=m_x + self.e_hat[mixture_component], scale=self.b1)
+    r = glucose_reward_function(glucose)
+    return glucose, r
+
+  def draw_from_ppd(self, x):
+    # Draw conditional glucose
+    glucose, r = self.draw_from_conditional_kde()
+
+    # ToDo: Implement food and activity
 
 
 class BayesGlucoseModel(GlucoseTransitionModel):
@@ -89,6 +112,11 @@ class BayesGlucoseModel(GlucoseTransitionModel):
     self.method = method
     self.alpha_mean = alpha_mean
 
+    self.glucose_model = None
+    self.glucose_trace = None
+    self.compare = None
+    self.shared_x_np = None
+    self.shared_x_p = None
     self.food_model = None
     self.food_trace = None
     self.food_nonzero_prob = None
