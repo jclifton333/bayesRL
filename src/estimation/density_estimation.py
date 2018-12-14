@@ -263,8 +263,8 @@ def two_step_ckde_cv(X, y):
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  # bandwidth_grid = [5, 10, 15, 20]
-  bandwidth_grid = [5]
+  bandwidth_grid = [5, 10, 15, 20]
+  # bandwidth_grid = [5]
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:
