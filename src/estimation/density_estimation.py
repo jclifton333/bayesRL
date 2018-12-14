@@ -172,7 +172,7 @@ def np_density_estimation(X, test=False):
 
 # Frequentist CDE
 # Referring to https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-@njit
+#@njit
 def I1_and_I2_hat(X, y, h1, h2):
   """
   Helper function for CV bandwidth selection from pdf pg 6.
@@ -199,7 +199,10 @@ def I1_and_I2_hat(X, y, h1, h2):
             num_1_i += k2_ij * gaussian_kernel(X[i] - X[k], h2) * gaussian_kernel_1d(y[k] - y[j], np.sqrt(2) * h1)
             num_2_i += k2_ij * k1_ij
         sum_k2_i += gaussian_kernel(X[i] - X[j], h2)
-    I1_hat += (num_1_i / sum_k2_i**2) / n
+    try:
+      I1_hat += (num_1_i / sum_k2_i**2) / n
+    except:
+      pdb.set_trace()
     I2_hat += (num_2_i / sum_k2_i) / n
 
   return I1_hat - 2*I2_hat
