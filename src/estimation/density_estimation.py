@@ -23,7 +23,10 @@ import pandas as pd
 import theano
 from theano import shared, tensor as tt
 from src.environments.Glucose import Glucose
-import matplotlib.pyplot as plt
+try:
+  import matplotlib.pyplot as plt
+except:
+  pass
 
 SEED = 972915 # from random.org; for reproducibility
 np.random.seed(SEED)
