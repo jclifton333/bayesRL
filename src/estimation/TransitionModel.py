@@ -100,12 +100,16 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     :return:
     """
     ixs = self.kde_by_action[at][atm1]['ixs'][0]
-    self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
-    b0, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
-    self.kde_by_action[at][atm1]['b0'] = b0
-    self.kde_by_action[at][atm1]['b1'] = b1
-    self.kde_by_action[at][atm1]['b2'] = b2
-    self.kde_by_action[at][atm1]['e_hat'] = e_hat
+    if len(ixs) > 0:  # Fit if there are observations with this combination of actions
+      self.kde_by_action[at][atm1]['fit'] = True
+      self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
+      b0, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
+      self.kde_by_action[at][atm1]['b0'] = b0
+      self.kde_by_action[at][atm1]['b1'] = b1
+      self.kde_by_action[at][atm1]['b2'] = b2
+      self.kde_by_action[at][atm1]['e_hat'] = e_hat
+    else:
+      self.kde_by_action[at][atm1]['fit'] = False
 
   def fit_unconditional_densities(self, X):
     pass
@@ -118,12 +122,23 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     """
     # Get info for kde at this combo of actions
     at, atm1 = x[0][-1], x[0][-2]
-    X = self.kde_by_action[at][atm1]['X']
-    y = self.kde_by_action[at][atm1]['y']
-    b0 = self.kde_by_action[at][atm1]['b0']
-    b1 = self.kde_by_action[at][atm1]['b1']
-    b2 = self.kde_by_action[at][atm1]['b2']
-    e_hat = self.kde_by_action[at][atm1]['e_hat']
+    if self.kde_by_action[at][atm1]['fit']:
+      X = self.kde_by_action[at][atm1]['X']
+      y = self.kde_by_action[at][atm1]['y']
+      b0 = self.kde_by_action[at][atm1]['b0']
+      b1 = self.kde_by_action[at][atm1]['b1']
+      b2 = self.kde_by_action[at][atm1]['b2']
+      e_hat = self.kde_by_action[at][atm1]['e_hat']
+
+    # If no obs at this action combination, use last two actions = 0 (assume there are always obs for this...)
+    else:
+      at = atm1 = 0
+      X = self.kde_by_action[at][atm1]['X']
+      y = self.kde_by_action[at][atm1]['y']
+      b0 = self.kde_by_action[at][atm1]['b0']
+      b1 = self.kde_by_action[at][atm1]['b1']
+      b2 = self.kde_by_action[at][atm1]['b2']
+      e_hat = self.kde_by_action[at][atm1]['e_hat']
 
     # Get mixing weights
     x_ = self.scaler.transform(x[0][1:7].reshape(1, -1))[0]

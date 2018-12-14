@@ -6,20 +6,14 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 import datetime
-import time
 import multiprocessing as mp
 import numpy as np
 import src.policies.rollout as rollout
-import src.estimation.density_estimation as dd
 from src.estimation.TransitionModel import KdeGlucoseModel, glucose_reward_function
 import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies
 import yaml
-import pandas as pd
-import pymc3 as pm
-import matplotlib.pyplot as plt
-from theano import shared, tensor as tt
 from functools import partial
 
 
