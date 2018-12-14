@@ -20,30 +20,74 @@ from src.environments.Glucose import Glucose
 import src.estimation.bellman_error as be
 import src.policies.simulation_optimization_policies as opt
 from theano import shared
+from abc import ABCMeta, abstractmethod
+# Create ABC base class compatible with Python 2.7 and 3.x
+ABC = ABCMeta('ABC', (object, ), {'__slots__': ()})
 
 
-class GlucoseTransitionModel(object):
+class GlucoseTransitionModel(ABC):
   FEATURE_INDICES_FOR_PARAMETRIC_MODEL = [0, 1, 2, 3, 8]
   COEF = Glucose.COEF
   SIGMA_GLUCOSE = Glucose.SIGMA_GLUCOSE
 
-  def __init__(self, method='np', use_true_food_and_exercise_distributions=False, alpha_mean=0.0, test=False):
+  def __init__(self, use_true_food_and_exercise_distributions=False, test=False):
     """
 
-    :param method: string in ['np', 'p', 'averaged']
     :param test: if True, this is just for testing - only draw one sample in MCMC
     """
-    assert method in ['np', 'p', 'averaged']
-    self.method = method
     self.use_true_food_and_exercise_distributions = use_true_food_and_exercise_distributions
-    self.alpha_mean = alpha_mean
     self.test = test
+
+    # Covariates and subsequent glucoses; hang on to these after model is fit for plotting
+    self.X_ = None
+    self.food_nonzero = None
+    self.activity_nonzero = None
+    self.y_ = None
 
     self.glucose_model = None
     self.glucose_trace = None
     self.compare = None
     self.shared_x_np = None
     self.shared_x_p = None
+
+  def fit(self, X, y):
+    self.fit_unconditional_densities(X)
+    self.fit_conditional_densities(X, y)
+
+  @abstractmethod
+  def fit_unconditional_densities(self, X):
+    pass
+
+  @abstractmethod
+  def fit_conditional_densities(self, X, y):
+    pass
+
+  @abstractmethod
+  def draw_from_ppd(self, x):
+    pass
+
+  def true_glucose_pdf_at_x(self, x, x_grid):
+    mu = np.dot(x, self.COEF)
+    true_glucose_pdf = norm.pdf(x_grid, mu, self.SIGMA_GLUCOSE)
+    return true_glucose_pdf
+
+
+class KdeGlucoseModel(GlucoseTransitionModel):
+  def __init__(self, use_true_food_and_exercise_distributions=False, test=False):
+    GlucoseTransitionModel.__init__(self,
+                                    use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions,
+                                    test=test)
+
+
+
+class BayesGlucoseModel(GlucoseTransitionModel):
+  def __init__(self, method='np', use_true_food_and_exercise_distributions=False, alpha_mean=0.0, test=False):
+    GlucoseTransitionModel.__init__(self,
+                                    use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions,
+                                    test=test)
+    assert method in ['np', 'p', 'averaged']
+    self.method = method
+    self.alpha_mean = alpha_mean
 
     self.food_model = None
     self.food_trace = None
@@ -53,35 +97,6 @@ class GlucoseTransitionModel(object):
     self.activity_nonzero_prob = None
     self.shared_nonzero_food = None
     self.shared_nonzero_activity = None
-
-    # Covariates and subsequent glucoses; hang on to these after model is fit for plotting
-    self.X_ = None
-    self.food_nonzero = None
-    self.activity_nonzero = None
-    self.y_ = None
-
-  def fit(self, X, y):
-    # self.X_ = X
-    # self.y_ = y
-    # Food and activity are modeled with np density estimation in all cases
-    self.fit_unconditional_densities(X)
-
-    if self.method == 'np':
-      self.fit_np_conditional_density(X, y)
-    elif self.method == 'p':
-      self.fit_p_conditional_density(X, y)
-      self.model, self.trace = model_, trace_
-    elif self.method == 'averaged':
-      self.shared_x_np = shared(X)
-      self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
-      model_np, trace_np = dd.dirichlet_mixture_regression(self.shared_x_np, y, test=self.test)
-      model_p, trace_p = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
-      model_ = [model_p, model_np]
-      trace_ = [trace_p, trace_np]
-      self.compare = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')
-      self.model, self.trace = model_, trace_
-
-    # self.compare = compare_
 
   def fit_p_conditional_density(self, X, y):
     self.X_, self.y_ = X, y
@@ -96,6 +111,21 @@ class GlucoseTransitionModel(object):
     model_, trace_ = dd.dirichlet_mixture_regression(self.shared_x_np, y, alpha_mean=self.alpha_mean,
                                                      test=self.test)
     self.model, self.trace = model_, trace_
+
+  def fit_conditional_densities(self, X, y):
+    if self.method == 'np':
+      self.fit_np_conditional_density(X, y)
+    elif self.method == 'p':
+      self.fit_p_conditional_density(X, y)
+    elif self.method == 'averaged':
+      self.shared_x_np = shared(X)
+      self.shared_x_p = shared(X[:, self.FEATURE_INDICES_FOR_PARAMETRIC_MODEL])
+      model_np, trace_np = dd.dirichlet_mixture_regression(self.shared_x_np, y, test=self.test)
+      model_p, trace_p = dd.normal_bayesian_regression(self.shared_x_p, y, test=self.test)
+      model_ = [model_p, model_np]
+      trace_ = [trace_p, trace_np]
+      self.compare = pm.compare({model_p: trace_p, model_np: trace_np}, method='BB-pseudo-BMA')
+      self.model, self.trace = model_, trace_
 
   def fit_unconditional_densities(self, X):
     self.X_ = X
@@ -334,13 +364,6 @@ class GlucoseTransitionModel(object):
     axarr[1].set_title('Posterior density estimates for activity')
     # axarr[1].legend()
     plt.show()
-
-
-
-  def true_glucose_pdf_at_x(self, x, x_grid):
-    mu = np.dot(x, self.COEF)
-    true_glucose_pdf = norm.pdf(x_grid, mu, self.SIGMA_GLUCOSE)
-    return true_glucose_pdf
 
   def posterior_glucose_pdfs_at_x(self, x, x_grid):
     """

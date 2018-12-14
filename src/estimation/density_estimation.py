@@ -24,6 +24,7 @@ import pandas as pd
 import theano
 from theano import shared, tensor as tt
 from src.environments.Glucose import Glucose
+import matplotlib.pyplot as plt
 
 SEED = 972915 # from random.org; for reproducibility
 np.random.seed(SEED)
@@ -225,7 +226,10 @@ def nw_conditional_mean(x, b0, X, y):
   :param y:
   :return:
   """
-  K = np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
+  n = X.shape[0]
+  K = np.zeros(n)
+  for i in range(n):
+    K[i] = gaussian_kernel(x - X[i, :], b0)
   m_x = np.dot(K, y) / np.sum(K)
   return m_x
 
@@ -243,13 +247,13 @@ def two_step_ckde_cv(X, y):
   """
   # Do bandwidth selection in two steps
   # Step 1: select b0 with least-squares CV
-  b0_bandwidth_grid = [0.01, 0.1, 1.0]
+  b0_bandwidth_grid = [0.01, 0.05, 0.1, 0.5, 1.0]
   b0 = None
   best_err = float("inf")
   for b0_ in b0_bandwidth_grid:
-    print(b0_)
     err = least_squares_cv(X, y, b0_)
     if err < best_err:
+      best_err = err
       b0 = b0_
 
   # Get residuals of resulting np regression
@@ -259,7 +263,7 @@ def two_step_ckde_cv(X, y):
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  bandwidth_grid = [0.01, 0.1, 1.0]
+  bandwidth_grid = [0.01, 0.05, 0.1, 0.5, 1.0]
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:
@@ -267,43 +271,47 @@ def two_step_ckde_cv(X, y):
       print(b1_, b2_)
       err = I1_and_I2_hat(X, e_hat, b1_, b2_)
       if err < best_err:
+        best_err = err
         b1 = b1_
         b2 = b2_
 
   return b0, b1, b2, e_hat
 
 
-def two_step_ckde(X, y):
+class ConditionalKDE(object):
   """
   Frequentist conditional kernel density estimator from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-
-  :param X:
-  :param y:
-  :return:
   """
-  # Select bandwidth with CV
-  b0, b1, b2, e_hat = two_step_ckde_cv(X, y)
 
-  # Return sampling function
-  def sample_from_conditional_kde(x_):
+  def __init__(self, X, y):
+    """
+    Initialize and fit conditional density estimator.
+    :param X:
+    :param y:
+    """
+    self.X = X
+    self.y = y
+
+    # Select bandwidth with CV
+    self.b0, self.b1, self.b2, self.e_hat = two_step_ckde_cv(self.X, self.y)
+
+  def sample_from_conditional_kde(self, x_, n):
     """
 
     :param x_: Covariates at which to sample from conditional density.
     :return:
     """
     # Get mixing weights
-    K_b2 = np.array([gaussian_kernel(x_ - x_i, b2) for x_i in X])
+    K_b2 = np.array([gaussian_kernel(x_ - x_i, self.b2) for x_i in self.X])
     mixing_weights = K_b2 / np.sum(K_b2)
 
     # Sample normal from mixture
     mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
 
     # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
-    m_x = nw_conditional_mean(x_, b0, X, y)
-    y = np.random.normal(loc=m_x + e_hat[mixture_component], scale=b1)
+    m_x = nw_conditional_mean(x_, self.b0, self.X, self.y)
+    y = np.random.normal(loc=m_x + self.e_hat[mixture_component], scale=self.b1, size=n)
     return y
-
-  return sample_from_conditional_kde
 
 
 @njit
@@ -322,8 +330,3 @@ def gaussian_kernel(x, bandwidth):
 def gaussian_kernel_1d(y, bandwidth):
   return np.exp(-y*y / bandwidth) / bandwidth
 
-
-if __name__ == "__main__":
-  X = np.random.normal(size=(100, 3))
-  y = np.dot(X, np.ones(3)) + np.random.normal(size=100)
-  two_step_ckde(X, y)
