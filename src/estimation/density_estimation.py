@@ -14,7 +14,6 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 import pymc3 as pm
-from statsmodels.nonparametric.kernel_regression import KernelReg
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import LinearRegression
 import numpy as np
