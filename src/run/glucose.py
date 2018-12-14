@@ -11,7 +11,7 @@ import multiprocessing as mp
 import numpy as np
 import src.policies.rollout as rollout
 import src.estimation.density_estimation as dd
-from src.estimation.TransitionModel import GlucoseTransitionModel, glucose_reward_function
+from src.estimation.TransitionModel import KdeGlucoseModel, glucose_reward_function
 import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies
@@ -41,33 +41,20 @@ def npb_diagnostics():
     action = np.random.binomial(1, 0.3, n_patients)
     env.step(action)
 
-  model = GlucoseTransitionModel()
+  model = KdeGlucoseModel()
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   model.fit(X, Sp1[:, 0])
   return
 
 
 def episode(label, policy_name, save=False, monte_carlo_reps=10):
-  if policy_name in ['np', 'p', 'averaged']:
+  # if policy_name in ['np', 'p', 'averaged']:
+  if policy_name in ['kde']:
     tune = True
-    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
-    bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
-    tuning_function_parameter = np.array([0.05, 1.0, 0.01])
     fixed_eps = None
   else:
     tune = False
     fixed_eps = 0.05
-
-  if policy_name == 'averaged':
-    stack = True
-  else:
-    stack = False
-
-  # if save:
-  #   base_name = 'glucose-stacked={}-{}'.format(stacked, label)
-  #   prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
-  #   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-  #   filename = '{}_{}.yml'.format(prefix, suffix)
 
   np.random.seed(label)
   n_patients = 10
@@ -80,21 +67,15 @@ def episode(label, policy_name, save=False, monte_carlo_reps=10):
   bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
   tuning_function_parameter = np.array([0.05, 1.0, 0.01])
   env = Glucose(nPatients=n_patients)
-  estimator = GlucoseTransitionModel(method=policy_name)
+  estimator = KdeGlucoseModel()
   cumulative_reward = 0.0
   env.reset()
   env.step(np.random.binomial(1, 0.3, n_patients))
 
   for t in range(T):
     if tune:
-      # Get posterior
       X, Sp1 = env.get_state_transitions_as_x_y_pair()
-      # X_np = shared(X)
-      # X_p = shared(X[:, :3])
       y = Sp1[:, 0]
-      # model_, trace_, compare_ = dd.dependent_density_regression(X_np, y, X_p=X_p)
-      # kwargs = {'n_rep': monte_carlo_reps, 'X_np': X_np, 'model': model_, 'trace': trace_, 'compare': compare_,
-      #           'X_p': X_p}
       estimator.fit(X, y)
       kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator}
 
@@ -107,10 +88,14 @@ def episode(label, policy_name, save=False, monte_carlo_reps=10):
     cumulative_reward += r
 
     # Save results
-    if save:
-      results = {'t': float(t), 'regret': float(cumulative_reward)}
-      with open(filename, 'w') as outfile:
-        yaml.dump(results, outfile)
+    # if save:
+    #   base_name = 'glucose-tuned={}-policy={}-{}'.format(tune, policy_name, label)
+    #   prefix = os.path.join(project_dir, 'src', 'run', 'results', base_name)
+    #   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    #   filename = '{}_{}.yml'.format(prefix, suffix)
+    #   results = {'t': float(t), 'regret': float(cumulative_reward)}
+    #   with open(filename, 'w') as outfile:
+    #     yaml.dump(results, outfile)
 
   return {'cumulative_reward': float(cumulative_reward)}
 
@@ -141,8 +126,5 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  npb_diagnostics()
-  # run('np')
-  # episode(0, 'p')
-  # run('averaged')
+  run('kde')
 

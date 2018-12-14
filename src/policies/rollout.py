@@ -345,7 +345,8 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
       rewards_t = 0.0
       for patient in range(env.nPatients):
         # Draw next state from ppd
-        glucose_patient, food_patient, activity_patient = estimator.draw_from_ppd(current_x[patient])
+        s, r = estimator.draw_from_ppd(current_x[patient])
+        glucose_patient, food_patient, activity_patient = s[0], s[1], s[2]
         x_patient = np.array([[1.0, glucose_patient, food_patient, activity_patient, X_rep[patient][-1, 1],
                               X_rep[patient][-1, 2], X_rep[patient][-1, 3], X_rep[patient][-1, -1], action[patient]]])
         X_rep[patient] = np.vstack((X_rep[patient], x_patient))

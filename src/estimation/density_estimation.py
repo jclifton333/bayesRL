@@ -201,6 +201,7 @@ def I1_and_I2_hat(X, y, h1, h2):
             num_1_i += k2_ij * gaussian_kernel(X[i] - X[k], h2) * gaussian_kernel_1d(y[k] - y[j], np.sqrt(2) * h1)
             num_2_i += k2_ij * k1_ij
         sum_k2_i += gaussian_kernel(X[i] - X[j], h2)
+    sum_k2_i = np.max(np.array([0.0001, sum_k2_i]))  # For stability away from 0
     I1_hat += (num_1_i / sum_k2_i**2) / n
     I2_hat += (num_2_i / sum_k2_i) / n
 
@@ -232,7 +233,8 @@ def nw_conditional_mean(x, b0, X, y):
   K = np.zeros(n)
   for i in range(n):
     K[i] = gaussian_kernel(x - X[i, :], b0)
-  m_x = np.dot(K, y) / np.sum(K)
+  K_sum = np.max(np.array([0.0001, np.sum(K)]))  # For stability away from 0
+  m_x = np.dot(K, y) / K_sum
   return m_x
 
 
@@ -249,7 +251,7 @@ def two_step_ckde_cv(X, y):
   """
   # Do bandwidth selection in two steps
   # Step 1: select b0 with least-squares CV
-  b0_bandwidth_grid = [0.01, 0.05, 0.1, 0.5, 1.0]
+  b0_bandwidth_grid = [0.01, 0.1, 1, 10]
   b0 = None
   best_err = float("inf")
   for b0_ in b0_bandwidth_grid:
@@ -265,8 +267,7 @@ def two_step_ckde_cv(X, y):
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  bandwidth_grid = [5, 10, 15, 20]
-  # bandwidth_grid = [5]
+  bandwidth_grid = [0.01, 0.1, 1, 10]
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:
