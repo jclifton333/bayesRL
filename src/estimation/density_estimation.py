@@ -199,10 +199,7 @@ def I1_and_I2_hat(X, y, h1, h2):
             num_1_i += k2_ij * gaussian_kernel(X[i] - X[k], h2) * gaussian_kernel_1d(y[k] - y[j], np.sqrt(2) * h1)
             num_2_i += k2_ij * k1_ij
         sum_k2_i += gaussian_kernel(X[i] - X[j], h2)
-    try:
-      I1_hat += (num_1_i / sum_k2_i**2) / n
-    except:
-      pdb.set_trace()
+    I1_hat += (num_1_i / sum_k2_i**2) / n
     I2_hat += (num_2_i / sum_k2_i) / n
 
   return I1_hat - 2*I2_hat

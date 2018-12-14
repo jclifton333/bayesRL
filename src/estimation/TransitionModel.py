@@ -11,6 +11,7 @@ from scipy.stats import norm, multivariate_normal
 import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
+from sklearn.preprocessing import StandardScaler
 try:
   import matplotlib.pyplot as plt
 except:
@@ -77,6 +78,9 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     # Conditional kde from https: // www.ssc.wisc.edu / ~bhansen / papers / ncde.pdf
     # Fit 4 separate conditional kdes: one for each combination of (a_t, a_{t-1})
     self.X_, self.y_ = X, y
+    self.scaler = StandardScaler()
+    self.scaler.fit(X[:, :7])
+    self.X_without_action = self.scaler.transform(X[:, :7])
 
     self.kde_by_action[0][0]['ixs'] = np.where((self.X_[:, -1] == 0) & (self.X_[:, -2] == 0))
     self.kde_by_action[1][0]['ixs'] = np.where((self.X_[:, -1] == 1) & (self.X_[:, -2] == 0))
@@ -95,8 +99,8 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     :param atm1: 0 or 1
     :return:
     """
-    ixs = self.kde_by_action[at][atm1]['ixs']
-    self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_[ixs, :7], self.y_[ixs]
+    ixs = self.kde_by_action[at][atm1]['ixs'][0]
+    self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
     b0, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
     self.kde_by_action[at][atm1]['b0'] = b0
     self.kde_by_action[at][atm1]['b1'] = b1
@@ -122,7 +126,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     e_hat = self.kde_by_action[at][atm1]['e_hat']
 
     # Get mixing weights
-    x_ = x[:7]
+    x_ = self.scaler.transform(x[:7])
     K_b2 = np.array([dd.gaussian_kernel(x_ - x_i, b2) for x_i in X])
     mixing_weights = K_b2 / np.sum(K_b2)
 
