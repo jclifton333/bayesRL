@@ -172,7 +172,7 @@ def np_density_estimation(X, test=False):
 
 # Frequentist CDE
 # Referring to https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-#@njit
+@njit
 def I1_and_I2_hat(X, y, h1, h2):
   """
   Helper function for CV bandwidth selection from pdf pg 6.
@@ -263,7 +263,8 @@ def two_step_ckde_cv(X, y):
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  bandwidth_grid = [0.01, 0.05, 0.1, 0.5, 1.0]
+  # bandwidth_grid = [5, 10, 15, 20]
+  bandwidth_grid = [5]
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:

@@ -79,8 +79,8 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     # Fit 4 separate conditional kdes: one for each combination of (a_t, a_{t-1})
     self.X_, self.y_ = X, y
     self.scaler = StandardScaler()
-    self.scaler.fit(X[:, :7])
-    self.X_without_action = self.scaler.transform(X[:, :7])
+    self.scaler.fit(X[:, 1:7])
+    self.X_without_action = self.scaler.transform(X[:, 1:7])
 
     self.kde_by_action[0][0]['ixs'] = np.where((self.X_[:, -1] == 0) & (self.X_[:, -2] == 0))
     self.kde_by_action[1][0]['ixs'] = np.where((self.X_[:, -1] == 1) & (self.X_[:, -2] == 0))
@@ -117,7 +117,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     :return:
     """
     # Get info for kde at this combo of actions
-    at, atm1 = x[-1], x[-2]
+    at, atm1 = x[0][-1], x[0][-2]
     X = self.kde_by_action[at][atm1]['X']
     y = self.kde_by_action[at][atm1]['y']
     b0 = self.kde_by_action[at][atm1]['b0']
@@ -126,7 +126,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     e_hat = self.kde_by_action[at][atm1]['e_hat']
 
     # Get mixing weights
-    x_ = self.scaler.transform(x[:7])
+    x_ = self.scaler.transform(x[0][1:7].reshape(1, -1))[0]
     K_b2 = np.array([dd.gaussian_kernel(x_ - x_i, b2) for x_i in X])
     mixing_weights = K_b2 / np.sum(K_b2)
 
@@ -141,7 +141,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
 
   def draw_from_ppd(self, x):
     # Draw conditional glucose
-    glucose, r = self.draw_from_conditional_kde()
+    glucose, r = self.draw_from_conditional_kde(x)
 
     # Draw food and activity from empirical!
     food = np.random.choice(self.X_[:, 2])
