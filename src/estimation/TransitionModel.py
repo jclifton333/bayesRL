@@ -77,6 +77,9 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     self.X_, self.y_ = X, y
     self.b0, self.b1, self.b2, self.e_hat = dd.two_step_ckde_cv(self.X, self.y)
 
+  def fit_unconditional_densities(self, X):
+    pass
+
   def draw_from_conditional_kde(self, x):
     """
 
@@ -91,7 +94,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
 
     # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
-    m_x = nw_conditional_mean(x_, self.b0, self.X, self.y)
+    m_x = dd.nw_conditional_mean(x_, self.b0, self.X, self.y)
     glucose = np.random.normal(loc=m_x + self.e_hat[mixture_component], scale=self.b1)
     r = glucose_reward_function(glucose)
     return glucose, r
@@ -100,7 +103,12 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     # Draw conditional glucose
     glucose, r = self.draw_from_conditional_kde()
 
-    # ToDo: Implement food and activity
+    # Draw food and activity from empirical!
+    food = np.random.choice(self.X[:, 2])
+    activity = np.random.choice(self.X[:, 3])
+
+    s = np.array([glucose, food, activity])
+    return s, r
 
 
 class BayesGlucoseModel(GlucoseTransitionModel):

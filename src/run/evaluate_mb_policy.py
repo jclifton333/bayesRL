@@ -12,7 +12,7 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 from src.environments.Glucose import Glucose
-from src.estimation.TransitionModel import GlucoseTransitionModel, glucose_reward_function
+from src.estimation.TransitionModel import BayesGlucoseModel, glucose_reward_function, KdeGlucoseModel
 import src.policies.simulation_optimization_policies as opt
 from sklearn.ensemble import RandomForestRegressor
 try:
@@ -224,10 +224,13 @@ def evaluate_glucose_mb_policy(replicate, method, true_food_and_ex=False, test=F
   for t in range(T):
     env.step(np.random.binomial(1, 0.3, n_patients))
 
-  if method in ['np', 'p', 'averaged']:
+  if method in ['np', 'p', 'averaged', 'kde']:
     # Fit model on data
-    estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean, test=test,
-                                       use_true_food_and_exercise_distributions=true_food_and_ex)
+    if method == 'kde':
+      estimator = KdeGlucoseModel()
+    else:
+      estimator = BayesGlucoseModel(method=method, alpha_mean=alpha_mean, test=test,
+                                    use_true_food_and_exercise_distributions=true_food_and_ex)
     X, Sp1 = env.get_state_transitions_as_x_y_pair()
     S = env.S
     y = Sp1[:, 0]
@@ -237,8 +240,6 @@ def evaluate_glucose_mb_policy(replicate, method, true_food_and_ex=False, test=F
     def rollout_policy(s_, x_):
       return np.random.binomial(1, 0.3)
 
-    initial_x = X[-1, :]
-    initial_state = S[0][-1, :]
     transition_model = estimator.draw_from_ppd
     feature_function = opt.glucose_feature_function
     if truncate:
@@ -338,9 +339,4 @@ def run():
 
 
 if __name__ == "__main__":
-  # rollout_and_fit_unconditional_density()
-  # fit_and_compare_mb_and_mf_policies(test=False, use_true_food_and_exercise_distributions=True,
-  #                                    label='true-dbns')
-  # fit_and_compare_mb_and_mf_policies(test=False, use_true_food_and_exercise_distributions=False,
-  #                                    label='estimate-dbns')
-  evaluate_glucose_mb_policy(0, method='true_model', true_food_and_ex=False, test=True)
+  evaluate_glucose_mb_policy(0, method='kde')
