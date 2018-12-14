@@ -41,7 +41,7 @@ def npb_diagnostics():
   return
 
 
-def episode(label, policy_name, save=False, monte_carlo_reps=10):
+def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   # if policy_name in ['np', 'p', 'averaged']:
   if policy_name in ['kde']:
     tune = True
@@ -51,8 +51,7 @@ def episode(label, policy_name, save=False, monte_carlo_reps=10):
     fixed_eps = 0.05
 
   np.random.seed(label)
-  n_patients = 10
-  T = 20
+  n_patients = 15
 
   tuning_function = policies.expit_epsilon_decay
   policy = policies.glucose_one_step_policy
@@ -94,12 +93,12 @@ def episode(label, policy_name, save=False, monte_carlo_reps=10):
   return {'cumulative_reward': float(cumulative_reward)}
 
 
-def run(policy_name):
+def run(policy_name, T):
   replicates = 24
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name=policy_name)
+  episode_partial = partial(episode, policy_name=policy_name, T=T)
   results = pool.map(episode_partial, range(replicates))
 
   base_name = 'glucose-{}'.format(policy_name)
@@ -120,5 +119,5 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  run('kde')
-
+  run('kde', 25)
+  run('kde', 50)
