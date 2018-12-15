@@ -48,7 +48,8 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
     fixed_eps = None
   else:
     tune = False
-    fixed_eps = 0.05
+    if policy_name == 'fixed_eps':
+      eps = 0.05
 
   np.random.seed(label)
   n_patients = 15
@@ -76,7 +77,9 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
     X = [x[:-1, :] for x in env.X]
-    action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t, fixed_eps=fixed_eps)
+    if policy_name == 'eps_decay':
+      eps = 0.3 / (t + 1)
+    action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t, fixed_eps=eps)
     _, r = env.step(action)
     cumulative_reward += r
 
@@ -119,5 +122,6 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  run('kde', 25)
-  run('kde', 50)
+  run('eps_decay', 25)
+  run('eps_decay', 50)
+  # run('kde', 50)
