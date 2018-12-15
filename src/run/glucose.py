@@ -76,10 +76,9 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
-    X = [x[:-1, :] for x in env.X]
     if policy_name == 'eps_decay':
       eps = 0.3 / (t + 1)
-    action = policy(env, X, env.R, tuning_function, tuning_function_parameter, T, t, fixed_eps=eps)
+    action = policy(env, tuning_function, tuning_function_parameter, T, t, fixed_eps=eps)
     _, r = env.step(action)
     cumulative_reward += r
 
@@ -122,6 +121,7 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
+  # episode(0, 'eps_decay', 25)
   run('eps_decay', 25)
   run('eps_decay', 50)
   # run('kde', 50)
