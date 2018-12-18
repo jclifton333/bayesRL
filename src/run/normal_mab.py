@@ -36,8 +36,12 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    # tuning_function = lambda a, t, c: 0.5 / (t + 1)
-    tuning_function = tuned_bandit.expit_epsilon_decay
+#    if T==25:
+#      tuning_function = lambda a, b, c: 0.7**b
+#    elif T==50:
+#      tuning_function = lambda a, b, c: 0.85**b
+    tuning_function = lambda a, t, c: 0.5 / (t + 1)
+#    tuning_function = tuned_bandit.expit_epsilon_decay
 #    tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
@@ -91,7 +95,13 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
     tuning_function_parameter = np.array([1.0, 89.0, 5.0])
     posterior_sample = True
   elif policy_name == 'ucb':
-    tuning_function = lambda a, b, c: 0.05
+#    tuning_function = lambda a, b, c: 0.05
+    tuning_function = lambda a, b, c: 0.9
+    policy = tuned_bandit.normal_mab_ucb_policy
+    tune = False
+    tuning_function_parameter = None
+  elif policy_name == 'ucb-fixed-decay':
+    tuning_function = lambda a, b, c: 0.9/(b+1.0)
     policy = tuned_bandit.normal_mab_ucb_policy
     tune = False
     tuning_function_parameter = None
@@ -107,14 +117,25 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
     tune = False
     tuning_function_parameter = None
     posterior_sample = True
+  elif policy_name == 'frequentist-ts-fixed-decay':
+    tuning_function = lambda a, b, c: 1.0/(b+1.0)
+    policy = tuned_bandit.mab_frequentist_ts_policy
+    tune = False
+    tuning_function_parameter = None
+    posterior_sample = True
   elif policy_name == 'frequentist-ts-tuned':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.mab_frequentist_ts_policy
     tune = True
     tuning_function_parameter = np.array([0.8, 49.0, 2.5])
     posterior_sample = True
-    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
+#    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+#    explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
+    ## Add the explore_ points which are close to 1/(t+1), and also enlarge the bounds ##
+    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+    explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177], 
+                'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55], 
+                'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
   elif policy_name == 'gittins':
     tuning_function = lambda a, b, c: None
     tuning_function_parameter = None
@@ -201,7 +222,7 @@ def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_
   replicates = 96
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
-  episode_partial = partial(episode, policy_name, std=0.1, T=T, monte_carlo_reps=monte_carlo_reps,
+  episode_partial = partial(episode, policy_name, std=std, T=T, monte_carlo_reps=monte_carlo_reps,
                             posterior_sample=posterior_sample)
   num_batches = int(replicates / num_cpus)
 
@@ -237,13 +258,16 @@ def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_
 
 if __name__ == '__main__':
   # episode('ucb-tune-posterior-sample', np.random.randint(low=1, high=1000))
-#   run('eps-decay-fixed', save=False)
+#   run('eps-decay-fixed', save=False, std=1)
   # run('eps')
-   run('greedy', save=False)
+#   run('greedy', save=False)
   # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
   # run('ts-decay-posterior-sample', T=10, monte_carlo_reps=100)
-#  run('ucb', std=0.1, T=50, monte_carlo_reps=1000)
-  # run('ts-fixed', T=50, monte_carlo_reps=1000)
-  # run('frequentist-ts', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
+#  run('ucb', std=0.1, T=50, save=False, monte_carlo_reps=1000)
+#  run('ucb-fixed-decay', std=1, T=50, monte_carlo_reps=1000)
+#   run('ts-fixed', T=50, monte_carlo_reps=1000)
+  run('frequentist-ts-tuned', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
+#   run('frequentist-ts', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
+#   run('frequentist-ts-fixed-decay', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
   # run('eps-decay', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
   # run('ucb-tune-posterior-sample', std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=True)

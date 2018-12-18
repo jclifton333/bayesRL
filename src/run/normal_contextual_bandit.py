@@ -41,7 +41,11 @@ def episode(policy_name, label, n_patients=15, list_of_reward_betas=[[-10, 0.4, 
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    tuning_function = tuned_bandit.expit_epsilon_decay
+    if T==25:
+      tuning_function = lambda a, b, c: 0.7**b
+    elif T==50:
+      tuning_function = lambda a, b, c: 0.8**b
+#    tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = np.array([0.8, 46.38, 1.857])
@@ -231,8 +235,9 @@ def run(policy_name, save=True, mc_replicates=1000, T=50):
 
 if __name__ == '__main__':
   # episode('eps', 50)
-  # episode('eps-decay', 0, T=50)
-  run('eps-decay', T=30)
+   episode('eps-decay', 0, T=50)
+#  run('eps-decay', T=30)
+#  run('eps-decay-fixed', save=False, T=50)
   # run('eps', T=50)
   # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)

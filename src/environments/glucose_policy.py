@@ -458,10 +458,14 @@ def episode(policy_name, label, mc_replicates=10, T=50, nPatients=15, AR1=False)
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [50.0, 49.0, 1.0, 49.0], 'zeta2': [0.1, 2.5, 1.0, 2.5]}
     rollout_function = mdp_glucose_mHealth_rollout
   elif policy_name == 'eps-fixed-decay':
-    #tuning_function = lambda a, b, c: 0.1/float(b+1)
+    if T==25:
+      tuning_function = lambda a, b, c: 0.7**b
+    elif T==50:
+      tuning_function = lambda a, b, c: 0.8**b
+#    tuning_function = lambda a, b, c: 0.3/float(b+1)
     #tune = False
     #tuning_function_parameter = None
-    tuning_function = tuned_bandit.expit_epsilon_decay
+#    tuning_function = tuned_bandit.expit_epsilon_decay
     tune = False
     tuning_function_parameter = np.array([ 2. ,17.40051652, 2.5])
 #    tuning_function_parameter = np.array([ 2., 41.68182633, 2.5])
@@ -487,7 +491,7 @@ def episode(policy_name, label, mc_replicates=10, T=50, nPatients=15, AR1=False)
   actions_array = np.zeros((nPatients, T))
   tuning_parameter_sequence = []
   for t in range(T):
-    print("******** replicate: ", label, ", timestep: ", t, " ********")
+#    print("******** replicate: ", label, ", timestep: ", t, " ********")
     if tune:
       tuning_function_parameter = bayesopt(rollout_function, policy, tuning_function, tuning_function_parameter, 
                                            T, env, mc_replicates, bounds, explore_, x_initials, sx_initials,
@@ -574,8 +578,8 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=5)
 #  episode('eps-fixed-decay', 0, T=5)
-  run('eps-decay', T= 25, mc_replicates=10)
-#  run('eps-fixed-decay', T=25)
+#  run('eps-decay', T= 25, mc_replicates=10, AR1=False)
+  run('eps-fixed-decay', T=50, mc_replicates=10, AR1=False)
 #  run('eps',save=False, T=25, mc_replicates=10, AR1=False)
 #  episode('eps', 0, T=25)
 #  result = episode('eps', 0, T=50)
