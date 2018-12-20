@@ -335,7 +335,7 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
     # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
       if t > 0:
-        action = policy(env, X_rep, R_rep, tuning_function, tuning_function_parameter, time_horizon, t)
+        action = policy(env, tuning_function, tuning_function_parameter, time_horizon, t)
       else:
         action = np.random.binomial(1, 0.3, size=env.nPatients)
 
