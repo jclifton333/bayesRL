@@ -46,6 +46,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   if policy_name in ['kde']:
     tune = True
     fixed_eps = None
+    eps = None
   else:
     tune = False
     if policy_name == 'fixed_eps':
@@ -121,8 +122,6 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  # episode(0, 'eps_decay', 25)
-  # run('eps_decay', 25)
-  # run('eps_decay', 50)
+  # episode(0, 'kde', 25)
   run('kde', 25)
   run('kde', 50)
