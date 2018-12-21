@@ -124,6 +124,7 @@ def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, tim
   for X_i, R_i in zip(X, R):
     X_flat = np.vstack((X_flat, X_i[:-1, :]))
     R_flat = np.append(R_flat, R_i)
+
   # One-step FQI
   m = RandomForestRegressor()
   m.fit(X_flat, R_flat)

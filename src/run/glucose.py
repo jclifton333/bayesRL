@@ -65,7 +65,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   estimator = KdeGlucoseModel()
   cumulative_reward = 0.0
   env.reset()
-  env.step(np.random.binomial(1, 0.3, n_patients))
+  env.step(np.random.binomial(1, 0.5, n_patients))
 
   for t in range(T):
     if tune:
@@ -123,5 +123,5 @@ if __name__ == '__main__':
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # episode(0, 'kde', 25)
-  run('kde', 25)
-  run('kde', 50)
+  run('fixed_eps', 25)
+  run('fixed_eps', 50)
