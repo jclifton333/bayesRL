@@ -15,7 +15,7 @@ sys.path.append(project_dir)
 
 import pymc3 as pm
 from sklearn.metrics.pairwise import pairwise_kernels
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import RidgeCV
 import numpy as np
 from numba import njit
 import scipy as sp
@@ -210,7 +210,7 @@ def I1_and_I2_hat(X, y, h1, h2):
 
 def least_squares_cv(X, y, b0):
   X_k = pairwise_kernels(X, metric="rbf", **{'gamma': 1 / b0})
-  reg = LinearRegression()
+  reg = RidgeCV()
   reg.fit(X_k, y)
   H = np.dot(X_k, np.dot(np.linalg.inv(np.dot(X_k.T, X_k) + 0.01*np.eye(X_k.shape[1])), X_k.T))
   loo_residual = (reg.predict(X_k) - y) / (1 - np.diag(H))
