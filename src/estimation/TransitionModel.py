@@ -91,6 +91,12 @@ class KdeGlucoseModel(GlucoseTransitionModel):
       for j in range(2):
         self.fit_kde_by_action(i, j)
 
+  def bootstrap_and_fit_conditional_densities(self):
+    n = self.X_.shape[0]
+    bootstrap_ixs = np.random.choice(n, size=n, replace=False)
+    X, y = self.X_[bootstrap_ixs, :], self.y_[bootstrap_ixs]
+    self.fit_conditional_densities(X, y)
+
   def fit_kde_by_action(self, at, atm1):
     """
     Fit conditional denisty estimator at combination of last 2 actions.
