@@ -126,6 +126,6 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  # episode(0, 'kde', 25)
+  # episode(0, 'kde', 10)
   run('kde', 10)
   run('fixed_eps', 10)

@@ -272,10 +272,10 @@ def two_step_ckde_cv(X, y):
 
   # Instead of using local weighted regression, can't we use our favorite regression estimator to get this
   # conditional mean?
-  # regressor = RandomForestRegressor()
-  regressor = GridSearchCV(KernelRidge(kernel='rbf', gamma=0.1), cv=5,
-                           param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3],
-                           "gamma": np.logspace(-2, 2, 5)})
+  regressor = RandomForestRegressor()
+  # regressor = GridSearchCV(KernelRidge(kernel='rbf', gamma=0.1), cv=5,
+  #                          param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3],
+  #                          "gamma": np.logspace(-2, 2, 5)})
   regressor.fit(X, y)
   conditional_mean_estimate = regressor.predict(X)
   e_hat = y - conditional_mean_estimate
