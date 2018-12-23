@@ -249,9 +249,11 @@ def two_step_ckde_cv(X, y):
   :param b2:
   :return:
   """
+  n = len(y)
+
   # Do bandwidth selection in two steps
   # Step 1: select b0 with least-squares CV
-  b0_bandwidth_grid = [0.01, 0.1, 1, 10]
+  b0_bandwidth_grid = [0.01, 0.1, 1, 10]*np.power(n, -1/5)
   b0 = None
   best_err = float("inf")
   for b0_ in b0_bandwidth_grid:
@@ -267,7 +269,7 @@ def two_step_ckde_cv(X, y):
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  bandwidth_grid = [0.01, 0.1, 1, 10]
+  bandwidth_grid = [0.01, 0.1, 1, 10]*np.power(n, -1/6)
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:
