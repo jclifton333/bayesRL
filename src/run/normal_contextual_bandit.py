@@ -6,7 +6,10 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 
-import matplotlib.pyplot as plt
+try:
+  import matplotlib.pyplot as plt
+except:
+  pass
 from src.environments.Bandit import NormalCB, NormalUniformCB
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.policies import global_optimization as opt
@@ -41,7 +44,8 @@ def episode(policy_name, label, decay_function=None, n_patients=15, list_of_rewa
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    tuning_function = lambda T, t, p: decay_function(t)
+    def tuning_function(T, t, p):
+      return decay_function(t)
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
     tuning_function_parameter = None
@@ -198,8 +202,7 @@ def run(policy_name, decay_function=None, save=True, mc_replicates=1000, T=50):
   :return:
   """
 
-  # replicates = 96
-  replicates=2
+  replicates= 96
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -227,7 +230,13 @@ def run(policy_name, decay_function=None, save=True, mc_replicates=1000, T=50):
 
 if __name__ == '__main__':
   # episode('eps-decay-fixed', 0, lambda t: (1 / (t+1)))
-  run('eps-decay-fixed', decay_function=lambda t: 1/(t+1), mc_replicates=100)
-  run('eps-decay-fixed', decay_function=lambda t: 0.5/(t+1), mc_replicates=100)
-  run('eps-decay-fixed', decay_function=lambda t: 0.8**t, mc_replicates=100)
+  def decay_function(t):
+    return 1 / (t + 1)
+  run('eps-decay-fixed', decay_function=decay_function, mc_replicates=100)
+  def decay_function(t):
+    return 0.5 / (t + 1)
+  run('eps-decay-fixed', decay_function=decay_function, mc_replicates=100)
+  def decay_function(t):
+    return 0.8**t
+  run('eps-decay-fixed', decay_function=decay_function, mc_replicates=100)
 
