@@ -107,7 +107,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     :return:
     """
     ixs = self.kde_by_action[at][atm1]['ixs'][0]
-    if len(ixs) > 0:  # Fit if there are observations with this combination of actions
+    if len(ixs) > 4:  # Fit if there are observations with this combination of actions
       self.kde_by_action[at][atm1]['fit'] = True
       self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
       regressor, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
