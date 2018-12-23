@@ -100,7 +100,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
 
 
 def run(policy_name, T):
-  replicates = 2
+  replicates = 24
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
@@ -127,5 +127,5 @@ if __name__ == '__main__':
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # episode(0, 'kde', 25)
-  run('kde', 25)
-  run('kde', 50)
+  run('kde', 10)
+  run('fixed_eps', 10)
