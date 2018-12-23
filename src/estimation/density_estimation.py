@@ -17,6 +17,9 @@ import pymc3 as pm
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import RidgeCV
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.model_selection import GridSearchCV
+from sklearn.gaussian_process import GaussianProcessRegressor
 import numpy as np
 from numba import njit
 import scipy as sp
@@ -269,13 +272,16 @@ def two_step_ckde_cv(X, y):
 
   # Instead of using local weighted regression, can't we use our favorite regression estimator to get this
   # conditional mean?
-  regressor = RandomForestRegressor()
+  # regressor = RandomForestRegressor()
+  regressor = GridSearchCV(KernelRidge(kernel='rbf', gamma=0.1), cv=5,
+                           param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3],
+                           "gamma": np.logspace(-2, 2, 5)})
   regressor.fit(X, y)
   conditional_mean_estimate = regressor.predict(X)
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
-  bandwidth_grid = [0.01, 0.1, 1, 10]*np.power(n, -1/6)
+  bandwidth_grid = np.array([0.01, 0.1, 1, 10])*np.power(n, -1/6)
   b1 = b2 = None
   best_err = float("inf")
   for b1_ in bandwidth_grid:
@@ -322,7 +328,7 @@ class ConditionalKDE(object):
 
     # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
     # m_x = nw_conditional_mean(x_, self.b0, self.X, self.y)
-    m_x = self.regressor.predict(x_)
+    m_x = self.regressor.predict(x_.reshape(1, -1))
     y = np.random.normal(loc=m_x + self.e_hat[mixture_component], scale=self.b1, size=n)
     return y
 

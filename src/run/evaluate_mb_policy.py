@@ -337,4 +337,5 @@ def run():
 
 if __name__ == "__main__":
   for T in [0, 5, 10, 15]:
+    np.random.seed(1)
     plot_conditional_density_estimates(T)

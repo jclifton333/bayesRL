@@ -8,6 +8,7 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 from scipy.stats import norm, multivariate_normal
+import copy
 import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
@@ -155,7 +156,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
 
     # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
-    m_x = regressor.predict(x_)
+    m_x = regressor.predict(x_.reshape(1, -1))
     glucose = np.random.normal(loc=m_x + e_hat[mixture_component], scale=b1)
     r = glucose_reward_function(glucose)
     return glucose, r
@@ -179,8 +180,14 @@ class KdeGlucoseModel(GlucoseTransitionModel):
       NUM_SAMPLES_FROM_DENSITY = 1000
 
     test_glucose = np.linspace(50, 200, 50)
-    treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 1, 0] for g in test_glucose])
-    no_treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 0, 0] for g in test_glucose])
+    test_feature_base = self.X_[np.random.choice(self.X_.shape[0]), :]
+    treat_test_feature_base = copy.copy(test_feature_base)
+    treat_test_feature_base[-2] = 1
+    test_feature_base = self.X_[np.random.choice(self.X_.shape[0]), :]
+    no_treat_test_feature_base = copy.copy(test_feature_base)
+    no_treat_test_feature_base[-2] = 0
+    treat_test_features = np.array([np.concatenate(([1.0, g], treat_test_feature_base[2:])) for g in test_glucose])
+    no_treat_test_features = np.array([np.concatenate(([1.0, g], no_treat_test_feature_base[2:])) for g in test_glucose])
 
     # From from ppd at each point
     treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))  # 100 ppd draws at each of 50 values
@@ -200,7 +207,6 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     no_treat_glucoses_mean = no_treat_glucoses.mean(axis=1)
     treat_glucoses_percentile = np.percentile(treat_glucoses, [2.5, 97.5], axis=1).T  # 50x2 array [lower percentile, upper percentile]
     no_treat_glucoses_percentile = np.percentile(no_treat_glucoses, [2.5, 97.5], axis=1).T
-    pdb.set_trace()
 
     # Plot
     plt.figure()
