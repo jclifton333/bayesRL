@@ -171,6 +171,52 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     s = np.array([glucose, food, activity])
     return s, r
 
+  def plot_regression_line(self):
+    # Get features at which to evaluate
+    if self.test:
+      NUM_SAMPLES_FROM_DENSITY = 1
+    else:
+      NUM_SAMPLES_FROM_DENSITY = 1000
+
+    test_glucose = np.linspace(50, 200, 50)
+    treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 1, 0] for g in test_glucose])
+    no_treat_test_features = np.array([[1.0, g, 50, 0, 33, 50, 0, 0, 0] for g in test_glucose])
+
+    # From from ppd at each point
+    treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))  # 100 ppd draws at each of 50 values
+    no_treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))
+
+    for ix, x in enumerate(treat_test_features):
+      print(ix)
+      for draw in range(NUM_SAMPLES_FROM_DENSITY):
+        g, r = self.draw_from_ppd([x])
+        treat_glucoses[ix, draw] = g
+    for ix, x in enumerate(no_treat_test_features):
+      for draw in range(NUM_SAMPLES_FROM_DENSITY):
+        g, r = self.draw_from_ppd([x])
+        no_treat_glucoses[ix, draw] = g
+
+    treat_glucoses_mean = treat_glucoses.mean(axis=1)
+    no_treat_glucoses_mean = no_treat_glucoses.mean(axis=1)
+    treat_glucoses_percentile = np.percentile(treat_glucoses, [2.5, 97.5], axis=1).T  # 50x2 array [lower percentile, upper percentile]
+    no_treat_glucoses_percentile = np.percentile(no_treat_glucoses, [2.5, 97.5], axis=1).T
+
+    # Plot
+    plt.figure()
+    plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Insulin')
+    plt.fill_between(test_glucose, treat_glucoses_percentile[:, 0], treat_glucoses_percentile[:, 1], alpha=0.2,
+                     label='95% percentile region of estimated conditional density')
+    plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No insulin')
+    plt.fill_between(test_glucose, no_treat_glucoses_percentile[:, 0], no_treat_glucoses_percentile[:, 1], alpha=0.2,
+                     label='95% percentile region of estimated conditional density')
+    plt.title('Conditional glucose as function of previous glucose\nConditional DPM'.format(self.alpha_mean))
+    plt.legend()
+    plt_name = 'conditional-glucose-n={}'.format(self.X_.shape[0])
+    plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
+    plt.savefig(plt_name)
+    plt.close()
+    # plt.show()
+
 
 class BayesGlucoseModel(GlucoseTransitionModel):
   def __init__(self, method='np', use_true_food_and_exercise_distributions=False, alpha_mean=0.0, test=False):
@@ -530,27 +576,6 @@ class BayesGlucoseModel(GlucoseTransitionModel):
     plt.legend()
     plt.show()
     return v_mf_eval
-
-  def bellman_error_weighted_np_posterior_expectation(self, q, S_ref, A_ref, tau=1):
-    """
-    Weight posterior by exp[ -tau/2 * BE(q, \theta) ], where \theta is parameter, q is q function.
-
-    :param q:
-    :param tau:
-    :return:
-    """
-    gamma = 0.9
-    reward_function = lambda s: glucose_reward_function(s[0])
-    posterior_expectation = None
-    n = 1
-    for param in self.trace:
-      transition_model = transition_model_from_np_parameter(param, self.draw_from_food_and_activity_ppd)
-      bellman_error = be.transition_distribution_bellman_error(q, transition_model, S_ref, A_ref,
-                                                               opt.glucose_feature_function, reward_function, gamma, 2)
-      exp_bellman_error = np.exp(-tau/2 * bellman_error)
-      posterior_expectation += (param * exp_bellman_error - posterior_expectation) / n
-      n += 1
-    return posterior_expectation
 
 
 # Helpers

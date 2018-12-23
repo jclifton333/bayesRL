@@ -66,10 +66,9 @@ def rollout_and_fit_unconditional_density(test=False):
   return estimator
 
 
-def rollout_and_fit_density(method='np', alpha_mean=0.0, test=False):
+def rollout_and_fit_density(T):
   # Roll out to get data
   n_patients = 20
-  T = 20
   env = Glucose(n_patients)
   env.reset()
   env.step(np.random.binomial(1, 0.3, n_patients))
@@ -78,7 +77,7 @@ def rollout_and_fit_density(method='np', alpha_mean=0.0, test=False):
     env.step(np.random.binomial(1, 0.3, n_patients))
 
   # Fit model on data
-  estimator = GlucoseTransitionModel(method=method, alpha_mean=alpha_mean, test=test)
+  estimator = KdeGlucoseModel()
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   y = Sp1[:, 0]
   # estimator.fit(X, y)
@@ -86,12 +85,11 @@ def rollout_and_fit_density(method='np', alpha_mean=0.0, test=False):
   return estimator
 
 
-def plot_conditional_density_estimates(alpha_mean=0.0, test=False):
-  estimator = rollout_and_fit_density(method='np', alpha_mean=alpha_mean, test=test)
-
+def plot_conditional_density_estimates(T):
+  estimator = rollout_and_fit_density(T)
   # Conditional density plots
   estimator.plot_regression_line()
-  estimator.plot_density_estimates()
+  # estimator.plot_density_estimates()
   return
 
 
@@ -339,4 +337,5 @@ def run():
 
 
 if __name__ == "__main__":
-  evaluate_glucose_mb_policy(0, method='kde')
+  for T in [0, 5, 10]:
+    plot_conditional_density_estimates(T)

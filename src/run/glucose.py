@@ -66,6 +66,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   cumulative_reward = 0.0
   env.reset()
   env.step(np.random.binomial(1, 0.5, n_patients))
+  epsilon_list = []
 
   for t in range(T):
     if tune:
@@ -77,11 +78,13 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
+      eps = tuning_function(T, t, tuning_function_parameter)
     if policy_name == 'eps_decay':
       eps = 0.3 / (t + 1)
     action = policy(env, tuning_function, tuning_function_parameter, T, t, fixed_eps=eps)
     _, r = env.step(action)
     cumulative_reward += r
+    epsilon_list.append(float(eps))
 
     # Save results
     # if save:
@@ -93,11 +96,11 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
     #   with open(filename, 'w') as outfile:
     #     yaml.dump(results, outfile)
 
-  return {'cumulative_reward': float(cumulative_reward)}
+  return {'cumulative_reward': float(cumulative_reward), 'epsilon_list': epsilon_list}
 
 
 def run(policy_name, T):
-  replicates = 24
+  replicates = 2
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
@@ -108,9 +111,10 @@ def run(policy_name, T):
   prefix = os.path.join(project_dir, 'src', 'run', base_name)
   suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
   filename = '{}_{}.yml'.format(prefix, suffix)
-  results = [d['cumulative_reward'] for d in results]
-  results_to_save = {'mean': float(np.mean(results)),
-                     'se': float(np.std(results) / np.sqrt(len(results)))}
+  rewards = [d['cumulative_reward'] for d in results]
+  epsilons = [d['epsilon_list'] for d in results]
+  results_to_save = {'mean': float(np.mean(rewards)),
+                     'se': float(np.std(rewards) / np.sqrt(len(rewards))), 'epsilon_list': epsilons}
   with open(filename, 'w') as outfile:
     yaml.dump(results_to_save, outfile)
 
@@ -123,5 +127,4 @@ if __name__ == '__main__':
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # episode(0, 'kde', 25)
-  run('kde', 25)
-  run('kde', 50)
+  run('fixed_eps', 5)
