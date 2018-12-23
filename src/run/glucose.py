@@ -127,4 +127,5 @@ if __name__ == '__main__':
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # episode(0, 'kde', 25)
-  run('fixed_eps', 5)
+  run('kde', 25)
+  run('kde', 50)
