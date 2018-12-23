@@ -19,6 +19,9 @@ import pdb
 import numpy as np
 import copy
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 
 def linear_cb_two_arm_ts_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
                                 T, t, env):

@@ -32,6 +32,9 @@ try:
 except:
   pass
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 SEED = 972915 # from random.org; for reproducibility
 np.random.seed(SEED)
 theano.config.compute_test_value = 'off'

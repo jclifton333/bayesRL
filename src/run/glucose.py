@@ -128,4 +128,4 @@ if __name__ == '__main__':
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # episode(0, 'kde', 10)
   run('kde', 10)
-  run('fixed_eps', 10)
+  # run('fixed_eps', 10)
