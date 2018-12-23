@@ -108,15 +108,17 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     """
     ixs = self.kde_by_action[at][atm1]['ixs'][0]
     if len(ixs) > 4:  # Fit if there are observations with this combination of actions
-      self.kde_by_action[at][atm1]['fit'] = True
       self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
-      regressor, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
-      self.kde_by_action[at][atm1]['b0'] = regressor
-      self.kde_by_action[at][atm1]['b1'] = b1
-      self.kde_by_action[at][atm1]['b2'] = b2
-      self.kde_by_action[at][atm1]['e_hat'] = e_hat
-    else:
-      self.kde_by_action[at][atm1]['fit'] = False
+    else:  # Pool over all action combos
+      self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action, self.y_[ixs]
+
+    self.kde_by_action[at][atm1]['fit'] = True
+    self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
+    regressor, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
+    self.kde_by_action[at][atm1]['b0'] = regressor
+    self.kde_by_action[at][atm1]['b1'] = b1
+    self.kde_by_action[at][atm1]['b2'] = b2
+    self.kde_by_action[at][atm1]['e_hat'] = e_hat
 
   def fit_unconditional_densities(self, X):
     pass
@@ -130,16 +132,6 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     # Get info for kde at this combo of actions
     at, atm1 = x[0][-1], x[0][-2]
     if self.kde_by_action[at][atm1]['fit']:
-      X = self.kde_by_action[at][atm1]['X']
-      y = self.kde_by_action[at][atm1]['y']
-      regressor = self.kde_by_action[at][atm1]['b0']
-      b1 = self.kde_by_action[at][atm1]['b1']
-      b2 = self.kde_by_action[at][atm1]['b2']
-      e_hat = self.kde_by_action[at][atm1]['e_hat']
-
-    # If no obs at this action combination, use last two actions = 0 (assume there are always obs for this...)
-    else:
-      at = atm1 = 0
       X = self.kde_by_action[at][atm1]['X']
       y = self.kde_by_action[at][atm1]['y']
       regressor = self.kde_by_action[at][atm1]['b0']
