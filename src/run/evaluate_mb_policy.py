@@ -336,5 +336,5 @@ def run():
 
 
 if __name__ == "__main__":
-  for T in [15]:
+  for T in [0, 5, 10, 15]:
     plot_conditional_density_estimates(T)

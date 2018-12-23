@@ -109,8 +109,8 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     if len(ixs) > 0:  # Fit if there are observations with this combination of actions
       self.kde_by_action[at][atm1]['fit'] = True
       self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
-      b0, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
-      self.kde_by_action[at][atm1]['b0'] = b0
+      regressor, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
+      self.kde_by_action[at][atm1]['b0'] = regressor
       self.kde_by_action[at][atm1]['b1'] = b1
       self.kde_by_action[at][atm1]['b2'] = b2
       self.kde_by_action[at][atm1]['e_hat'] = e_hat
@@ -131,7 +131,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     if self.kde_by_action[at][atm1]['fit']:
       X = self.kde_by_action[at][atm1]['X']
       y = self.kde_by_action[at][atm1]['y']
-      b0 = self.kde_by_action[at][atm1]['b0']
+      regressor = self.kde_by_action[at][atm1]['b0']
       b1 = self.kde_by_action[at][atm1]['b1']
       b2 = self.kde_by_action[at][atm1]['b2']
       e_hat = self.kde_by_action[at][atm1]['e_hat']
@@ -141,7 +141,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
       at = atm1 = 0
       X = self.kde_by_action[at][atm1]['X']
       y = self.kde_by_action[at][atm1]['y']
-      b0 = self.kde_by_action[at][atm1]['b0']
+      regressor = self.kde_by_action[at][atm1]['b0']
       b1 = self.kde_by_action[at][atm1]['b1']
       b2 = self.kde_by_action[at][atm1]['b2']
       e_hat = self.kde_by_action[at][atm1]['e_hat']
@@ -155,7 +155,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
 
     # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
-    m_x = dd.nw_conditional_mean(x_, b0, X, y)
+    m_x = regressor.predict(x_)
     glucose = np.random.normal(loc=m_x + e_hat[mixture_component], scale=b1)
     r = glucose_reward_function(glucose)
     return glucose, r

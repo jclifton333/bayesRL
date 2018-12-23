@@ -14,6 +14,7 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 import pymc3 as pm
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import RidgeCV
 import numpy as np
@@ -209,6 +210,7 @@ def I1_and_I2_hat(X, y, h1, h2):
 
 
 def least_squares_cv(X, y, b0):
+  # ToDo: This is wrong!
   X_k = pairwise_kernels(X, metric="rbf", **{'gamma': 1 / b0})
   reg = RidgeCV()
   reg.fit(X_k, y)
@@ -240,11 +242,10 @@ def nw_conditional_mean(x, b0, X, y):
 
 def two_step_ckde_cv(X, y):
   """
-  Compute loocv error for two step conditional kde with bandwidths b0, b1, b2 (see two_step_ckde for what these do).
+  Compute loocv error for two step conditional kde with bandwidths b1, b2 (see two_step_ckde for what these do).
 
   :param X:
   :param y:
-  :param b0:
   :param b1:
   :param b2:
   :return:
@@ -252,20 +253,25 @@ def two_step_ckde_cv(X, y):
   n = len(y)
 
   # Do bandwidth selection in two steps
-  # Step 1: select b0 with least-squares CV
-  b0_bandwidth_grid = [0.01, 0.1, 1, 10]*np.power(n, -1/5)
-  b0 = None
-  best_err = float("inf")
-  for b0_ in b0_bandwidth_grid:
-    err = least_squares_cv(X, y, b0_)
-    if err < best_err:
-      best_err = err
-      b0 = b0_
+  # # Step 1: select b0 with least-squares CV
+  # b0_bandwidth_grid = [0.01, 0.1, 1, 10]*np.power(n, -1/5)
+  # b0 = None
+  # best_err = float("inf")
+  # for b0_ in b0_bandwidth_grid:
+  #   err = least_squares_cv(X, y, b0_)
+  #   if err < best_err:
+  #     best_err = err
+  #     b0 = b0_
 
-  # Get residuals of resulting np regression
-  K_b0 = np.array([np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
-                   for x in X])
-  conditional_mean_estimate = np.dot(K_b0, y) / np.sum(K_b0, axis=1)
+  # # Get residuals of resulting np regression
+  # K_b0 = np.array([np.array([gaussian_kernel(x - x_i, b0) for x_i in X])
+  #                  for x in X])
+
+  # Instead of using local weighted regression, can't we use our favorite regression estimator to get this
+  # conditional mean?
+  regressor = RandomForestRegressor()
+  regressor.fit(X, y)
+  conditional_mean_estimate = regressor.predict(X)
   e_hat = y - conditional_mean_estimate
 
   # Step 2: select b1, b2 using two step CV method from https://www.ssc.wisc.edu/~bhansen/papers/ncde.pdf
@@ -281,7 +287,7 @@ def two_step_ckde_cv(X, y):
         b1 = b1_
         b2 = b2_
 
-  return b0, b1, b2, e_hat
+  return regressor, b1, b2, e_hat
 
 
 class ConditionalKDE(object):
@@ -299,7 +305,7 @@ class ConditionalKDE(object):
     self.y = y
 
     # Select bandwidth with CV
-    self.b0, self.b1, self.b2, self.e_hat = two_step_ckde_cv(self.X, self.y)
+    self.regressor, self.b1, self.b2, self.e_hat = two_step_ckde_cv(self.X, self.y)
 
   def sample_from_conditional_kde(self, x_, n):
     """
@@ -315,7 +321,8 @@ class ConditionalKDE(object):
     mixture_component = np.random.choice(len(mixing_weights), p=mixing_weights)
 
     # Sample from normal with mean m(x) + e_i, where e_i is residual from first step
-    m_x = nw_conditional_mean(x_, self.b0, self.X, self.y)
+    # m_x = nw_conditional_mean(x_, self.b0, self.X, self.y)
+    m_x = self.regressor.predict(x_)
     y = np.random.normal(loc=m_x + self.e_hat[mixture_component], scale=self.b1, size=n)
     return y
 
