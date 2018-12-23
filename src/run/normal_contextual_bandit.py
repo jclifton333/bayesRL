@@ -21,7 +21,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, n_patients=15, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
+def episode(policy_name, label, decay_function=None, n_patients=15, list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]], context_mean=np.array([0.0, 0.0, 0.0]),
             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
             mc_replicates=1000, pre_simulate=True):
   np.random.seed(label)
@@ -41,10 +41,10 @@ def episode(policy_name, label, n_patients=15, list_of_reward_betas=[[-10, 0.4, 
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    tuning_function = tuned_bandit.expit_epsilon_decay
+    tuning_function = lambda T, t, p: decay_function(t)
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
-    tuning_function_parameter = np.array([0.8, 46.38, 1.857])
+    # tuning_function_parameter = np.array([0.8, 46.38, 1.857])
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
@@ -230,12 +230,7 @@ def run(policy_name, save=True, mc_replicates=1000, T=50):
 
 
 if __name__ == '__main__':
-  # episode('eps', 50)
-  # episode('eps-decay', 0, T=50)
-  run('eps-decay', T=30)
-  # run('eps', T=50)
-  # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
-  # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
+  episode('eps-decay-fixed', 0, lambda t: (1 / (t+1)))
   # run('ts-decay-posterior-sample', T=10, mc_replicates=100)
   # run('ucb-tune-posterior-sample', T=10, mc_replicates=100)
 

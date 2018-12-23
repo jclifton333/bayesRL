@@ -189,17 +189,18 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     for ix, x in enumerate(treat_test_features):
       print(ix)
       for draw in range(NUM_SAMPLES_FROM_DENSITY):
-        g, r = self.draw_from_ppd([x])
+        g, r = self.draw_from_conditional_kde([x])
         treat_glucoses[ix, draw] = g
     for ix, x in enumerate(no_treat_test_features):
       for draw in range(NUM_SAMPLES_FROM_DENSITY):
-        g, r = self.draw_from_ppd([x])
+        g, r = self.draw_from_conditional_kde([x])
         no_treat_glucoses[ix, draw] = g
 
     treat_glucoses_mean = treat_glucoses.mean(axis=1)
     no_treat_glucoses_mean = no_treat_glucoses.mean(axis=1)
     treat_glucoses_percentile = np.percentile(treat_glucoses, [2.5, 97.5], axis=1).T  # 50x2 array [lower percentile, upper percentile]
     no_treat_glucoses_percentile = np.percentile(no_treat_glucoses, [2.5, 97.5], axis=1).T
+    pdb.set_trace()
 
     # Plot
     plt.figure()
@@ -209,7 +210,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No insulin')
     plt.fill_between(test_glucose, no_treat_glucoses_percentile[:, 0], no_treat_glucoses_percentile[:, 1], alpha=0.2,
                      label='95% percentile region of estimated conditional density')
-    plt.title('Conditional glucose as function of previous glucose\nConditional DPM'.format(self.alpha_mean))
+    plt.title('Conditional glucose as function of previous glucose\nConditional KDE')
     plt.legend()
     plt_name = 'conditional-glucose-n={}'.format(self.X_.shape[0])
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)

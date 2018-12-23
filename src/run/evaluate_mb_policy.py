@@ -80,8 +80,7 @@ def rollout_and_fit_density(T):
   estimator = KdeGlucoseModel()
   X, Sp1 = env.get_state_transitions_as_x_y_pair()
   y = Sp1[:, 0]
-  # estimator.fit(X, y)
-  estimator.fit_p_conditional_density(X, y)
+  estimator.fit(X, y)
   return estimator
 
 
@@ -337,5 +336,5 @@ def run():
 
 
 if __name__ == "__main__":
-  for T in [0, 5, 10]:
+  for T in [15]:
     plot_conditional_density_estimates(T)
