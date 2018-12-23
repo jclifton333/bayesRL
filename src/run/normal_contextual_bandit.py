@@ -44,7 +44,7 @@ def episode(policy_name, label, decay_function=None, n_patients=15, list_of_rewa
     tuning_function = lambda T, t, p: decay_function(t)
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
     tune = False
-    # tuning_function_parameter = np.array([0.8, 46.38, 1.857])
+    tuning_function_parameter = None
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.linear_cb_epsilon_greedy_policy
@@ -100,7 +100,7 @@ def episode(policy_name, label, decay_function=None, n_patients=15, list_of_rewa
   else:
     raise ValueError('Incorrect policy name')
 
-  env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
+  env = NormalCB(num_initial_pulls=1, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
                 list_of_reward_vars=list_of_reward_vars)
 #  env = NormalUniformCB(list_of_reward_betas=[np.ones(10) + 0.05, np.ones(10)], list_of_reward_vars=[0.01, 25])
   cumulative_regret = 0.0
@@ -192,33 +192,29 @@ def episode(policy_name, label, decay_function=None, n_patients=15, list_of_rewa
           'rewards': rewards, 'actions': actions}
 
 
-def run(policy_name, save=True, mc_replicates=1000, T=50):
+def run(policy_name, decay_function=None, save=True, mc_replicates=1000, T=50):
   """
 
   :return:
   """
 
-  replicates = 96
+  # replicates = 96
+  replicates=2
   num_cpus = int(mp.cpu_count())
   results = []
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name, mc_replicates=mc_replicates, T=T)
+  episode_partial = partial(episode, policy_name, decay_function=decay_function, mc_replicates=mc_replicates, T=T)
 
   results = pool.map(episode_partial, range(replicates))
   cumulative_regrets = [np.float(d['cumulative_regret']) for d in results]
-  zeta_sequences = [d['zeta_sequence'] for d in results]
   actions = [d['actions'] for d in results]
   rewards = [d['rewards'] for d in results]
   print(policy_name, 'mean_regrets', float(np.mean(cumulative_regrets)), 'std_rewards',float(np.std(cumulative_regrets))/np.sqrt(replicates))
   # Save results
   if save:
     results = {'mean_regret': float(np.mean(cumulative_regrets)), 'std_regret': float(np.std(cumulative_regrets)),
-               'beta_hat_list': [beta for beta in list_of_reward_betas],
-               'context_mean': [float(c) for c in context_mean], 'regret list': [float(r) for r in cumulative_regrets],
-               'reward_vars': list_of_reward_vars, 'actions': actions, 'rewards': rewards,
-               'zeta_sequences': zeta_sequences}
-
+               'regret list': [float(r) for r in cumulative_regrets]}
     base_name = 'normalcb-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
@@ -230,7 +226,8 @@ def run(policy_name, save=True, mc_replicates=1000, T=50):
 
 
 if __name__ == '__main__':
-  episode('eps-decay-fixed', 0, lambda t: (1 / (t+1)))
-  # run('ts-decay-posterior-sample', T=10, mc_replicates=100)
-  # run('ucb-tune-posterior-sample', T=10, mc_replicates=100)
+  # episode('eps-decay-fixed', 0, lambda t: (1 / (t+1)))
+  run('eps-decay-fixed', decay_function=lambda t: 1/(t+1), mc_replicates=100)
+  run('eps-decay-fixed', decay_function=lambda t: 0.5/(t+1), mc_replicates=100)
+  run('eps-decay-fixed', decay_function=lambda t: 0.8**t, mc_replicates=100)
 
