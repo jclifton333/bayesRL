@@ -41,7 +41,7 @@ def npb_diagnostics():
   return
 
 
-def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
+def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_reps=10):
   # if policy_name in ['np', 'p', 'averaged']:
   if policy_name in ['kde']:
     tune = True
@@ -79,8 +79,9 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
       eps = tuning_function(T, t, tuning_function_parameter)
-    if policy_name == 'eps_decay':
-      eps = 0.3 / (t + 1)
+    if policy_name == 'eps_decay_fixed':
+      eps = decay_function(t)
+
     action = policy(env, tuning_function, tuning_function_parameter, T, t, fixed_eps=eps)
     _, r = env.step(action)
     cumulative_reward += r
@@ -99,12 +100,12 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   return {'cumulative_reward': float(cumulative_reward), 'epsilon_list': epsilon_list}
 
 
-def run(policy_name, T):
+def run(policy_name, T, decay_function=None):
   replicates = 24
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name=policy_name, T=T)
+  episode_partial = partial(episode, policy_name=policy_name, T=T, decay_function=decay_function)
   results = pool.map(episode_partial, range(replicates))
 
   base_name = 'glucose-{}'.format(policy_name)
@@ -127,5 +128,20 @@ if __name__ == '__main__':
   # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   # episode(0, 'kde', 10)
-  run('kde', 10)
+  # run('kde', 10)
   # run('fixed_eps', 10)
+
+  def decay_function(t):
+    return 1 / (t + 1)
+  run('eps_decay_fixed', 25, decay_function=decay_function)
+  run('eps_decay_fixed', 50, decay_function=decay_function)
+
+  def decay_function(t):
+    return 0.5 / (t + 1)
+  run('eps_decay_fixed', 25, decay_function=decay_function)
+  run('eps_decay_fixed', 50, decay_function=decay_function)
+
+  def decay_function(t):
+    return 0.8**t
+  run('eps_decay_fixed', 25, decay_function=decay_function)
+  run('eps_decay_fixed', 50, decay_function=decay_function)
