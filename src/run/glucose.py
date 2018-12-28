@@ -69,7 +69,7 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 3.97, 33.74],
                 'zeta1': [30.0, 0.0, 1.0, 0.0, 84.88, 66.53],
                 'zeta2': [0.1, 1.0, 0.01, 1.0, 0.09, 0.23]}
-  bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
+  bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, T), 'zeta2': (0.01, 2)}
   tuning_function_parameter = np.array([0.05, 1.0, 0.01])
   env = Glucose(nPatients=n_patients)
   cumulative_reward = 0.0
@@ -110,7 +110,7 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
 
 
 def run(policy_name, T, decay_function=None):
-  replicates = 24
+  replicates = 96
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
@@ -132,13 +132,14 @@ def run(policy_name, T, decay_function=None):
 
 
 if __name__ == '__main__':
-  # t0 = time.time()
-  # reward = episode(0, 'averaged')
-  # # t1 = time.time()
-  # print('time: {} reward: {}'.format(t1 - t0, reward))
-  episode(0, 'ar2', 10)
-  # run('kde', 10)
-  # run('fixed_eps', 10)
+  # episode(0, 'ar2', 10)
+
+  run('ar2', 25)
+  run('ar1', 25)
+  run('kde', 25)
+  run('ar2', 50)
+  run('ar1', 50)
+  run('kde', 50)
 
   # def decay_function(t):
   #   return 1 / (t + 1)
