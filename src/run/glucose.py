@@ -125,16 +125,16 @@ def run(policy_name, T, decay_function=None):
 if __name__ == '__main__':
   # t0 = time.time()
   # reward = episode(0, 'averaged')
-  # t1 = time.time()
+  # # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
   episode(0, 'fixed_eps', 10)
   # run('kde', 10)
   # run('fixed_eps', 10)
 
-  # def decay_function(t):
-  #   return 1 / (t + 1)
-  # run('eps_decay_fixed', 25, decay_function=decay_function)
-  # run('eps_decay_fixed', 50, decay_function=decay_function)
+  def decay_function(t):
+    return 1 / (t + 1)
+  run('eps_decay_fixed', 25, decay_function=decay_function)
+  run('eps_decay_fixed', 50, decay_function=decay_function)
 
   # def decay_function(t):
   #   return 0.5 / (t + 1)
