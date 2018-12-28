@@ -13,6 +13,7 @@ import numpy as np
 import pymc3 as pm
 import src.estimation.density_estimation as dd
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
 try:
   import matplotlib.pyplot as plt
 except:
@@ -66,6 +67,55 @@ class GlucoseTransitionModel(ABC):
     mu = np.dot(x, self.COEF)
     true_glucose_pdf = norm.pdf(x_grid, mu, self.SIGMA_GLUCOSE)
     return true_glucose_pdf
+
+
+class LinearGlucoseModel(GlucoseTransitionModel):
+  AR1_INDICES = [0, 1, 2, 3, 8]
+  def __init__(self, ar1=False, use_true_food_and_exercise_distributions=False, test=False):
+    GlucoseTransitionModel.__init__(self,
+                                    use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions,
+                                    test=test)
+    self.X_, self.y_ = X, y
+    self.ar1 = ar1
+
+  def fit_unconditional_densities(self, X):
+    self.food_nonzero_prob = np.mean(X[:, 2] != 0.0)
+    self.activity_nonzero_prob = np.mean(X[:, 3] != 0.0)
+
+    food_nonzero = X[:, 2]
+    self.food_mean = np.mean(food_nonzero)
+    self.food_std = np.std(food_nonzero)
+    activity_nonzero = X[:, 3]
+    self.activity_mean = np.mean(activity_nonzero)
+    self.activity_std = np.std(activity_nonzero)
+
+    return
+
+  def fit_conditional_densities(self, X, y):
+    self.regressor_ = Ridge()
+    if self.ar1:
+      self.regressor_.fit(X[:, LinearGlucoseModel.AR1_INDICES], y)
+      self.glucose_sigma_hat = np.sqrt((self.regressor_.predict(X[:, LinearGlucoseModel.AR1_INDICES]) - y)**2 /
+                                       (X.shape[0] - len(LinearGlucoseModel.AR1_INDICES)))
+    else:
+      self.regressor_.fit(X, y)
+      self.glucose_sigma_hat = np.sqrt((self.regressor_.predict(X) - y)**2 / (X.shape[0] - X.shape[1]))
+
+  def draw_from_ppd(self, x):
+    if self.ar1:
+      g = np.random.normal(self.regressor_.predict(x[LinearGlucoseModel.AR1_INDICES]), self.glucose_sigma_hat)
+    else:
+      g = np.random.normal(self.regressor_.predict(x), self.glucose_sigma_hat)
+    if np.random.random() < self.food_nonzero_prob:
+      f = np.random.normal(self.food_mean, self.food_std)
+    else:
+      f = 0.0
+    if np.random.random() < self.activity_nonzero_prob:
+      e = np.random.normal(self.activity_mean, self.activity_std)
+    else:
+      e = 0.0
+    r = glucose_reward_function(g)
+    return np.array([g, f, e]), r
 
 
 class KdeGlucoseModel(GlucoseTransitionModel):
