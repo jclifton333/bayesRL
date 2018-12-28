@@ -140,12 +140,16 @@ def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, tim
   else:
     epsilon = fixed_eps
   action = np.zeros(0)
-  for X_i in X:
-    x_i = X_i[-1, :]
+  # for X_i in X:
+  for i in range(env.nPatients):
+    # x_i = X_i[-1, :]
+    x_i = np.concatenate(([1], env.current_state[i], env.last_state[i], [env.last_action[i]], [0]))
     if np.random.random() < epsilon:
       action_i = int(np.random.choice(2))
     else:
-      action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)),
+      number_of_ties = np.sum(m.predict(env.get_state_at_action(0, x_i)) == m.predict(env.get_state_at_action(1, x_i)))
+      print('number of ties: {}'.format(number_of_ties))
+      action_i = np.argmax([m.predict(x_i.reshape(1, -1)),
                             m.predict(env.get_state_at_action(1, x_i).reshape(1, -1))])
     action = np.append(action, action_i)
 
