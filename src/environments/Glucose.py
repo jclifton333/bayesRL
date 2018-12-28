@@ -65,15 +65,15 @@ class Glucose(object):
     :return:
     """
     new_glucose = s[0]
-    last_glucose = s_prev[0]
+    # last_glucose = s_prev[0]
 
     # Reward from this timestep
     r1 = (new_glucose < 70) * (-0.005 * new_glucose ** 2 + 0.95 * new_glucose - 45) + \
          (new_glucose >= 70) * (-0.00017 * new_glucose ** 2 + 0.02167 * new_glucose - 0.5)
 
     # Reward from previous timestep
-    r2 = (last_glucose < 70) * (-0.005 * last_glucose ** 2 + 0.95 * last_glucose - 45) + \
-         (last_glucose >= 70) * (-0.00017 * last_glucose ** 2 + 0.02167 * last_glucose - 0.5)
+    # r2 = (last_glucose < 70) * (-0.005 * last_glucose ** 2 + 0.95 * last_glucose - 45) + \
+    #      (last_glucose >= 70) * (-0.00017 * last_glucose ** 2 + 0.02167 * last_glucose - 0.5)
     return r1  # + r2
 
   @staticmethod

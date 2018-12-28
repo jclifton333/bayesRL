@@ -131,10 +131,10 @@ if __name__ == '__main__':
   # run('kde', 10)
   # run('fixed_eps', 10)
 
-  def decay_function(t):
-    return 1 / (t + 1)
-  run('eps_decay_fixed', 25, decay_function=decay_function)
-  run('eps_decay_fixed', 50, decay_function=decay_function)
+  # def decay_function(t):
+  #   return 1 / (t + 1)
+  # run('eps_decay_fixed', 25, decay_function=decay_function)
+  # run('eps_decay_fixed', 50, decay_function=decay_function)
 
   # def decay_function(t):
   #   return 0.5 / (t + 1)
