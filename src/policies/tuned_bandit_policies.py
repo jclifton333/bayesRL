@@ -124,12 +124,18 @@ def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, tim
   # Get features and response
   if X is None:
     X, R = env.X, env.R
-  X_flat = np.zeros((0, env.X[0].shape[1]))
-  R_flat = np.zeros(0)
-  for X_i, R_i in zip(X, R):
-    X_flat = np.vstack((X_flat, X_i[2:, :]))
-    R_flat = np.append(R_flat, R_i[:-1])
-    # R_flat_check = np.array([env.reward_function(None, x[1:4]) for x in X_i])
+    X = [X_i[1:, :] for X_i in X]
+  X_flat = np.vstack(X)
+  R_flat = np.hstack(R)
+  # X_flat = np.zeros((0, env.X[0].shape[1]))
+  # R_flat = np.zeros(0)
+  # for X_i, R_i in zip(X, R):
+  #  X_flat = np.vstack((X_flat, X_i[2:, :]))
+  #  R_flat = np.append(R_flat, R_i[:-1])
+  #  # R_flat_check = np.array([env.reward_function(None, x[1:4]) for x in X_i])
+
+  if X_flat.shape[0] != R_flat.shape[0]:
+    pdb.set_trace()
 
   # One-step FQI
   m = RandomForestRegressor()

@@ -132,14 +132,14 @@ def run(policy_name, T, decay_function=None):
 
 
 if __name__ == '__main__':
-  # episode(0, 'ar2', 10)
+  episode(0, 'ar2', 10)
 
-  run('ar2', 25)
-  run('ar1', 25)
-  run('kde', 25)
-  run('ar2', 50)
-  run('ar1', 50)
-  run('kde', 50)
+  # run('ar2', 25)
+  # run('ar1', 25)
+  # run('kde', 25)
+  # run('ar2', 50)
+  # run('ar1', 50)
+  # run('kde', 50)
 
   # def decay_function(t):
   #   return 1 / (t + 1)
