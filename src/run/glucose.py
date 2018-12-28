@@ -61,8 +61,14 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
 
   tuning_function = policies.expit_epsilon_decay
   policy = policies.glucose_one_step_policy
-  # ToDo: check these
-  explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1], 'zeta1': [30.0, 0.0, 1.0, 0.0], 'zeta2': [0.1, 1.0, 0.01, 1.0]}
+  if T < 30:
+    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 300.3, 18.34, 387.0],
+                'zeta1': [30.0, 0.0, 1.0, 0.0, 51.6, 52.58, 72.4],
+                'zeta2': [0.1, 1.0, 0.01, 1.0, 0.22, 0.16, 0.14]}
+  else:
+    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 3.97, 33.74],
+                'zeta1': [30.0, 0.0, 1.0, 0.0, 84.88, 66.53],
+                'zeta2': [0.1, 1.0, 0.01, 1.0, 0.09, 0.23]}
   bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
   tuning_function_parameter = np.array([0.05, 1.0, 0.01])
   env = Glucose(nPatients=n_patients)
@@ -130,7 +136,7 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  episode(0, 'ar1', 10)
+  episode(0, 'ar2', 10)
   # run('kde', 10)
   # run('fixed_eps', 10)
 

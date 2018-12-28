@@ -327,9 +327,9 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
   n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
   mean_cumulative_reward = 0.0
-  # if estimator.__class__.__name__ == 'KdeGlucoseModel':
-  #   estimator.bootstrap_and_fit_conditional_densities()
   for rep in range(n_rep):
+    if estimator.__class__.__name__ == 'LinearGlucoseModel':
+      estimator.bootstrap_and_fit_conditional_densities()
     rewards = 0.0
     X_rep = [X_[:3, :] for X_ in env.X]
     R_rep = [R_[:3] for R_ in env.R]

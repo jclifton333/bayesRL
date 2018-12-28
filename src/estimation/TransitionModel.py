@@ -91,14 +91,20 @@ class LinearGlucoseModel(GlucoseTransitionModel):
     return
 
   def fit_conditional_densities(self, X, y):
-    self.regressor_ = Ridge()
+    self.X_, self.y_ = X, y
     if self.ar1:
-      self.regressor_.fit(X[:, LinearGlucoseModel.AR1_INDICES], y)
-      self.glucose_sigma_hat = np.sqrt(np.sum((self.regressor_.predict(X[:, LinearGlucoseModel.AR1_INDICES]) - y)**2) /
-                                       (X.shape[0] - len(LinearGlucoseModel.AR1_INDICES)))
-    else:
-      self.regressor_.fit(X, y)
-      self.glucose_sigma_hat = np.sqrt((self.regressor_.predict(X) - y)**2 / (X.shape[0] - X.shape[1]))
+      self.X_ = self.X_[:, LinearGlucoseModel.AR1_INDICES]
+    self.regressor_ = Ridge()
+    self.regressor_.fit(self.X_, self.y)
+    self.glucose_sigma_hat = np.sqrt(np.sum((self.regressor_.predict(self.X_) - self.y_)**2) /
+                                     (self.X_.shape[0] - self.X_.shape[1]))
+
+  def bootstrap_and_fit_conditional_densities(self):
+    weights = np.random.exponential(size=self.X.shape[0])
+    self.regressor_ = Ridge()
+    self.regressor_.fit(self.X_, self.y, sample_weight=weights)
+    self.glucose_sigma_hat = np.sqrt(np.sum((self.regressor_.predict(self.X_) - self.y_)**2) /
+                                     (self.X_.shape[0] - self.X_.shape[1]))
 
   def draw_from_ppd(self, x):
     if self.ar1:
