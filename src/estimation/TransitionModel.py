@@ -75,7 +75,6 @@ class LinearGlucoseModel(GlucoseTransitionModel):
     GlucoseTransitionModel.__init__(self,
                                     use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions,
                                     test=test)
-    self.X_, self.y_ = X, y
     self.ar1 = ar1
 
   def fit_unconditional_densities(self, X):
@@ -95,7 +94,7 @@ class LinearGlucoseModel(GlucoseTransitionModel):
     self.regressor_ = Ridge()
     if self.ar1:
       self.regressor_.fit(X[:, LinearGlucoseModel.AR1_INDICES], y)
-      self.glucose_sigma_hat = np.sqrt((self.regressor_.predict(X[:, LinearGlucoseModel.AR1_INDICES]) - y)**2 /
+      self.glucose_sigma_hat = np.sqrt(np.sum((self.regressor_.predict(X[:, LinearGlucoseModel.AR1_INDICES]) - y)**2) /
                                        (X.shape[0] - len(LinearGlucoseModel.AR1_INDICES)))
     else:
       self.regressor_.fit(X, y)
@@ -103,9 +102,10 @@ class LinearGlucoseModel(GlucoseTransitionModel):
 
   def draw_from_ppd(self, x):
     if self.ar1:
-      g = np.random.normal(self.regressor_.predict(x[LinearGlucoseModel.AR1_INDICES]), self.glucose_sigma_hat)
+      g = np.random.normal(self.regressor_.predict(x[0, LinearGlucoseModel.AR1_INDICES]).reshape(1, -1),
+                           self.glucose_sigma_hat)[0]
     else:
-      g = np.random.normal(self.regressor_.predict(x), self.glucose_sigma_hat)
+      g = np.random.normal(self.regressor_.predict(x), self.glucose_sigma_hat)[0]
     if np.random.random() < self.food_nonzero_prob:
       f = np.random.normal(self.food_mean, self.food_std)
     else:

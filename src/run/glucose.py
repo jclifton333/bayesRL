@@ -9,7 +9,7 @@ import datetime
 import multiprocessing as mp
 import numpy as np
 import src.policies.rollout as rollout
-from src.estimation.TransitionModel import KdeGlucoseModel, glucose_reward_function
+import src.estimation.TransitionModel as transition
 import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies
@@ -43,10 +43,14 @@ def npb_diagnostics():
 
 def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_reps=10):
   # if policy_name in ['np', 'p', 'averaged']:
-  if policy_name in ['kde']:
+  if policy_name in ['kde', 'ar2', 'ar1']:
     tune = True
     fixed_eps = None
     eps = None
+    if policy_name == 'kde':
+      estimator = transition.KdeGlucoseModel()
+    else:
+      estimator = transition.LinearGlucoseModel(ar1=(policy_name=='ar1'))
   else:
     tune = False
     if policy_name == 'fixed_eps':
@@ -62,7 +66,6 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
   bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, 30.0), 'zeta2': (0.01, 2)}
   tuning_function_parameter = np.array([0.05, 1.0, 0.01])
   env = Glucose(nPatients=n_patients)
-  estimator = KdeGlucoseModel()
   cumulative_reward = 0.0
   env.reset()
   env.step(np.random.binomial(1, 0.5, n_patients))
@@ -127,7 +130,7 @@ if __name__ == '__main__':
   # reward = episode(0, 'averaged')
   # # t1 = time.time()
   # print('time: {} reward: {}'.format(t1 - t0, reward))
-  episode(0, 'fixed_eps', 10)
+  episode(0, 'ar1', 10)
   # run('kde', 10)
   # run('fixed_eps', 10)
 
