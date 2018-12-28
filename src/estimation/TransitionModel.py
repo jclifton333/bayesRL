@@ -102,7 +102,7 @@ class LinearGlucoseModel(GlucoseTransitionModel):
 
   def draw_from_ppd(self, x):
     if self.ar1:
-      g = np.random.normal(self.regressor_.predict(x[0, LinearGlucoseModel.AR1_INDICES]).reshape(1, -1),
+      g = np.random.normal(self.regressor_.predict(x[0, LinearGlucoseModel.AR1_INDICES].reshape(1, -1)),
                            self.glucose_sigma_hat)[0]
     else:
       g = np.random.normal(self.regressor_.predict(x), self.glucose_sigma_hat)[0]
