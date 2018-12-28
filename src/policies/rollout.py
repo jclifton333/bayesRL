@@ -331,8 +331,8 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
   #   estimator.bootstrap_and_fit_conditional_densities()
   for rep in range(n_rep):
     rewards = 0.0
-    X_rep = [X_[:2, :] for X_ in env.X]
-    R_rep = [R_[:2] for R_ in env.R]
+    X_rep = [X_[:3, :] for X_ in env.X]
+    R_rep = [R_[:3] for R_ in env.R]
     current_x = [np.array([X_i[2, :]]) for X_i in env.X]
     # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
