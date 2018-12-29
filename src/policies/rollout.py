@@ -331,9 +331,12 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
     if estimator.__class__.__name__ == 'LinearGlucoseModel':
       estimator.bootstrap_and_fit_conditional_densities()
     rewards = 0.0
-    X_rep = [X_[1, :] for X_ in env.X]
+    X_rep = [X_[2, :].reshape(1, -1) for X_ in env.X]
     R_rep = [R_[0] for R_ in env.R]
-    current_x = [np.array([X_i[2, :]]) for X_i in env.X]
+    if env.X[0].shape[0] > 3:
+      current_x = [np.array([X_i[3, :]]) for X_i in env.X]
+    else:
+      current_x = [np.array([X_i[2, :]]) for X_i in env.X]
     # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
       if t > 0:

@@ -124,18 +124,13 @@ def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, tim
   # Get features and response
   if X is None:
     X, R = env.X, env.R
-    X = [X_i[1:, :] for X_i in X]
+    X = [X_i[2:, :] for X_i in X]
+    R = [R_i[:-1] for R_i in env.R]
   X_flat = np.vstack(X)
   R_flat = np.hstack(R)
-  # X_flat = np.zeros((0, env.X[0].shape[1]))
-  # R_flat = np.zeros(0)
-  # for X_i, R_i in zip(X, R):
-  #  X_flat = np.vstack((X_flat, X_i[2:, :]))
-  #  R_flat = np.append(R_flat, R_i[:-1])
-  #  # R_flat_check = np.array([env.reward_function(None, x[1:4]) for x in X_i])
-
-  if X_flat.shape[0] != R_flat.shape[0]:
-    pdb.set_trace()
+  # R_flat_check = np.array([env.reward_function(None, x[1:4]) for x in X_flat])
+  # if not np.array_equal(R_flat, R_flat_check):
+  #   pdb.set_trace()
 
   # One-step FQI
   m = RandomForestRegressor()
@@ -154,8 +149,8 @@ def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, tim
     if np.random.random() < epsilon:
       action_i = int(np.random.choice(2))
     else:
-      number_of_ties = np.sum(m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)) == m.predict(env.get_state_at_action(1, x_i).reshape(1, -1)))
-      print('number of ties: {}'.format(number_of_ties))
+      # number_of_ties = np.sum(m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)) == m.predict(env.get_state_at_action(1, x_i).reshape(1, -1)))
+      # print('number of ties: {}'.format(number_of_ties))
       action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)),
                             m.predict(env.get_state_at_action(1, x_i).reshape(1, -1))])
     action = np.append(action, action_i)

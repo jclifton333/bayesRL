@@ -74,10 +74,12 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
   env = Glucose(nPatients=n_patients)
   cumulative_reward = 0.0
   env.reset()
-  env.step(np.random.binomial(1, 0.5, n_patients))
+  env.step(np.random.binomial(1, 0.3, n_patients))
+  env.step(np.random.binomial(1, 0.3, n_patients))
   epsilon_list = []
 
   for t in range(T):
+    print(t)
     if tune:
       X, Sp1 = env.get_state_transitions_as_x_y_pair()
       y = Sp1[:, 0]
@@ -132,14 +134,14 @@ def run(policy_name, T, decay_function=None):
 
 
 if __name__ == '__main__':
-  episode(0, 'ar2', 10)
+  # episode(0, 'ar2', 10)
 
-  # run('ar2', 25)
-  # run('ar1', 25)
-  # run('kde', 25)
-  # run('ar2', 50)
-  # run('ar1', 50)
-  # run('kde', 50)
+  run('ar2', 25)
+  run('ar1', 25)
+  run('kde', 25)
+  run('ar2', 50)
+  run('ar1', 50)
+  run('kde', 50)
 
   # def decay_function(t):
   #   return 1 / (t + 1)
