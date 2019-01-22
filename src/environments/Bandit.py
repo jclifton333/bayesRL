@@ -66,7 +66,7 @@ class MAB(Bandit):
     self.estimated_means[a] += (u - self.estimated_means[a]) / self.number_of_pulls[a]
     self.draws_from_each_arm[a] = np.append(self.draws_from_each_arm[a], u)
     std = np.std(self.draws_from_each_arm[a])
-    self.estimated_vars[a] = std ** 2
+    self.estimated_vars[a] = std ** 2 
     self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
     return u
 
@@ -213,14 +213,125 @@ class NormalMAB(MAB):
 
 class BernoulliMAB(MAB):
   def __init__(self, list_of_reward_mus=[0.3, 0.7]):
-    MAB.__init__(self, list_of_reward_mus)
+    # Hyperparameters for conjugate normal model of mean and variance
+    self.alpha0 = 1.0
+    self.beta0 = 1.0
+    self.posterior_params_dict = {a: {'alpha_post': self.alpha0, 'beta_post': self.beta0} for a in range(len(list_of_reward_mus))}
 
+    MAB.__init__(self, list_of_reward_mus)
+    
   def reward_dbn(self, a):
     # utility is distributed as Bernoulli(p)
     prob = self.list_of_reward_mus[a]
     u = np.random.binomial(n=1, p=prob) 
-    return u    
-      
+    return u  
+  
+  def sample_from_sampling_dbn(self):
+    """
+    Sample from sampling distribution, used for UCB.
+
+    :return:
+    """
+    draws_dict = {}
+    for a in range(self.number_of_actions):
+      # Posterior parameters for this arm
+      p_hat = float(sum(self.draws_from_each_arm[a]))/self.number_of_pulls[a]
+      standard_errors = np.sqrt(p_hat*(1-p_hat)/self.number_of_pulls[a])
+      p_draw = np.random.normal(loc=p_hat, scale=standard_errors)
+      draws_dict[a] = {'mu_draw': p_draw}
+    return draws_dict
+  
+  def sample_from_posterior(self, variance_shrinkage=1.0):
+    """
+    Sample from normal-gamma posterior.
+
+    :param variance_shrinkage: number <= 1 for tuning exploration.
+    :return:
+    """
+    draws_dict = {}
+    for a in range(self.number_of_actions):
+      # Posterior parameters for this arm
+      alpha_post = self.posterior_params_dict[a]['alpha_post']
+      beta_post = self.posterior_params_dict[a]['beta_post']
+
+      p_draw = np.random.beta(alpha_post/variance_shrinkage, beta_post/variance_shrinkage)
+      draws_dict[a] = {'mu_draw': p_draw}
+    return draws_dict
+
+  def conjugate_bayes_mean_and_variance(self, a):
+    """
+    Get bayes estimators of mean and variance from current list of rewards at each arm, and update.
+    :return:
+    """
+    rewards_at_arm = self.draws_from_each_arm[a]
+    xsum = sum(rewards_at_arm)
+    n = self.number_of_pulls[a]
+    post_alpha = self.alpha0 + xsum
+    post_beta = self.beta0 + n - xsum
+    post_p = post_alpha/(post_alpha + post_beta)
+    
+    self.estimated_means[a] = post_p
+#    self.estimated_vars[a] = post_var
+
+    # Update posterior params  (needed for sampling from posterior)
+    self.posterior_params_dict[a]['alpha_post'] = post_alpha
+    self.posterior_params_dict[a]['beta_post'] = post_beta
+ 
+  def step(self, a):
+    u = super(BernoulliMAB, self).step(a)
+    self.conjugate_bayes_mean_and_variance(a)  # Update means and variances with new posterior expectations
+    self.standard_errors[a] = np.sqrt(self.estimated_vars[a] / self.number_of_pulls[a])
+    return {'Utility': u}
+    
+  def generate_mc_samples_bernoulli(self, mc_reps, time_horizon, reward_means=None):
+    """
+
+    :param mc_reps:
+    :param time_horizon:
+    :param reward_means: List of means for each arm, for each rep.  If None, use the ones in
+                         this environment.
+    :param reward_vars:
+    :return:
+    """
+
+    if reward_means is not None:
+      normal_parameters_provided = True
+
+      def reward_distribution(a, mean_list):
+        mean = mean_list[a]
+        return np.random.binomial(n=1, p=mean) 
+    else:
+      normal_parameters_provided = False
+
+      def reward_distribution(a, mean_list):
+        return self.reward_dbn(a)
+
+    results = []
+    for rep in range(mc_reps):
+      if normal_parameters_provided:
+        mean_list = reward_means[rep]
+      else:
+        mean_list = None
+
+      each_rep_result = dict()
+      initial_model = {'sample_mean_list': copy.copy(self.estimated_means),
+                       'number_of_pulls': copy.copy(self.number_of_pulls),
+                       'standard_error_list': copy.copy(self.standard_errors),
+                       'sample_var_list': copy.copy(self.estimated_vars)}
+
+      rewards = np.zeros((0, self.number_of_actions))
+      regrets = np.zeros((0, self.number_of_actions))
+
+      for t in range(time_horizon):
+        rewards_t = np.array([reward_distribution(a, mean_list) for a in range(self.number_of_actions)])
+        rewards = np.vstack((rewards, rewards_t))
+
+      each_rep_result['rewards'] = rewards
+      each_rep_result['regrets'] = regrets
+      each_rep_result['initial_model'] = initial_model
+      results = np.append(results, each_rep_result)
+    return results
+
 
 class LinearCB(Bandit):
   def __init__(self, num_initial_pulls, context_mean, list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]], list_of_reward_vars=[1, 1]):

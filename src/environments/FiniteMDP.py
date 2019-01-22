@@ -24,12 +24,12 @@ class FiniteMDP(object):
         
         #Construct transition and reward arrays, set random seed to keep the same true environments for each replicate
         if rewardMatrices is None:
-            np.random.seed(12345) 
+            #np.random.seed(12345) 
             self.rewardMatrices = np.random.uniform(low=0, high=10, size=(nA, nS, nS))
         else:
             self.rewardMatrices = rewardMatrices
         if transitionMatrices is None:
-            np.random.seed(12345)
+            #np.random.seed(12345)
             self.transitionMatrices = np.random.dirichlet(alpha=np.random.poisson(5, nS), size=(nA, nS))
         else:
             self.transitionMatrices = transitionMatrices 

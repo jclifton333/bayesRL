@@ -162,6 +162,8 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
   policy = finite_mdp_epsilon_policy    
   gamma = 0.9
   env = FiniteMDP(time_horizon=T)
+  print(env.rewardMatrices)
+  print(env.transitionMatrices)
   time_horizon = T
   tuning_parameter_sequence = []
   rewards = []
@@ -202,7 +204,7 @@ def episode(policy_name, label, mc_replicates=10, T=1000):
     posterior_alphas.append(new_post_alpha)
 #      print("after: {}".format(posterior_alphas))
     r += reward
- # print(sum(rewards))        
+  #print(sum(rewards))        
   return {'rewards':rewards, 'cum_rewards': sum(rewards), 'zeta_sequence': tuning_parameter_sequence,
           'actions': actions, 'posterior_alphas': posterior_alphas}
     
@@ -213,9 +215,9 @@ def run(policy_name, save=True, mc_replicates=10, T=1000):
   :return:
   """
 
-  replicates = 72
+  replicates = 1
 #  num_cpus = int(mp.cpu_count())
-  num_cpus = 72
+  num_cpus = 4
 #  replicates = 24
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -255,8 +257,8 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=75)
 #  episode('eps-fixed-decay', 2, T=50)
-  run('eps-decay', save=True, T=50, mc_replicates=10)
-#  run('eps-fixed-decay', save=False, T=75)
+#  run('eps-decay', save=True, T=50, mc_replicates=10)
+  run('eps-fixed-decay', save=False, T=50)
 #  run('eps', save=False, T=75)
 #  episode('eps', 1, T=50)
 #  result = episode('eps', 0, T=1000)
@@ -269,7 +271,7 @@ if __name__ == '__main__':
 #  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
 #  with open('bayes-opt-glucose.yml', 'w') as handle:
 #    yaml.dump(params_dict, handle)
-  print(bayesopt_under_true_model(T=50))
+#  print(bayesopt_under_true_model(T=50))
 #  print(rollout_under_true_model(np.array([1.  ,50.,   0.1]), mdp_grid_epsilon_policy, 
 #                             50, tuned_bandit.expit_epsilon_decay, 0.9, 20))
   elapsed_time = time.time() - start_time

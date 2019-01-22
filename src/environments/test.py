@@ -116,7 +116,7 @@ def fitted_q_step1(env, gamma, regressor, number_of_value_iterations):
   return optimal_action
 
 
-def fitted_q_step1_mHealth(env, gamma=1, regressor=RandomForestRegressor, number_of_value_iterations=1):
+def fitted_q_step1_mHealth(env, gamma, regressor, number_of_value_iterations, AR1):
   X, SX, _ = env.get_state_history_as_array()
   Xp = np.delete(X, np.arange(0, X.shape[0], X.shape[0]/env.nPatients), axis=0)
 #  SXp = np.delete(SX, np.arange(0, SX.shape[0], env.nPatients), axis=0)
@@ -124,16 +124,17 @@ def fitted_q_step1_mHealth(env, gamma=1, regressor=RandomForestRegressor, number
   current_sx = env.get_current_SX()
   # Fit one-step q fn
   reg = regressor()
-  reg.fit(Xp[:,1:], target)
-
   x0 = np.hstack((current_sx[:,1:], np.zeros((env.nPatients,1))))
   x1 = np.hstack((current_sx[:,1:], np.ones((env.nPatients,1))))
+  if AR1:
+    x0 = np.delete(x0, [4,5,6,7], axis=1)
+    x1 = np.delete(x1, [4,5,6,7], axis=1)
+    Xp = np.delete(Xp, [4,5,6,7], axis=1) 
+
+  reg.fit(Xp[:,1:], target)
   q0, q1 = reg.predict(x0), reg.predict(x1)
   # Last entry of list gives optimal action at current state
-  index_tie = (q0-q1==0)
   optimal_actions = np.argmax(np.vstack((q0, q1)), axis=0)
-  if len(index_tie) > 0:
-    optimal_actions[index_tie] = np.random.choice(env.NUM_ACTION, sum(index_tie))
   return optimal_actions
 
 
@@ -357,7 +358,7 @@ def mdp_glucose_mHealth_rollout(tuning_function_parameter, mdp_epsilon_policy,
 #      if t==30:
 #      print(t, sim_env.current_state, sample_beta_hat)
 #      optimal_actions = fitted_q_step1_mHealth_vanilla(sim_env, AR1=AR1)
-      optimal_actions = fitted_q_step1_mHealth(sim_env, gamma, RandomForestRegressor, number_of_value_iterations)
+      optimal_actions = fitted_q_step1_mHealth(sim_env, gamma, RandomForestRegressor, number_of_value_iterations, AR1=AR1)
       actions = mdp_epsilon_policy(optimal_actions, tuning_function, tuning_function_parameter, time_horizon, t)
 #      print(t, action, sim_env.current_state[0])
       _, reward = sim_env.step(actions)
@@ -447,7 +448,7 @@ def bayesopt_under_true_model(T):
   return best_param
 
 
-def episode(policy_name, label, mc_replicates=10, T=50, nPatients=15, AR1=False):
+def episode(policy_name, label, mc_replicates=10, T=50, nPatients=15, AR1=True):
   np.random.seed(label)
   if policy_name == 'eps':
     tuning_function = lambda a, b, c: 0.05  # Constant epsilon
@@ -503,7 +504,7 @@ def episode(policy_name, label, mc_replicates=10, T=50, nPatients=15, AR1=False)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter]) 
 #    print('time {}, tuning_function_parameter {}'.format(t, tuning_function_parameter))
 #    optimal_actions = fitted_q_step1_mHealth_vanilla(env, AR1=AR1)
-    optimal_actions = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations)
+    optimal_actions = fitted_q_step1_mHealth(env, gamma, RandomForestRegressor, number_of_value_iterations=number_of_value_iterations, AR1=AR1)
 #    print(optimal_actions)
     actions = policy(optimal_actions, tuning_function, tuning_function_parameter, T, t)
     x_initials, reward = env.step(actions)
@@ -579,11 +580,11 @@ def run(policy_name, save=True, mc_replicates=10, T=50, AR1=True):
 if __name__ == '__main__':
   start_time = time.time()
 #  check_coef_converge()
-#  episode('eps-decay', 0, T=5)
+#  episode('eps-decay', 0, T=5, AR1=True)
 #  episode('eps-fixed-decay', 0, T=5)
-#  run('eps-decay', T= 25, mc_replicates=10, AR1=False)
+#  run('eps-decay', T= 25, mc_replicates=10, AR1=True)
 #  run('eps-fixed-decay', T=50, mc_replicates=10, AR1=False)
-  run('eps',save=False, T=50, mc_replicates=10, AR1=False)
+  run('eps',save=False, T=25, mc_replicates=10, AR1=False)
 #  episode('eps', 0, T=25)
 #  result = episode('eps', 0, T=50)
   # print(result['actions'])
@@ -602,12 +603,3 @@ if __name__ == '__main__':
   # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
   # run('ts-decay-posterior-sample', T=10, mc_replicates=100)
   # run('ucb-tune-posterior-sample', T=10, mc_replicates=100)
-  
-  
-  
-  
-  
-  
-  
-  
-  

@@ -85,7 +85,16 @@ def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tun
   z = scipy.stats.norm.ppf(one_minus_alpha)
   action = np.argmax(estimated_means + z * standard_errors)
   return action
-  
+
+def bernoulli_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, 
+                             tuning_function, T, t, tuning_function_parameter, env):
+  # For UCB: get CI from sampling distribution of frequentist estimated p, p_hat
+  sampling_estimated_means = np.array([sum(env.draws_from_each_arm[a]) for a in range(env.number_of_actions)]).astype(float)/env.number_of_pulls
+  standard_errors = np.sqrt(sampling_estimated_means*(1-sampling_estimated_means)/env.number_of_pulls)
+  one_minus_alpha = 0.5*tuning_function(T, t, tuning_function_parameter) + 0.5
+  z = scipy.stats.norm.ppf(one_minus_alpha)
+  action = np.argmax(sampling_estimated_means + z * standard_errors)
+  return action
 
 def mab_thompson_sampling_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
                                  tuning_function_parameter, T, t, env):
