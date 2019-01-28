@@ -107,6 +107,7 @@ class MAB(Bandit):
         return self.reward_dbn(a)
 
     results = []
+    optimal_reward = np.max(self.list_of_reward_mus)
     for rep in range(mc_reps):
       if normal_parameters_provided:
         mean_list = reward_means[rep]
@@ -127,7 +128,9 @@ class MAB(Bandit):
       for t in range(time_horizon):
         rewards_t = np.array([reward_distribution(a, mean_list, var_list) for a in range(self.number_of_actions)])
         rewards = np.vstack((rewards, rewards_t))
-
+        regrets_t = np.array([optimal_reward-self.list_of_reward_mus[a] for a in range(self.number_of_actions)])
+        regrets = np.vstack((regrets, regrets_t))
+        
       each_rep_result['rewards'] = rewards
       each_rep_result['regrets'] = regrets
       each_rep_result['initial_model'] = initial_model
@@ -293,7 +296,7 @@ class BernoulliMAB(MAB):
     :param reward_vars:
     :return:
     """
-
+    optimal_reward = np.max(self.list_of_reward_mus)
     if reward_means is not None:
       normal_parameters_provided = True
 
@@ -325,6 +328,8 @@ class BernoulliMAB(MAB):
       for t in range(time_horizon):
         rewards_t = np.array([reward_distribution(a, mean_list) for a in range(self.number_of_actions)])
         rewards = np.vstack((rewards, rewards_t))
+        regrets_t = np.array([optimal_reward-self.list_of_reward_mus[a] for a in range(self.number_of_actions)])
+        regrets = np.vstack((regrets, regrets_t))
 
       each_rep_result['rewards'] = rewards
       each_rep_result['regrets'] = regrets

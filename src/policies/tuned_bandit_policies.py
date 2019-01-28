@@ -10,6 +10,7 @@ sys.path.append(project_dir)
 
 import scipy.integrate as integrate
 from scipy.stats import norm
+from scipy.stats import beta
 from scipy.linalg import block_diag
 from scipy.special import expit
 import scipy.stats
@@ -86,15 +87,31 @@ def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tun
   action = np.argmax(estimated_means + z * standard_errors)
   return action
 
-def bernoulli_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, 
+#def bernoulli_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, 
+#                             tuning_function, T, t, tuning_function_parameter, env):
+#  # For UCB: get CI from sampling distribution of frequentist estimated p, p_hat
+#  # Need to check this part, here env is the real environments, be careful
+#  sampling_estimated_means = np.array([sum(env.draws_from_each_arm[a]) for a in range(env.number_of_actions)]).astype(float)/env.number_of_pulls
+#  standard_errors = np.sqrt(sampling_estimated_means*(1-sampling_estimated_means)/env.number_of_pulls)
+#  one_minus_alpha = 0.5*tuning_function(T, t, tuning_function_parameter) + 0.5
+#  z = scipy.stats.norm.ppf(one_minus_alpha)
+#  action = np.argmax(sampling_estimated_means + z * standard_errors)
+#  return action
+
+
+def bernoulli_mab_ucb_posterior_policy(estimated_means, standard_errors, number_of_pulls, 
                              tuning_function, T, t, tuning_function_parameter, env):
-  # For UCB: get CI from sampling distribution of frequentist estimated p, p_hat
-  sampling_estimated_means = np.array([sum(env.draws_from_each_arm[a]) for a in range(env.number_of_actions)]).astype(float)/env.number_of_pulls
-  standard_errors = np.sqrt(sampling_estimated_means*(1-sampling_estimated_means)/env.number_of_pulls)
+  # For UCB: get CI from posterior distribution (Beta dbn)
   one_minus_alpha = 0.5*tuning_function(T, t, tuning_function_parameter) + 0.5
-  z = scipy.stats.norm.ppf(one_minus_alpha)
-  action = np.argmax(sampling_estimated_means + z * standard_errors)
+  upper_bound = []
+  for a in range(env.number_of_actions):
+    alpha_p = env.posterior_params_dict[a]['alpha_post']
+    beta_p = env.posterior_params_dict[a]['beta_post']
+    _, high_p0 = beta(alpha_p, beta_p).interval(one_minus_alpha)
+    upper_bound = np.append(upper_bound, high_p0) 
+  action = np.argmax(upper_bound)
   return action
+
 
 def mab_thompson_sampling_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
                                  tuning_function_parameter, T, t, env):

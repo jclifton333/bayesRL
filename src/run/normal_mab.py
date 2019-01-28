@@ -18,7 +18,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=False):
+def episode(policy_name, label, std=0.1, list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, posterior_sample=False):
   np.random.seed(label)
 
   # ToDo: Create factory function that encapsulates this behavior
@@ -146,7 +146,7 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
 
 #  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
   # env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [140]])
-  env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[std**2, std**2])
+  env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
 
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
@@ -189,7 +189,7 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
       sim_env = NormalMAB(list_of_reward_mus=env.estimated_means, list_of_reward_vars=env.estimated_vars)
       pre_simulated_data = sim_env.generate_mc_samples(monte_carlo_reps, T, reward_means=reward_means,
                                                        reward_vars=reward_vars)
-
+      print(sim_env.estimated_means)
       tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env, monte_carlo_reps,
                                                {'pre_simulated_data': pre_simulated_data},
@@ -214,7 +214,7 @@ def episode(policy_name, label, std=0.1, T=50, monte_carlo_reps=1000, posterior_
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
 
-def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_sample=False):
+def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6],save=True, T=50, monte_carlo_reps=1000, posterior_sample=False):
   """
 
   :return:
@@ -246,7 +246,7 @@ def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_
                'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
                'rewards': rewards, 'actions': actions, 'std': std}
 
-    base_name = 'normalmab-postsample-{}-std-{}-{}'.format(posterior_sample, std, policy_name)
+    base_name = 'normalmab-postsample-{}-std-{}-{}-numAct-{}'.format(posterior_sample, std, policy_name, len(list_of_reward_mus))
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -257,7 +257,7 @@ def run(policy_name, std=0.1, save=True, T=50, monte_carlo_reps=1000, posterior_
 
 
 if __name__ == '__main__':
-  # episode('ucb-tune-posterior-sample', np.random.randint(low=1, high=1000))
+#  episode('frequentist-ts-tuned', np.random.randint(low=1, high=1000))
 #   run('eps-decay-fixed', save=False, std=1)
   # run('eps')
 #   run('greedy', save=False)
@@ -266,8 +266,38 @@ if __name__ == '__main__':
 #  run('ucb', std=0.1, T=50, save=False, monte_carlo_reps=1000)
 #  run('ucb-fixed-decay', std=1, T=50, monte_carlo_reps=1000)
 #   run('ts-fixed', T=50, monte_carlo_reps=1000)
-  run('frequentist-ts-tuned', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
 #   run('frequentist-ts', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
 #   run('frequentist-ts-fixed-decay', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
-  # run('eps-decay', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
-  # run('ucb-tune-posterior-sample', std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=True)
+  run('frequentist-ts-tuned', T=50, std=0.1, list_of_reward_mus=[0.3,0.6], monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, std=0.1, list_of_reward_mus=[0.3,0.6],monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', std=0.1,list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, posterior_sample=True)
+  run('frequentist-ts-tuned', T=50, std=1, list_of_reward_mus=[0.3,0.6], monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, std=1, list_of_reward_mus=[0.3,0.6],monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', std=1,list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, posterior_sample=True)
+
+  run('frequentist-ts-tuned', T=50, std=0.1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, std=0.1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66],monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', std=0.1,list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], T=50, monte_carlo_reps=1000, posterior_sample=True)
+  run('frequentist-ts-tuned', T=50, std=1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, std=1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66],monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', std=1,list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], T=50, monte_carlo_reps=1000, posterior_sample=True)
+
+  run('frequentist-ts-tuned', T=50, std=0.1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
+      monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, std=0.1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42],
+      monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', std=0.1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
+      T=50, monte_carlo_reps=1000, posterior_sample=True)  
+  run('frequentist-ts-tuned', T=50, std=1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
+      monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, std=1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42],
+      monte_carlo_reps=1000, posterior_sample=True)
+  run('ucb-tune-posterior-sample', std=1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
+      T=50, monte_carlo_reps=1000, posterior_sample=True)
+  
+
+
+
+
+
+

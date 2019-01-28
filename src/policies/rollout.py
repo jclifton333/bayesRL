@@ -299,6 +299,11 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
     regret_for_rep = 0.0
 
     rewards_at_each_arm = [np.array([]) for _ in range(env.number_of_actions)]
+    
+    # prior parameters
+    lambda0 = 1.0 / 10.0  # lambda is inverse variance
+    alpha0 = 10e-3
+    beta0 = 10e-3
 
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
@@ -307,16 +312,88 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
       # Get reward and regret
       reward = rewards_sequence[t, action]
-      # regret = regrets_sequence[t, action]
+      regret = regrets_sequence[t, action]
       rewards_at_each_arm[action] = np.append(rewards_at_each_arm[action], reward)
       number_of_pulls[action] += 1
-      expected_reward = env.list_of_reward_mus[action]
-      regret_for_rep += (expected_reward-optimal_reward)
+#      expected_reward = env.list_of_reward_mus[action]
+#      regret_for_rep += (expected_reward-optimal_reward)
+      regret_for_rep += -regret
 
       # Update model
-      sample_mean_at_action = (reward - estimated_means[action]) / number_of_pulls[action]
-      estimated_means[action] = sample_mean_at_action
-      standard_errors[action] = np.sqrt(np.mean((rewards_at_each_arm[action] - sample_mean_at_action)**2))
+      xbar = np.mean(rewards_at_each_arm[action])
+      s_sq = np.var(rewards_at_each_arm[action])
+      n = number_of_pulls[action]
+      post_mean = (n * xbar) / (lambda0 + n)
+      post_alpha = alpha0 + n/2.0
+      post_beta = beta0 + (1/2.0) * (n*s_sq + (lambda0 * n * xbar**2) / (lambda0 + n))
+      post_lambda = lambda0 + n
+      post_precision = post_alpha / post_beta
+      post_var = 1 / post_precision
+      estimated_means[action] = post_mean
+      standard_errors[action] = np.sqrt(post_var) # sqrt root of posterior variance
 
     mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
   return mean_cumulative_regret
+
+
+def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_horizon, tuning_function, env,
+                                        **kwargs):
+  """
+  Evaluate CB exploration policy on already-generated data.
+
+  :param kwargs: contain key pre_simlated_data, which is mc_rep-length list of dictionaries, which contain lists of
+  length time_horizon of data needed to evaluate policy.
+  :param tuning_function_parameter:
+  :param policy:
+  :param time_horizon:
+  :param tuning_function:
+  :param env:
+  :return:
+  """
+
+  pre_simulated_data = kwargs['pre_simulated_data']
+  mean_cumulative_regret = 0.0
+#  optimal_reward = np.max(env.list_of_reward_mus)
+  for rep, rep_dict in enumerate(pre_simulated_data):
+    initial_model = rep_dict['initial_model']
+    estimated_means = initial_model['sample_mean_list']
+    standard_errors = initial_model['standard_error_list']
+    number_of_pulls = initial_model['number_of_pulls']
+
+    # Get obs sequences for this rep
+    rewards_sequence = rep_dict['rewards']
+    regrets_sequence = rep_dict['regrets']
+    regret_for_rep = 0.0
+
+    rewards_at_each_arm = [np.array([]) for _ in range(env.number_of_actions)]
+    
+    # prior parameters
+    alpha0 = 1.0
+    beta0 = 1.0
+
+    for t in range(time_horizon):
+      # Draw context and draw arm based on policy
+      action = policy(estimated_means, standard_errors, None, tuning_function,
+                      tuning_function_parameter, time_horizon, t, env)
+
+      # Get reward and regret
+      reward = rewards_sequence[t, action]
+      regret = regrets_sequence[t, action]
+      rewards_at_each_arm[action] = np.append(rewards_at_each_arm[action], reward)
+      number_of_pulls[action] += 1
+#      expected_reward = env.list_of_reward_mus[action]
+#      regret_for_rep += (expected_reward-optimal_reward)
+      regret_for_rep += -regret
+
+      # Update model
+      xsum = sum(rewards_at_each_arm[action])
+      n = number_of_pulls[action]
+      post_alpha = alpha0 + xsum
+      post_beta = beta0 + n - xsum
+      post_p = post_alpha/(post_alpha + post_beta)
+      estimated_means[action] = post_p
+
+    mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
+  return mean_cumulative_regret
+
+
