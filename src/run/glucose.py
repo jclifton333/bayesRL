@@ -112,7 +112,7 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
 
 
 def run(policy_name, T, decay_function=None):
-  replicates = 96
+  replicates = 24
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
@@ -134,26 +134,13 @@ def run(policy_name, T, decay_function=None):
 
 
 if __name__ == '__main__':
-  # episode(0, 'ar2', 10)
-
-  run('ar2', 25)
-  run('ar1', 25)
+  np.random.seed(1)
   run('kde', 25)
-  run('ar2', 50)
-  run('ar1', 50)
+  run('kde', 50)
+  np.random.seed(2)
+  run('kde', 25)
+  run('kde', 50)
+  np.random.seed(3)
+  run('kde', 25)
   run('kde', 50)
 
-  # def decay_function(t):
-  #   return 1 / (t + 1)
-  # run('eps_decay_fixed', 25, decay_function=decay_function)
-  # run('eps_decay_fixed', 50, decay_function=decay_function)
-
-  # def decay_function(t):
-  #   return 0.5 / (t + 1)
-  # run('eps_decay_fixed', 25, decay_function=decay_function)
-  # run('eps_decay_fixed', 50, decay_function=decay_function)
-
-  # def decay_function(t):
-  #   return 0.8**t
-  # run('eps_decay_fixed', 25, decay_function=decay_function)
-  # run('eps_decay_fixed', 50, decay_function=decay_function)

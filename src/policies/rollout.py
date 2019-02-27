@@ -328,8 +328,9 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
   n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
   mean_cumulative_reward = 0.0
   for rep in range(n_rep):
-    if estimator.__class__.__name__ == 'LinearGlucoseModel':
-      estimator.bootstrap_and_fit_conditional_densities()
+    # if estimator.__class__.__name__ == 'LinearGlucoseModel':
+    #   estimator.bootstrap_and_fit_conditional_densities()
+    estimator.bootstrap_and_fit_conditional_densities()
     rewards = 0.0
     X_rep = [X_[2, :].reshape(1, -1) for X_ in env.X]
     R_rep = [R_[0] for R_ in env.R]
