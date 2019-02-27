@@ -138,8 +138,8 @@ if __name__ == '__main__':
 
   # run('ar2', 25)
   # run('ar1', 25)
+  np.random.seed(43908)
   run('kde', 25)
-  run('ar2', 50)
   run('ar1', 50)
   run('kde', 50)
 
