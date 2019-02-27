@@ -24,7 +24,7 @@ def rollout_to_get_parameter(policy_name, num_to_collect, T, decay_function=None
   else:
     estimator = transition.LinearGlucoseModel(ar1=(policy_name == 'ar1'))
 
-  np.random.seed(label)
+  # np.random.seed(label)
   n_patients = 15
 
   tuning_function = policies.expit_epsilon_decay
@@ -78,7 +78,8 @@ def get_sampling_dbn_of_tuned_policy(tuning_function_parameter, T, monte_carlo_r
 if __name__ == "__main__":
   T = 25
   monte_carlo_reps = 10
-  tuning_function_parameter, estimator, env = rollout_to_get_parameter('kde', 5, T, monte_carlo_reps=monte_carlo_reps)
+  tuning_function_parameter, estimator, env = rollout_to_get_parameter('kde', 5, T, monte_carlo_reps=monte_carlo_reps,
+                                                                       decay_function=lambda t: 0.15)
   values_dict = get_sampling_dbn_of_tuned_policy(tuning_function_parameter, T, monte_carlo_reps, estimator, env)
   plt.hist(values_dict['tuned_values'])
   plt.show()

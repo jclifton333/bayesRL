@@ -325,7 +325,6 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
 
 def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep, estimator):
-  n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
   cumulative_rewards = []
   for rep in range(n_rep):
     # if estimator.__class__.__name__ == 'LinearGlucoseModel':
