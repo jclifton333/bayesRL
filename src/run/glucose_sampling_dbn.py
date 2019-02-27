@@ -13,6 +13,7 @@ import src.estimation.TransitionModel as transition
 import src.policies.global_optimization as opt
 from src.environments.Glucose import Glucose
 import src.policies.tuned_bandit_policies as policies
+import matplotlib.pyplot as plt
 import yaml
 from functools import partial
 
@@ -60,9 +61,26 @@ def rollout_to_get_parameter(policy_name, num_to_collect, T, decay_function=None
   kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator}
   tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                            tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
-  return tuning_function_parameter, estimator
+  return tuning_function_parameter, estimator, env
 
 
-def get_sampling_dbn_of_tuned_policy(tuning_function_parameter, T, monte_carlo_reps):
-  pass
+def get_sampling_dbn_of_tuned_policy(tuning_function_parameter, T, monte_carlo_reps, estimator, env):
+  policy = policies.glucose_one_step_policy
+  tuning_function = policies.expit_epsilon_decay
+  tuned_values = rollout.collect_glucose_rollouts(tuning_function_parameter, policy, T, tuning_function, env,
+                                                  monte_carlo_reps, estimator)
+  fixed_decay_schedule = lambda horizon, t, param: 0.5 / t
+  fixed_schedule_values = rollout.collect_glucose_rollouts(None, policy, T, fixed_decay_schedule, env,
+                                                           monte_carlo_reps, estimator)
+  return {'tuned_values': tuned_values, 'fixed_schedule_values': fixed_schedule_values}
 
+
+if __name__ == "__main__":
+  T = 25
+  monte_carlo_reps = 10
+  tuning_function_parameter, estimator, env = rollout_to_get_parameter('kde', 5, T, monte_carlo_reps=monte_carlo_reps)
+  values_dict = get_sampling_dbn_of_tuned_policy(tuning_function_parameter, T, monte_carlo_reps, estimator, env)
+  plt.hist(values_dict['tuned_values'])
+  plt.show()
+  plt.hist(values_dict['fixed_schedule_values'])
+  plt.show()
