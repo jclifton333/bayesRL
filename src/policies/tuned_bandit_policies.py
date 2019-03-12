@@ -100,16 +100,19 @@ def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tun
 
 
 def bernoulli_mab_ucb_posterior_policy(estimated_means, standard_errors, number_of_pulls, 
-                             tuning_function, T, t, tuning_function_parameter, env):
-  # For UCB: get CI from posterior distribution (Beta dbn)
-  one_minus_alpha = 0.5*tuning_function(T, t, tuning_function_parameter) + 0.5
+                             tuning_function, tuning_function_parameter, T, t, env):
+  # For UCB: get CI from posterior distribution (Beta dbn) 
+  # one-sided interval, when tuning_value=0, upper-bound is actually estimated median instaead of estimated mean
+  tuning_value = tuning_function(T, t, tuning_function_parameter)
+  if tuning_value > 0.9: # such that it falls between [0,1]
+    tuning_value = 0.9
+  one_minus_alpha = 0.5*tuning_value + 0.5
   upper_bound = []
   for a in range(env.number_of_actions):
     alpha_p = env.posterior_params_dict[a]['alpha_post']
     beta_p = env.posterior_params_dict[a]['beta_post']
-    _, high_p0 = beta(alpha_p, beta_p).interval(one_minus_alpha)
-    upper_bound = np.append(upper_bound, high_p0) 
-  action = np.argmax(upper_bound)
+    upper_bound = np.append(upper_bound, beta.ppf(one_minus_alpha, alpha_p, beta_p))
+  action = np.random.choice(np.flatnonzero(upper_bound == np.max(upper_bound)))
   return action
 
 

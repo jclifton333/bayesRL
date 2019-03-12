@@ -41,12 +41,12 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
 #      tuning_function = lambda a, b, c: 0.7**b
 #    elif T==50:
 #      tuning_function = lambda a, b, c: 0.85**b
-    tuning_function = lambda a, t, c: 0.5 / (t + 1)
-#    tuning_function = tuned_bandit.expit_epsilon_decay
+   #tuning_function = lambda a, t, c: 0.5 / (t + 1)
+    tuning_function = tuned_bandit.expit_epsilon_decay
 #    tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
-    tuning_function_parameter = np.array([0.05, 49.,    2.5 ])
+    tuning_function_parameter = np.array([0.050, 45.0000,  2.5000 ])
     # Estimated optimal for normal mab with high variance on good arm
 #    tuning_function_parameter = np.array([0.2, 0.164, 0.2, 0.193, 0.189, 
 #                                          0.087, 0.069, 0.159, 0.09, 0.015])
@@ -111,14 +111,12 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
     policy = tuned_bandit.bernoulli_mab_ucb_posterior_policy
     tune = True
     tuning_function_parameter = np.array([1.0, 89.0, 5.0])
-    posterior_sample = True
   elif policy_name == 'ucb':
 #    tuning_function = lambda a, b, c: 0.05
     tuning_function = lambda a, b, c: 0.9
-    policy = tuned_bandit.bernoulli_mab_ucb_policy
+    policy = tuned_bandit.bernoulli_mab_ucb_posterior_policy
     tune = False
     tuning_function_parameter = None
-    sampling_sample = True
   elif policy_name == 'ucb-fixed-decay':
     tuning_function = lambda a, b, c: 0.9/(b+1.0)
     policy = tuned_bandit.bernoulli_mab_ucb_policy
@@ -172,10 +170,10 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
   mu_opt = np.max(env.list_of_reward_mus)
   env.reset()
   tuning_parameter_sequence = []
-  # Initial pulls
+  # Initial pulls: each arm is pulled once
   for a in range(env.number_of_actions):
     env.step(a)
-
+#  print(env.U, env.estimated_means)
   estimated_means_list = []
   estimated_vars_list = []
   actions_list = []
@@ -189,10 +187,7 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
         reward_means = []
 #        reward_vars = []
         for rep in range(monte_carlo_reps):
-          if bootstrap_posterior:
-            draws = env.sample_from_sampling_dbn()
-          else:
-            draws = env.sample_from_posterior()
+          draws = env.sample_from_posterior()
           means_for_each_action = []
           for a in range(env.number_of_actions):
             mean_a = draws[a]['mu_draw']
@@ -215,10 +210,10 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
                                                bounds, explore_, positive_zeta=positive_zeta)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
-    print('standard errors {}'.format(env.standard_errors))
-    print('estimated vars {}'.format(env.estimated_vars))
+#    print('standard errors {}'.format(env.standard_errors))
     action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                     tuning_function_parameter, T, t, env)
+#    print('time {}: estimated means {}, action {}, posterior para {}'.format(t, env.estimated_means, action, env.posterior_params_dict))
     res = env.step(action)
     u = res['Utility']
     actions_list.append(int(action))
@@ -227,7 +222,7 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
     # Compute regret
     regret = mu_opt - env.list_of_reward_mus[action]
     cumulative_regret += regret
-
+  #print(cumulative_regret, env.A)
   return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence, 
           'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list,
           'rewards_list': rewards_list, 'actions_list': actions_list}
@@ -238,7 +233,7 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
   :return:
   """
-  replicates = 96
+  replicates = 96*4
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, policy_name, list_of_reward_mus=list_of_reward_mus, 
@@ -278,17 +273,18 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
 
 if __name__ == '__main__':
-#  episode('eps-decay', label=0, T=50, monte_carlo_reps=1000, posterior_sample=True)
-#   run('eps-decay-fixed', save=False, std=1)
-  # run('eps')
+#  episode('eps-decay', label=1, T=5, monte_carlo_reps=1000, posterior_sample=True)
+#  episode('ucb-tune-posterior', label=0, T=50, monte_carlo_reps=1000)
+  run('eps', save=False, T=50, monte_carlo_reps=1000)
+#   run('ucb', T=50, monte_carlo_reps=1000, posterior_sample=True, save=False)
 #   run('greedy', save=False)
-  # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
+  run('eps-decay-fixed', save=False, T=50, monte_carlo_reps=1000)
   # run('posterior-ts-tuned', T=10, monte_carlo_reps=100)
 #  run('ucb', std=0.1, T=50, save=False, monte_carlo_reps=1000)
 #  run('ucb-fixed-decay', std=1, T=50, monte_carlo_reps=1000)
 #   run('ts-fixed', T=50, monte_carlo_reps=1000)
-#  run('frequentist-ts-tuned', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
+#  run('frequentist-ts-tuned', T=50, monte_carlo_reps=1000, posterior_sample=True)
 #   run('frequentist-ts', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
 #   run('frequentist-ts-fixed-decay', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
-   run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=True)
-  # run('ucb-tune-posterior-sample', std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=True)
+#  run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=True)
+#  run('ucb-tune-posterior', T=50, monte_carlo_reps=1000, posterior_sample=True)

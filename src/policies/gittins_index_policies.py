@@ -2,7 +2,7 @@ import numpy as np
 
 
 def normal_mab_gittins_index_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
-                                    tuning_function_parameter, T, t):
+                                    tuning_function_parameter, T, t, env):
   """
   Approximate gittins index for normal MAB with flat priors.
 

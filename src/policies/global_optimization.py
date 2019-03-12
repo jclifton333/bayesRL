@@ -23,8 +23,9 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   bo.maximize(init_points=15, n_iter=20)
 #  bo.maximize(init_points=10, n_iter=15)
   best_param = bo.res['max']['max_params']
+  best_val = bo.res['max']['max_val']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
-  return best_param
+  return best_param, best_val
 
 
 def random_search(rollout_function, policy, tuning_function, zeta_prev, linear_model_results, time_horizon,

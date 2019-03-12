@@ -7,38 +7,50 @@ from the paper "On Bayesian index policies for sequential resource allocation" p
 """
 import numpy as np
 
-def values_tau(T, Lambda):
+def values_tau(tau, Lambda, alpha = 1.0, beta = 1.0):
   '''
+  alpha, beta: prior parameters of Beta disttribution
+  tau: from time 0 to T-t to calculate value
+  t: the current time step, t=1,...,T-1, in order to calculate gittins index to decide A_{t+1}
   output: the values of each state for time horizon = T 
-  At time t which means pulling one arm t times, the number of states is t+1, which is the number of successes for one arm
+  At time t which means the sum number of pulls from all arms equal to t 
   '''
-  alpha = 1.0; beta = 1.0 ## prior parameters of Beta disttribution ##
-  values_T = (alpha+np.arange(T+1))/(alpha+beta+T) - Lambda
-  Expect_Y = (alpha+np.arange(T))/(alpha+beta+T)
-  values_Tminus1 = Expect_Y-Lambda + Expect_Y*values_T[1:] + (1-Expect_Y)*values_T[:-1]
-  values_table_list = [[]]*T
-  values_table_list[0] = values_T
-  values_table_list[1] = values_Tminus1
-  for t in range(2, T):
-    Expect_Y = (alpha+np.arange(T+1-t))/(alpha+beta+T+1-t)
-    values_table_list[t] = Expect_Y-Lambda + Expect_Y*values_table_list[t-1][1:] + \
-                           (1-Expect_Y)*values_table_list[t-1][:-1]
-  return values_table_list
+  if tau == 0:
+    value = 0.0
+  elif tau == 1:
+    value = alpha/(alpha+beta) - Lambda
+  else:
+    values_T = (alpha+np.arange(tau))/(alpha+beta+tau-1) - Lambda
+    Expect_Y = (alpha+np.arange(tau-1))/(alpha+beta+tau-2)
+    values_Tminus1 = Expect_Y-Lambda + Expect_Y*values_T[1:] + (1-Expect_Y)*values_T[:-1]
+    values_table_list = [[]]*tau
+    values_table_list[0] = values_T
+    values_table_list[1] = values_Tminus1
+    for tt in range(2, tau):
+      Expect_Y = (alpha+np.arange(tau-tt))/(alpha+beta+tau-tt-1)
+      values_table_list[tt] = Expect_Y-Lambda + Expect_Y*values_table_list[tt-1][1:] + \
+                             (1-Expect_Y)*values_table_list[tt-1][:-1]
+#    print(values_table_list)
+    value = values_table_list[-1][0]
+  return value
 
-def values_over_tau(T, Lambda):
+def values_over_tau(remain_t, Lambda, alpha, beta):
   '''
-  T: time horizon
+  remain_t: remaining time steps, T-t, (recall t=1,...,T-1)
   output: the supreme values of each state over tau
   '''
-  sup_values_list = values_tau(T, Lambda)
-  for tau in range(2, T):
-    temp = values_tau(tau, Lambda)
-    for k in range(tau):
-      ## [-tau:][k] is the same as [T-tau+k] ##
-      sup_values_list[T-tau+k] = np.max(np.vstack((temp[k], sup_values_list[-tau:][k])), axis=0)
-  return sup_values_list
+  values = []
+  for tau in range(remain_t+1):
+    values = np.append(values, values_tau(tau, Lambda, alpha, beta))
+  if len(values) == 1:
+    value_max = values
+  else:
+    value_max = np.max(values)
+#  print(values)
+  return value_max
  
-def gittins_index(t, s_t, values_for_lambdas_dict):
+def gittins_index(t, num_pulls_one_arm, s_t, values_for_lambdas_dict, 
+                  lambdas):
   '''
   T: time horizon
   t: the current time point
@@ -48,78 +60,70 @@ def gittins_index(t, s_t, values_for_lambdas_dict):
   '''
   threshold = 0.001
   ## choose the smallest Lambda which gives the value close enough to 0 ##
-  for k in values_for_lambdas_dict.keys(): 
-    v_k = values_for_lambdas_dict[k][-t][s_t]
-    if abs(v_k) < threshold:
-      return float(k)
-      
-    
+  for Lambda in lambdas:
+    key_name = str(Lambda)+'_'+str(t)+'_'+str(num_pulls_one_arm)+'_'+str(s_t)
+    v_lambda = values_for_lambdas_dict[key_name]
+    if abs(v_lambda) < threshold:
+#      print(t, num_pulls_one_arm, s_t, v_lambda, Lambda)
+      return float(Lambda)
 
-
-T=50
-lambdas = np.linspace(0.1, 0.8, 1000)
-values_for_lambdas_dict = {}
-for Lambda in lambdas:
-  values_for_lambdas_dict[str(Lambda)] = values_over_tau(T, Lambda)
-
-results_mean = []
-for rep in range(100):
-  np.random.seed(rep)
-  env = BernoulliMAB()
-  env.reset()
-  # Initial pulls
-  for a in range(env.number_of_actions):
-    env.step(a)
-  
-  Gindex_each_arm = np.empty([env.number_of_actions])
-  for t in range(2, T):
-    if np.random.rand() < 0.05:
-      action = np.random.choice(2)
-    else:
-      action = np.argmax(env.estimated_means)
-    env.step(action)
-    
-#    number_of_successes = env.estimated_means*env.number_of_pulls
-#    for k in range(env.number_of_actions):
-#      Gindex_each_arm[k] = gittins_index(t, int(number_of_successes[k]), values_for_lambdas_dict)
-#    action = np.argmax(Gindex_each_arm)
-#    env.step(action)
-    
-    results_mean = np.append(results_mean, np.mean(env.U))
-
-print("Mean utility: ", np.mean(results_mean))
+def generate_values_for_different_lambdas():
+  alpha0 = beta0 = 1.0
+  T=51
+  lambdas = np.linspace(0.1, 0.9, 100)
+  values_for_lambdas_dict = {}
+  for t in range(1, T): ## t = the sum of number of pulls for each arm ##
+    print(t)
+    for num_pulls_one_arm in range(1, t+1):
+      for s_t in range(num_pulls_one_arm+1):
+        for Lambda in lambdas:
+          alpha = alpha0 + s_t
+          beta = beta0 + num_pulls_one_arm - s_t
+          key_name = str(Lambda)+'_'+str(t)+'_'+str(num_pulls_one_arm)+'_'+str(s_t)
+          values_for_lambdas_dict[key_name] = values_over_tau(T-t, Lambda, alpha, beta)
+  return values_for_lambdas_dict, lambdas
     
    
 if __name__ == '__main__':
-  start_time = time.time()
-#  check_coef_converge()
-#  episode('eps-decay', 0, T=5)
-#  episode('eps-fixed-decay', 0, T=5)
-#  run('eps-decay', T= 25, mc_replicates=10, AR1=False)
-#  run('eps-fixed-decay', T=50, mc_replicates=10, AR1=False)
-  run('eps',save=False, T=50, mc_replicates=10, AR1=False)
-#  episode('eps', 0, T=25)
-#  result = episode('eps', 0, T=50)
-  # print(result['actions'])
- # episode('eps-fixed-decay', 1, T=50)
-#  num_processes = 4
-#  num_replicates = num_processes
-#  pool = mp.Pool(num_processes)
-#  params = pool.map(bayesopt_under_true_model, range(num_processes))
-#  params_dict = {str(i): params[i].tolist() for i in range(len(params))}
-#  with open('bayes-opt-glucose.yml', 'w') as handle:
-#    yaml.dump(params_dict, handle)
-#  print(bayesopt_under_true_model(T=25))
-  elapsed_time = time.time() - start_time
-  print("time {}".format(elapsed_time))
-  # episode('ts-decay-posterior-sample', 0, T=10, mc_replicates=100)
-  # episode('ucb-tune-posterior-sample', 0, T=10, mc_replicates=100)
-  # run('ts-decay-posterior-sample', T=10, mc_replicates=100)
-  # run('ucb-tune-posterior-sample', T=10, mc_replicates=100)
+  values_for_lambdas_dict, lambdas = generate_values_for_different_lambdas()
+  results_mean = []
+  for rep in range(192):
+    np.random.seed(rep)
+    env = BernoulliMAB(list_of_reward_mus=[0.3, 0.6])
+#    env = BernoulliMAB(list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66])
+#    env = BernoulliMAB(list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42])
+    env.reset()
+    optimal_mu = np.max(env.list_of_reward_mus)
+    # Initial pulls
+    for a in range(env.number_of_actions):
+      env.step(a)
+    
+    Gindex_each_arm = np.empty([env.number_of_actions])
+    cumulative_regrets = 0.0
+    for t in range(1, T):
+      ## \epsilon-greedy ##
+  #    if np.random.rand() < 0.05:
+  #      action = np.random.choice(2)
+  #    else:
+  #      action = np.argmax(env.estimated_means)
+  #    env.step(action)
+      
+      ## Gittins index ##
+      number_of_successes = env.estimated_means*env.number_of_pulls
+      for k in range(env.number_of_actions):
+        Gindex_each_arm[k] = gittins_index(t, int(env.number_of_pulls[k]), 
+                       int(number_of_successes[k]), values_for_lambdas_dict, lambdas)
+      action = np.argmax(Gindex_each_arm)
+      env.step(action)
+      
+      regret = optimal_mu - env.list_of_reward_mus[action]
+      cumulative_regrets = cumulative_regrets + regret
+    results_mean = np.append(results_mean, cumulative_regrets)
+  print("Mean Regrets: ", np.mean(results_mean), 'se:', np.std(results_mean)/np.sqrt(len(results_mean)))
   
+    
+    
+    
   
-  
-  
-
-                         
-                         
+                           
+                           
