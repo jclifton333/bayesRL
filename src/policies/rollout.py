@@ -351,7 +351,7 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
   :return:
   """
 
-  pre_simulated_data = kwargs['pre_simulated_data']
+  pre_simulated_data = copy.deepcopy(kwargs['pre_simulated_data'])
   mean_cumulative_regret = 0.0
 #  optimal_reward = np.max(env.list_of_reward_mus)
   for rep, rep_dict in enumerate(pre_simulated_data):

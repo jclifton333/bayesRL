@@ -11,7 +11,8 @@ def fun(zeta, T=50):
   for i in range(T):
 #    norm += abs(expit_epsilon_decay(T, i, zeta)-1.0/(1.0+i)) ## TS
 #    norm += abs(expit_epsilon_decay(T, i, zeta)-0.9/(i+1.0)) ## ucb
-    norm += abs(expit_epsilon_decay(T, i, zeta)-0.5/(i+1.0)) ## epsilon-greedy
+#    norm += abs(expit_epsilon_decay(T, i, zeta)-0.5/(i+1.0)) ## epsilon-greedy
+    norm += abs(expit_epsilon_decay(T, i, zeta)-0.05) ## 0.05-greedy
   return norm
 T=50
 bnds = ((0.05, 2.0), (1.0, T ), (0.01, 2.5))

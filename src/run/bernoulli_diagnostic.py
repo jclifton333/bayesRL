@@ -218,7 +218,7 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
       # under true model
       #sim_env = BernoulliMAB(list_of_reward_mus = list_of_reward_mus)
       sim_env = BernoulliMAB(list_of_reward_mus=env.estimated_means)
-      pre_simulated_data = sim_env.generate_mc_samples_bernoulli(monte_carlo_reps, T, reward_means=reward_means)#,
+      pre_simulated_data = sim_env.generate_mc_samples_bernoulli(monte_carlo_reps, T)#, reward_means=reward_means)#,
 #                                                       reward_vars=reward_vars)
       tuning_function_parameter, tuning_val = opt.bayesopt(rollout.bernoulli_mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env, monte_carlo_reps,
