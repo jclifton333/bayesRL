@@ -371,6 +371,7 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
     alpha0 = 1.0
     beta0 = 1.0
 
+    regrets_for_rep = []
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
       action = policy(estimated_means, standard_errors, None, tuning_function,
@@ -381,9 +382,10 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
       regret = regrets_sequence[t, action]
       rewards_at_each_arm[action] = np.append(rewards_at_each_arm[action], reward)
       number_of_pulls[action] += 1
-#      expected_reward = env.list_of_reward_mus[action]
-#      regret_for_rep += (expected_reward-optimal_reward)
-      regret_for_rep += -regret
+      expected_reward = env.list_of_reward_mus[action]
+      regret_for_rep += expected_reward
+      # regret_for_rep += (expected_reward-optimal_reward)
+      # regret_for_rep += -regret
 
       # Update model
       xsum = sum(rewards_at_each_arm[action])
@@ -393,7 +395,7 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
       post_p = post_alpha/(post_alpha + post_beta)
       estimated_means[action] = post_p
 
-    mean_cumulative_regret += (regret_for_rep - mean_cumulative_regret) / (rep + 1)
-  return mean_cumulative_regret
+    regrets_for_rep.append(regret_for_rep)
+  return np.mean(regrets_for_rep)
 
 

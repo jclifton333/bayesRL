@@ -56,9 +56,10 @@ class MAB(Bandit):
     self.draws_from_each_arm = [[]] * self.number_of_actions
 
     # Initial pulls
-    for a in range(self.number_of_actions):
-      for N in range(10):
-        self.step(a)
+    # for a in range(self.number_of_actions):
+    #   # for N in range(10):
+    #   #   self.step(a)
+    #   self.step(a)
 
   def step(self, a):
     u = super(MAB, self).step(a)
@@ -300,13 +301,13 @@ class BernoulliMAB(MAB):
     if reward_means is not None:
       normal_parameters_provided = True
 
-      def reward_distribution(a, mean_list):
-        mean = mean_list[a]
+      def reward_distribution(a, mean_list_):
+        mean = mean_list_[a]
         return np.random.binomial(n=1, p=mean) 
     else:
       normal_parameters_provided = False
 
-      def reward_distribution(a, mean_list):
+      def reward_distribution(a, mean_list_):
         return self.reward_dbn(a)
 
     results = []

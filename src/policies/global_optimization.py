@@ -20,7 +20,8 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
   bo = BayesianOptimization(objective, bounds)
   bo.explore(explore_)
   ## Increase the the number of initial points and iterations in order to find optimal value more possibly ##
-  bo.maximize(init_points=15, n_iter=20)
+  # bo.maximize(init_points=15, n_iter=20)
+  bo.maximize(init_points=5, n_iter=5)
 #  bo.maximize(init_points=10, n_iter=15)
   best_param = bo.res['max']['max_params']
   best_val = bo.res['max']['max_val']
