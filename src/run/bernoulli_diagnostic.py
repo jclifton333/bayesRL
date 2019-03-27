@@ -20,339 +20,52 @@ import matplotlib.pyplot as plt
 from matplotlib import pyplot
 
 
-def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000, posterior_sample=True):
+def episode(list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000):
   np.random.seed(label)
 
-  # ToDo: Create factory function that encapsulates this behavior
-  posterior_sample = True
-  bootstrap_posterior = False
-  sampling_sample = False # whether to sample from sampling distribution
-  positive_zeta = False
-  if policy_name == 'eps':
-    tuning_function = lambda a, b, c: 0.8  # Constant epsilon
-    policy = tuned_bandit.mab_epsilon_greedy_policy
-    tune = False
-    tuning_function_parameter = None
-  elif policy_name == 'greedy':
-    tuning_function = lambda a, b, c: 0.00  # Constant epsilon
-    policy = tuned_bandit.mab_epsilon_greedy_policy
-    tune = False
-    tuning_function_parameter = None
-  elif policy_name == 'eps-decay-fixed':
-#    if T==25:
-#      tuning_function = lambda a, b, c: 0.7**b
-#    elif T==50:
-#      tuning_function = lambda a, b, c: 0.85**b
-    tuning_function = lambda a, t, c: 0.5 / (t + 1)
-#    tuning_function = tuned_bandit.expit_epsilon_decay
-#    tuning_function = tuned_bandit.stepwise_linear_epsilon
-    policy = tuned_bandit.mab_epsilon_greedy_policy
-    tune = False
-    tuning_function_parameter = np.array([0.8190, 38.2263, 2.2622])
-    # Estimated optimal for normal mab with high variance on good arm
-#    tuning_function_parameter = np.array([0.2, 0.164, 0.2, 0.193, 0.189, 
-#                                          0.087, 0.069, 0.159, 0.09, 0.015])
-  elif policy_name == 'eps-decay':
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.mab_epsilon_greedy_policy
-    tune = True
-    tuning_function_parameter = np.array([0.05, 45, 2.5])
-    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177], 
-                'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55], 
-                'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
-    posterior_sample = True
-  elif policy_name == 'eps-decay-posterior-sample':
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.mab_epsilon_greedy_policy
-    tune = True
-    tuning_function_parameter = np.ones(10)*0.05
-    posterior_sample = True
-  elif policy_name == 'eps-decay-bootstrap-sample':
-    tuning_function = tuned_bandit.stepwise_linear_epsilon
-    policy = tuned_bandit.mab_epsilon_greedy_policy
-    tune = True
-    tuning_function_parameter = np.ones(10)*0.05
-    posterior_sample = True
-    bootstrap_posterior = True
-  elif policy_name == 'ts-decay-posterior-sample':
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.mab_thompson_sampling_policy
-    tune = True
-    tuning_function_parameter = np.ones(10)*0.1
-    posterior_sample = True
-  elif policy_name == 'ts':
-    tuning_function = lambda a, b, c: 1.0
-    policy = tuned_bandit.mab_thompson_sampling_policy
-    tune = False
-    tuning_function_parameter = None
-  elif policy_name == 'ts-fixed':
-    tuning_function = tuned_bandit.stepwise_linear_epsilon
-    policy = tuned_bandit.mab_thompson_sampling_policy
-    tune = False
-    tuning_function_parameter = np.array([0.8, 0.8, 0.8, 0.8, 0.0, 0.8, 0.0, 0.8, 0.8, 0.8])
-  elif policy_name == 'posterior-ts-tuned':
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.mab_thompson_sampling_policy
-    tune = True
-    tuning_function_parameter = np.array([0.8, 49.0, 2.5])
-    posterior_sample = True
-#    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-#    explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
-    ## Add the explore_ points which are close to 1/(t+1), and also enlarge the bounds ##
-    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177], 
-                'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55], 
-                'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
-  elif policy_name == 'ucb-tune-posterior':
-    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177], 
-                'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55], 
-                'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.bernoulli_mab_ucb_posterior_policy
-    tune = True
-    tuning_function_parameter = np.array([1.0, 89.0, 5.0])
-  elif policy_name == 'ucb':
-#    tuning_function = lambda a, b, c: 0.05
-    tuning_function = lambda a, b, c: 0.9
-    policy = tuned_bandit.bernoulli_mab_ucb_posterior_policy
-    tune = False
-    tuning_function_parameter = None
-  elif policy_name == 'ucb-fixed-decay':
-    tuning_function = lambda a, b, c: 0.9/(b+1.0)
-    policy = tuned_bandit.bernoulli_mab_ucb_policy
-    tune = False
-    tuning_function_parameter = None
-  elif policy_name == 'frequentist-ts-fixed':
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.mab_frequentist_ts_policy
-    tune = False
-    tuning_function_parameter = np.array([0.8, 49.0, 2.5])
-    posterior_sample = True
-  elif policy_name == 'frequentist-ts':
-    tuning_function = lambda a, b, c: 1.0
-    policy = tuned_bandit.mab_frequentist_ts_policy
-    tune = False
-    tuning_function_parameter = None
-    posterior_sample = True
-  elif policy_name == 'frequentist-ts-fixed-decay':
-    tuning_function = lambda a, b, c: 1.0/(b+1.0)
-    policy = tuned_bandit.mab_frequentist_ts_policy
-    tune = False
-    tuning_function_parameter = None
-    posterior_sample = True
-  elif policy_name == 'frequentist-ts-tuned':
-    tuning_function = tuned_bandit.expit_epsilon_decay
-    policy = tuned_bandit.mab_frequentist_ts_policy
-    tune = True
-    tuning_function_parameter = np.array([0.8, 49.0, 2.5])
-    posterior_sample = True
-#    bounds = {'zeta0': (0.8, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-#    explore_ = {'zeta0': [1.0, 1.0, 1.0], 'zeta1': [25.0, 49.0, 1.0], 'zeta2': [0.1, 2.5, 2.0]}
-    ## Add the explore_ points which are close to 1/(t+1), and also enlarge the bounds ##
-    bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-    explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177], 
-                'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55], 
-                'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
-  elif policy_name == 'gittins':
-    tuning_function = lambda a, b, c: None
-    tuning_function_parameter = None
-    tune = False
-    policy = gittins.normal_mab_gittins_index_policy
-  else:
-    raise ValueError('Incorrect policy name')
+  # Tune under true model
+  tuning_function = tuned_bandit.expit_epsilon_decay
+  policy = tuned_bandit.mab_epsilon_greedy_policy
+  tuning_function_parameter = np.array([0.05, 45, 2.5])
+  bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
+  explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177],
+              'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55],
+              'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
+  sim_env = BernoulliMAB(list_of_reward_mus=list_of_reward_mus)
+  pre_simulated_data = sim_env.generate_mc_samples_bernoulli(monte_carlo_reps, T)
+  tuning_function_parameter, tuning_val = opt.bayesopt(rollout.bernoulli_mab_rollout_with_fixed_simulations, policy,
+                                                       tuning_function,
+                                                       tuning_function_parameter, T, env, monte_carlo_reps,
+                                                       {'pre_simulated_data': pre_simulated_data},
+                                                       bounds, explore_)
 
-#  env = NormalMAB(list_of_reward_mus=[[1], [1.1]], list_of_reward_vars=[[1], [1]])
-  # env = NormalMAB(list_of_reward_mus=[[0], [1]], list_of_reward_vars=[[1], [140]])
-  #env = NormalMAB(list_of_reward_mus=[0.3, 0.6], list_of_reward_vars=[std**2, std**2])
+  # Rollout using parameter obtained by tuning under true model
   env = BernoulliMAB(list_of_reward_mus=list_of_reward_mus)
-
-  cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
-  env.reset()
-  tuning_parameter_sequence = []
-  tuning_val_sequence = []
-  # Initial pulls: each arm is pulled once
-  for a in range(env.number_of_actions):
-    env.step(a)
-#  print(env.U, env.estimated_means)
-  estimated_means_list = []
-  estimated_vars_list = []
-  actions_list = []
-  rewards_list = []
-  for t in range(320):
-    estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
-    estimated_vars_list.append([float(s) for s in env.estimated_vars])
-    #print(t, env.estimated_means, env.list_of_reward_mus)
-    if (t>0) and ((t+1)%40 == 0):
-      tuning_function = tuned_bandit.expit_epsilon_decay
-      policy = tuned_bandit.mab_epsilon_greedy_policy
-      tune = True
-      tuning_function_parameter = np.array([0.05, 45, 2.5])
-      bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
-      explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177], 
-                  'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55], 
-                  'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
-      posterior_sample = True
-    else:
-      tune = False
-    if tune:
-      if posterior_sample:
-        reward_means = []
-#        reward_vars = []
-        for rep in range(monte_carlo_reps):
-          draws = env.sample_from_posterior()
-          means_for_each_action = []
-          for a in range(env.number_of_actions):
-            mean_a = draws[a]['mu_draw']
-#            var_a = draws[a]['var_draw']
-            means_for_each_action.append(mean_a)
-#            vars_for_each_action.append(var_a)
-          reward_means.append(means_for_each_action)
-#          reward_vars.append(vars_for_each_action)
-      else:
-        reward_means = None
-#        reward_vars = None
-      
-      # under true model
-      #sim_env = BernoulliMAB(list_of_reward_mus = list_of_reward_mus)
-      sim_env = BernoulliMAB(list_of_reward_mus=env.estimated_means)
-      pre_simulated_data = sim_env.generate_mc_samples_bernoulli(monte_carlo_reps, T)#, reward_means=reward_means)#,
-#                                                       reward_vars=reward_vars)
-      tuning_function_parameter, tuning_val = opt.bayesopt(rollout.bernoulli_mab_rollout_with_fixed_simulations, policy, tuning_function,
-                                               tuning_function_parameter, T, env, monte_carlo_reps,
-                                               {'pre_simulated_data': pre_simulated_data},
-                                               bounds, explore_, positive_zeta=positive_zeta)
-      tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
-      tuning_val_sequence.append([float(tuning_val)])
-      print('##############')
-      print(t, env.estimated_means, tuning_function_parameter)
-#      # diagnotic
-#      untuning_function = lambda a, t, c: 0.05
-#      mean_cum_reward_tune_list = []; mean_cum_reward_untune_list = []
-#      for rep in range(100):
-#        print(rep)
-#        mean_cum_reward_tune = 0; mean_cum_reward_untune = 0
-#        for k in range(100):
-#          sim_env_tune = BernoulliMAB(list_of_reward_mus=reward_means[rep])
-#          sim_env_untune = BernoulliMAB(list_of_reward_mus=reward_means[rep])
-#          cum_reward_tune = 0; cum_reward_untune = 0
-#          for tt in range(T):            
-#            action_tune = policy(reward_means[rep], env.standard_errors, env.number_of_pulls, tuning_function,
-#                                 tuning_function_parameter, T, t, env)
-#            cum_reward_tune += sim_env_tune.step(action_tune)['Utility']
-#
-#            action_untune = policy(reward_means[rep], env.standard_errors, env.number_of_pulls, untuning_function,
-#                                 tuning_function_parameter, T, t, env)
-#            cum_reward_untune += sim_env_untune.step(action_untune)['Utility']
-#          mean_cum_reward_tune += cum_reward_tune
-#          mean_cum_reward_untune += cum_reward_untune
-#        mean_cum_reward_tune = cum_reward_tune/100.0
-#        mean_cum_reward_untune = cum_reward_untune/100.0
-#        mean_cum_reward_tune_list = np.append(mean_cum_reward_tune_list, mean_cum_reward_tune)
-#        mean_cum_reward_untune_list = np.append(mean_cum_reward_untune_list, mean_cum_reward_untune)
-#      
-#      if (t%5) == 0:
-#        bins = np.linspace(0, 1, 100)     
-#        pyplot.hist(mean_cum_reward_tune_list, bins, alpha=0.5, label='tune')
-#        pyplot.hist(mean_cum_reward_untune_list, bins, alpha=0.5, label='fixed decay')
-#        pyplot.legend(loc='upper right')
-#        pyplot.show()
-        
-#    print('standard errors {}'.format(env.standard_errors))
-    action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                    tuning_function_parameter, T, t, env)
-#    print('time {}: estimated means {}, action {}, posterior para {}'.format(t, env.estimated_means, action, env.posterior_params_dict))
-    res = env.step(action)
-    u = res['Utility']
-    actions_list.append(int(action))
-    rewards_list.append(float(u))
+  cumulative_regrets = []
+  for rep in range(100):
+    cumulative_regret = 0.0
+    env.reset()
 
-    # Compute regret
-    regret = mu_opt - env.list_of_reward_mus[action]
-    cumulative_regret += regret
-  #print(cumulative_regret, env.A)
-  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence, 
-          'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list,
-          'rewards_list': rewards_list, 'actions_list': actions_list, 'tuning_val_sequence': tuning_val_sequence}
+    # Initial pulls: each arm is pulled once
+    for a in range(env.number_of_actions):
+      env.step(a)
+    estimated_means_list = []
+    estimated_vars_list = []
+    actions_list = []
+    rewards_list = []
 
+    for t in range(T):
+      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+                      tuning_function_parameter, T, t, env)
+      cumulative_regret += mu_opt - env.list_of_reward_mus[action]
 
-def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo_reps=1000, posterior_sample=False):
-  """
+    cumulative_regrets.append(cumulative_regret)
 
-  :return:
-  """
-  replicates = 96*2
-  num_cpus = int(mp.cpu_count())
-  pool = mp.Pool(processes=num_cpus)
-  episode_partial = partial(episode, policy_name, list_of_reward_mus=list_of_reward_mus, 
-                            T=T, monte_carlo_reps=monte_carlo_reps,
-                            posterior_sample=posterior_sample)
-  num_batches = int(replicates / num_cpus)
-
-  results = []
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
-
-  # results = pool.map(episode_partial, range(replicates))
-  cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
-  zeta_sequences = [d['zeta_sequence'] for d in results]
-  estimated_means = [d['estimated_means'] for d in results]
-  estimated_vars = [d['estimated_vars'] for d in results]
-  rewards = [d['rewards_list'] for d in results]
-  actions = [d['actions_list'] for d in results]
-  tuning_vals = [d['tuning_val_sequence'] for d in results]
-  print(np.mean(tuning_vals, axis=0), np.std(tuning_vals, axis=0)/np.sqrt(replicates))
-  plt.plot(-np.mean(tuning_vals, axis=0))
-  plt.show()
-  #print(float(np.mean(cumulative_regret)), float(np.std(cumulative_regret))/np.sqrt(replicates))
-  # Save results
-  if save:
-    results = {'T': float(T), 'list_of_reward_mus':list_of_reward_mus, 'mean_regret': float(np.mean(cumulative_regret)), 
-               'se_regret': float(np.std(cumulative_regret))/np.sqrt(replicates),
-               'regret list': [float(r) for r in cumulative_regret],
-               'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
-               'rewards': rewards, 'actions': actions}
-
-    base_name = 'bernoullimab-policy-{}-numAct-{}'.format(policy_name, len(list_of_reward_mus))
-    prefix = os.path.join(project_dir, 'src', 'run', base_name)
-    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-    filename = '{}_{}.yml'.format(prefix, suffix)
-    with open(filename, 'w') as outfile:
-      yaml.dump(results, outfile)
-
-  return
+  mean_regret = np.mean(cumulative_regrets)
+  std_regret = np.std(cumulative_regrets)
+  return mean_regret, std_regret
 
 
 if __name__ == '__main__':
-#  episode('eps-decay', label=1, T=5, monte_carlo_reps=1000, posterior_sample=True)
-#  episode('eps', label=0, T=50, monte_carlo_reps=1000)
-  #   run('eps-decay-fixed', save=False, std=1)
-  run('eps', T=50, monte_carlo_reps=1000, posterior_sample=True, save=False)
-#  run('eps-decay-fixed', T=50, save=False, monte_carlo_reps=1000)
-#   run('eps-decay', save=False, T=2, monte_carlo_reps=1000)
-  # run('posterior-ts-tuned', T=10, monte_carlo_reps=100)
-#  run('ucb', std=0.1, T=50, save=False, monte_carlo_reps=1000)
-#  run('ucb-fixed-decay', std=1, T=50, monte_carlo_reps=1000)
-#   run('ts-fixed', T=50, monte_carlo_reps=1000)
-#  run('frequentist-ts-tuned', T=50, monte_carlo_reps=1000, posterior_sample=True)
-#   run('frequentist-ts', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
-#   run('frequentist-ts-fixed-decay', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
-#  run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=True)
-#  run('ucb-tune-posterior', T=50, monte_carlo_reps=1000, posterior_sample=True)
-
-# plots
-#  t = np.linspace(0,49,50)
-#  tuning_parameter = [1.4872, 45.1609, 1.5481]
-#  plt.plot(expit_epsilon_decay(50, t,tuning_parameter))
-#  plt.plot(0.5/(t + 1.0))
-#  
-#  
-#  
-  
-  
-  
-  
-  
+  episode()
