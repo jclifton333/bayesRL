@@ -202,18 +202,14 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
   :return:
   """
-  replicates = 96*4
+  replicates = 4
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, policy_name, list_of_reward_mus=list_of_reward_mus, 
                             T=T, monte_carlo_reps=monte_carlo_reps,
                             posterior_sample=posterior_sample)
-  num_batches = int(replicates / num_cpus)
 
-  results = []
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
+  results= pool.map(episode_partial, range(replicates))
 
   # results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
@@ -242,5 +238,5 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
 
 if __name__ == '__main__':
-  episode('eps-decay', label=1, T=5, monte_carlo_reps=10, posterior_sample=True)
+  run('eps-decay', T=5, monte_carlo_reps=10, posterior_sample=True)
 
