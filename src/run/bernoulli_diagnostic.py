@@ -24,6 +24,8 @@ def episode(tune, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000):
   N_REPLICATES = 1000
 
   policy = tuned_bandit.mab_epsilon_greedy_policy
+  sim_env = BernoulliMAB(list_of_reward_mus=list_of_reward_mus)
+  pre_simulated_data = sim_env.generate_mc_samples_bernoulli(monte_carlo_reps, T)
   if tune:
     # Tune under true model
     tuning_function = tuned_bandit.expit_epsilon_decay
@@ -32,8 +34,6 @@ def episode(tune, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000):
     explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177],
                 'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55],
                  'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
-    sim_env = BernoulliMAB(list_of_reward_mus=list_of_reward_mus)
-    pre_simulated_data = sim_env.generate_mc_samples_bernoulli(monte_carlo_reps, T)
     tuning_function_parameter, tuning_val = opt.bayesopt(rollout.bernoulli_mab_rollout_with_fixed_simulations, policy,
                                                          tuning_function,
                                                          tuning_function_parameter, T, sim_env, monte_carlo_reps,
@@ -48,26 +48,30 @@ def episode(tune, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000):
 
   # Rollouts to evaluate exploration policy
   env = BernoulliMAB(list_of_reward_mus=list_of_reward_mus)
-  mu_opt = np.max(env.list_of_reward_mus)
-  cumulative_rewards = []
-  for rep in range(N_REPLICATES):
-    cumulative_reward = 0.0
-    env.reset()
+  mean_regret = rollout.bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, T,
+                                                                     tuning_function, env,
+                                                                     **{'pre_simulated_data': pre_simulated_data})
+  # mu_opt = np.max(env.list_of_reward_mus)
+  # cumulative_rewards =
+  # for rep in range(N_REPLICATES):
+  #   cumulative_reward = 0.0
+  #   env.reset()
 
-    # Initial pulls: each arm is pulled once
-    # for a in range(env.number_of_actions):
-    #   env.step(a)
+  #   # Initial pulls: each arm is pulled once
+  #   # for a in range(env.number_of_actions):
+  #   #   env.step(a)
 
-    for t in range(T):
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                      tuning_function_parameter, T, t, env)
-      cumulative_reward += env.list_of_reward_mus[action]
+  #   for t in range(T):
+  #     action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+  #                     tuning_function_parameter, T, t, env)
+  #     cumulative_reward += env.list_of_reward_mus[action]
 
-    cumulative_rewards.append(cumulative_reward)
+  #   cumulative_rewards.append(cumulative_reward)
 
-  mean_regret = np.mean(cumulative_rewards)
-  std_regret = np.std(cumulative_rewards) / np.sqrt(N_REPLICATES)
-  return mean_regret, std_regret
+  # mean_regret = np.mean(cumulative_rewards)
+  # std_regret = np.std(cumulative_rewards) / np.sqrt(N_REPLICATES)
+  # return mean_regret, std_regret
+  return mean_regret
 
 
 if __name__ == '__main__':
