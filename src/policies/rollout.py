@@ -352,8 +352,8 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
   """
 
   pre_simulated_data = copy.deepcopy(kwargs['pre_simulated_data'])
-  mean_cumulative_regret = 0.0
 #  optimal_reward = np.max(env.list_of_reward_mus)
+  regrets = []
   for rep, rep_dict in enumerate(pre_simulated_data):
     initial_model = rep_dict['initial_model']
     estimated_means = initial_model['sample_mean_list']
@@ -371,7 +371,6 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
     alpha0 = 1.0
     beta0 = 1.0
 
-    regrets_for_rep = []
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
       action = policy(estimated_means, standard_errors, None, tuning_function,
@@ -395,7 +394,7 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
       post_p = post_alpha/(post_alpha + post_beta)
       estimated_means[action] = post_p
 
-    regrets_for_rep.append(regret_for_rep)
-  return np.mean(regrets_for_rep)
+    regrets.append(regret_for_rep)
+  return np.mean(regrets)
 
 

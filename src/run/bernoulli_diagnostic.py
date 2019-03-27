@@ -31,7 +31,7 @@ def episode(tune, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000):
     bounds = {'zeta0': (0.05, 2.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
     explore_ = {'zeta0': [1.0, 1.0, 1.0, 1.90980867, 5.848, 0.4466, 10.177],
                 'zeta1': [25.0, 49.0, 1.0, 49.94980088, 88.9, 50, 87.55],
-                'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
+                 'zeta2': [0.1, 2.5, 2.0, 1.88292034, 0.08, 0.1037, 0.094]}
     sim_env = BernoulliMAB(list_of_reward_mus=list_of_reward_mus)
     pre_simulated_data = sim_env.generate_mc_samples_bernoulli(monte_carlo_reps, T)
     tuning_function_parameter, tuning_val = opt.bayesopt(rollout.bernoulli_mab_rollout_with_fixed_simulations, policy,
@@ -40,6 +40,7 @@ def episode(tune, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000):
                                                          {'pre_simulated_data': pre_simulated_data},
                                                          bounds, explore_)
     print('estimate of optimal value: {}'.format(tuning_val))
+    # tuning_function_parameter = np.array([0.17, 26.1, 1.99])
 
   else:
     tuning_function = lambda x, y, z: 0.05
