@@ -37,10 +37,10 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-    tuning_function = tuned_bandit.expit_epsilon_decay
+    tuning_function = lambda x_, y_, z_: 0.05
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
-    tuning_function_parameter = np.array([0.050, 45.0000,  2.5000])
+    tuning_function_parameter = np.array([0.050, -45.0000,  2.5000])
   elif policy_name == 'eps-decay':
     tuning_function = tuned_bandit.expit_epsilon_decay
     policy = tuned_bandit.mab_epsilon_greedy_policy
@@ -161,8 +161,10 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
   actions_list = []
   rewards_list = []
 
-  for t in range(T):
+  for a in range(env.number_of_actions):
+    env.step(a)
 
+  for t in range(T):
     if tune:
       if posterior_sample:
         reward_means = []
@@ -202,7 +204,7 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
   :return:
   """
-  replicates = 4
+  replicates = mp.cpu_count()
   num_cpus = int(mp.cpu_count())
   pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, policy_name, list_of_reward_mus=list_of_reward_mus, 
@@ -238,5 +240,5 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
 
 if __name__ == '__main__':
-  run('eps-decay', T=5, monte_carlo_reps=10, posterior_sample=True)
+  run('eps-decay-fixed', T=50, monte_carlo_reps=1000, posterior_sample=True)
 

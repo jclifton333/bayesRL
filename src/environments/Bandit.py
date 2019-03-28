@@ -56,9 +56,9 @@ class MAB(Bandit):
     self.draws_from_each_arm = [[]] * self.number_of_actions
 
     # Initial pulls
-    # for a in range(self.number_of_actions):
-    #   # for N in range(10):
-    #   #   self.step(a)
+    for a in range(self.number_of_actions):
+      for N in range(10):
+        self.step(a)
     #   self.step(a)
 
   def step(self, a):
