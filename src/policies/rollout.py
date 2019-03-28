@@ -356,9 +356,11 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
   regrets = []
   for rep, rep_dict in enumerate(pre_simulated_data):
     initial_model = rep_dict['initial_model']
-    estimated_means = initial_model['sample_mean_list']
-    standard_errors = initial_model['standard_error_list']
-    number_of_pulls = initial_model['number_of_pulls']
+    # estimated_means = initial_model['sample_mean_list']
+    estimated_means = np.zeros(env.number_of_actions)
+    # standard_errors = initial_model['standard_error_list']
+    # number_of_pulls = initial_model['number_of_pulls']
+    number_of_pulls = np.zeros(env.number_of_actions)
 
     # Get obs sequences for this rep
     rewards_sequence = rep_dict['rewards']
@@ -373,7 +375,7 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
 
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
-      action = policy(estimated_means, standard_errors, None, tuning_function,
+      action = policy(estimated_means, None, None, tuning_function,
                       tuning_function_parameter, time_horizon, t, env)
 
       # Get reward and regret

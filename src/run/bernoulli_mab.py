@@ -189,6 +189,7 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
 
     action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                     tuning_function_parameter, T, t, env)
+    env.step(action)
 
     # Compute regret
     regret = mu_opt - env.list_of_reward_mus[action]
@@ -240,5 +241,7 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
 
 if __name__ == '__main__':
-  run('eps-decay-fixed', T=50, monte_carlo_reps=1000, posterior_sample=True)
+  # run('eps', T=50, monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', T=50, monte_carlo_reps=1000, posterior_sample=True)
+  # run('eps-decay-fixed', T=50, monte_carlo_reps=1000, posterior_sample=True)
 

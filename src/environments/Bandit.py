@@ -318,10 +318,10 @@ class BernoulliMAB(MAB):
         mean_list = None
 
       each_rep_result = dict()
-      initial_model = {'sample_mean_list': copy.copy(self.estimated_means),
-                       'number_of_pulls': copy.copy(self.number_of_pulls),
-                       'standard_error_list': copy.copy(self.standard_errors),
-                       'sample_var_list': copy.copy(self.estimated_vars)}
+      initial_model = {'sample_mean_list': copy.deepcopy(self.estimated_means),
+                       'number_of_pulls': copy.deepcopy(self.number_of_pulls),
+                       'standard_error_list': copy.deepcopy(self.standard_errors),
+                       'sample_var_list': copy.deepcopy(self.estimated_vars)}
 
       rewards = np.zeros((0, self.number_of_actions))
       regrets = np.zeros((0, self.number_of_actions))
