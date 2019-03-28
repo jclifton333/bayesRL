@@ -242,14 +242,13 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
 
 if __name__ == '__main__':
   # run('eps', T=50, monte_carlo_reps=1000, posterior_sample=True)
-  list_of_reward_mus = [0.73, 0.56, 0.33, 0.04, 0.66]
+  # list_of_reward_mus = [0.73, 0.56, 0.33, 0.04, 0.66]
+  list_of_reward_mus = [0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42]
   np.random.seed(1)
   run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=50, monte_carlo_reps=1000, posterior_sample=True)
   np.random.seed(2)
   run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=50, monte_carlo_reps=1000, posterior_sample=True)
   np.random.seed(3)
-  run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=50, monte_carlo_reps=1000, posterior_sample=True)
-  np.random.seed(4)
   run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=50, monte_carlo_reps=1000, posterior_sample=True)
   # run('eps-decay-fixed', T=50, monte_carlo_reps=1000, posterior_sample=True)
 
