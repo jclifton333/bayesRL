@@ -180,6 +180,17 @@ class KdeGlucoseModel(GlucoseTransitionModel):
   def fit_unconditional_densities(self, X):
     pass
 
+  def draw_from_bootstrap_conditional_predictive_distribution(self, x):
+    """
+    Bootstrap; fit ckde; draw from conditional distribution at x.
+
+    :param x:
+    :return:
+    """
+    self.bootstrap_and_fit_conditional_densities()
+    glucose_ = self.draw_from_conditional_kde(x)
+    return glocuse_
+
   def draw_from_conditional_kde(self, x):
     """
 
@@ -245,11 +256,13 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     for ix, x in enumerate(treat_test_features):
       print(ix)
       for draw in range(NUM_SAMPLES_FROM_DENSITY):
-        g, r = self.draw_from_conditional_kde([x])
+        # g, r = self.draw_from_conditional_kde([x])
+        g = self.draw_from_bootstrap_conditional_predictive_distribution([x])
         treat_glucoses[ix, draw] = g
     for ix, x in enumerate(no_treat_test_features):
       for draw in range(NUM_SAMPLES_FROM_DENSITY):
-        g, r = self.draw_from_conditional_kde([x])
+        # g, r = self.draw_from_conditional_kde([x])
+        g = self.draw_from_bootstrap_conditional_predictive_distribution([x])
         no_treat_glucoses[ix, draw] = g
 
     treat_glucoses_mean = treat_glucoses.mean(axis=1)
