@@ -17,6 +17,36 @@ import yaml
 from functools import partial
 
 
+def compare_parametric_and_nonparametric_bootstrap_predictive_dbns(n_patients, T):
+  """
+
+  :param n_patient: number of patients to generate data for
+  :param T: number of timesteps to collect data on each patient
+  :return:
+  """
+  np.random.seed(3)
+  env = Glucose(nPatients=n_patients)
+  env.reset()
+
+  # Collect data with random policy
+  for t in range(T):
+    action = np.random.binomial(1, 0.3, n_patients)
+    env.step(action)
+
+  # Fit linear and np transition models
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  linear_model = transition.LinearGlucoseModel()
+  np_model = transition.KdeGlucoseModel()
+  linear_model.fit(X, Sp1[:, 0])
+  np_model.fit(X, Sp1[:, 0])
+
+  # Visualize bpds for linear regression and np cond. density estimator
+  linear_model.plot_regression_line()
+  np_model.plot_regression_line()
+
+  return
+
+
 def npb_diagnostics():
   np.random.seed(3)
   n_patients = 1
