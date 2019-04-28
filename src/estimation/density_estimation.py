@@ -13,7 +13,7 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
-import pymc3 as pm
+# import pymc3 as pm
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import RidgeCV
@@ -24,8 +24,8 @@ import numpy as np
 from numba import njit
 import scipy as sp
 import pandas as pd
-import theano
-from theano import shared, tensor as tt
+# import theano
+# from theano import shared, tensor as tt
 from src.environments.Glucose import Glucose
 try:
   import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 SEED = 972915 # from random.org; for reproducibility
 np.random.seed(SEED)
-theano.config.compute_test_value = 'off'
+# theano.config.compute_test_value = 'off'
 
 
 def norm_cdf(z):

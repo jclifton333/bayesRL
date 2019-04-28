@@ -164,5 +164,5 @@ def run(policy_name, T, decay_function=None):
 
 
 if __name__ == '__main__':
-  compare_parametric_and_nonparametric_bootstrap_predictive_dbns()
+  compare_parametric_and_nonparametric_bootstrap_predictive_dbns(T=10)
 

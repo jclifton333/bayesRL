@@ -10,7 +10,7 @@ sys.path.append(project_dir)
 from scipy.stats import norm, multivariate_normal
 import copy
 import numpy as np
-import pymc3 as pm
+# import pymc3 as pm
 import src.estimation.density_estimation as dd
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
@@ -19,7 +19,7 @@ from sklearn.ensemble import RandomForestRegressor
 from src.environments.Glucose import Glucose
 import src.estimation.bellman_error as be
 import src.policies.simulation_optimization_policies as opt
-from theano import shared
+# from theano import shared
 from abc import ABCMeta, abstractmethod
 # Create ABC base class compatible with Python 2.7 and 3.x
 ABC = ABCMeta('ABC', (object, ), {'__slots__': ()})
@@ -53,7 +53,7 @@ class GlucoseTransitionModel(ABC):
     if self.test:
       NUM_SAMPLES_FROM_DENSITY = 1
     else:
-      NUM_SAMPLES_FROM_DENSITY = 1000
+      NUM_SAMPLES_FROM_DENSITY = 100
 
     test_glucose = np.linspace(50, 200, 50)
     test_feature_base = self.X_[np.random.choice(self.X_.shape[0]), :]
@@ -90,10 +90,10 @@ class GlucoseTransitionModel(ABC):
     plt.figure()
     plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Insulin')
     plt.fill_between(test_glucose, treat_glucoses_percentile[:, 0], treat_glucoses_percentile[:, 1], alpha=0.2,
-                     label='95% percentile region of estimated conditional density')
+                     label='95% percentile region of estimated conditional density, trt')
     plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No insulin')
     plt.fill_between(test_glucose, no_treat_glucoses_percentile[:, 0], no_treat_glucoses_percentile[:, 1], alpha=0.2,
-                     label='95% percentile region of estimated conditional density')
+                     label='95% percentile region of estimated conditional density, no trt')
     plt.title('Conditional glucose as function of previous glucose')
     plt.legend()
     plt_name = 'conditional-glucose-n={}-method={}'.format(self.X_.shape[0], self.__class__.__name__)
@@ -196,10 +196,21 @@ class KdeGlucoseModel(GlucoseTransitionModel):
                                     use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions,
                                     test=test)
     self.kde_by_action = {i: {j: {} for j in range(2)} for i in range(2)}
+    self.already_fit = False
 
-  def fit_conditional_densities(self, X, y):
-    # Conditional kde from https: // www.ssc.wisc.edu / ~bhansen / papers / ncde.pdf
-    # Fit 4 separate conditional kdes: one for each combination of (a_t, a_{t-1})
+  def fit_conditional_densities(self, X, y, reuse_hyperparameters=False):
+    """
+    Conditional kde from https: // www.ssc.wisc.edu / ~bhansen / papers / ncde.pdf
+    Fit 4 separate conditional kdes: one for each combination of (a_t, a_{t-1})
+
+    :param X:
+    :param y:
+    :param reuse_hyperparameters: if true and if self.already_fitted, use hyperparams from previous cv.
+                                  (for when we want to refit on multiple bootstrap samples and not re-compute
+                                   hyperparameters every time).
+    :return:
+    """
+    self.already_fit = True
     self.X_, self.y_ = X, y
     self.scaler = StandardScaler()
     self.scaler.fit(X[:, 1:7])
@@ -212,20 +223,23 @@ class KdeGlucoseModel(GlucoseTransitionModel):
 
     for i in range(2):
       for j in range(2):
-        self.fit_kde_by_action(i, j)
+        self.fit_kde_by_action(i, j, reuse_hyperparameters=reuse_hyperparameters)
 
-  def bootstrap_and_fit_conditional_densities(self):
+  def bootstrap_and_fit_conditional_densities(self, reuse_hyperparameters=False):
     n = self.X_.shape[0]
     bootstrap_ixs = np.random.choice(n, size=n, replace=False)
     X, y = self.X_[bootstrap_ixs, :], self.y_[bootstrap_ixs]
-    self.fit_conditional_densities(X, y)
+    self.fit_conditional_densities(X, y, reuse_hyperparameters=reuse_hyperparameters)
 
-  def fit_kde_by_action(self, at, atm1):
+  def fit_kde_by_action(self, at, atm1, reuse_hyperparameters=False):
     """
     Fit conditional denisty estimator at combination of last 2 actions.
 
     :param at: 0 or 1
     :param atm1: 0 or 1
+    :param reuse_hyperparameters: if true and if self.already_fitted, use hyperparams from previous cv.
+                                  (for when we want to refit on multiple bootstrap samples and not re-compute
+                                   hyperparameters every time).
     :return:
     """
     ixs = self.kde_by_action[at][atm1]['ixs'][0]
@@ -236,10 +250,20 @@ class KdeGlucoseModel(GlucoseTransitionModel):
 
     self.kde_by_action[at][atm1]['fit'] = True
     self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
-    regressor, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
+
+    X_at_atm1 = self.kde_by_action[at][atm1]['X']
+    y_at_atm1 = self.kde_by_action[at][atm1]['y']
+    if not reuse_hyperparameters or not self.already_fit:
+      regressor, b1, b2, e_hat = dd.two_step_ckde_cv(X_at_atm1, y_at_atm1)
+      self.kde_by_action[at][atm1]['b1'] = b1
+      self.kde_by_action[at][atm1]['b2'] = b2
+    else:
+      # Just fit conditional mean and get residuals; previously-computed hyperparameters will be used to draw from
+      # conditional density.
+      regressor = RandomForestRegressor()
+      regressor.fit(X_at_atm1, y_at_atm1)
+      e_hat = y_at_atm1 - regressor.predict(X_at_atm1)
     self.kde_by_action[at][atm1]['b0'] = regressor
-    self.kde_by_action[at][atm1]['b1'] = b1
-    self.kde_by_action[at][atm1]['b2'] = b2
     self.kde_by_action[at][atm1]['e_hat'] = e_hat
 
   def fit_unconditional_densities(self, X):
@@ -252,7 +276,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     :param x:
     :return:
     """
-    self.bootstrap_and_fit_conditional_densities()
+    self.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
     glucose_, _ = self.draw_from_conditional_kde(x)
     return glucose_
 
