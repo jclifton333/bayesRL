@@ -14,10 +14,7 @@ import pymc3 as pm
 import src.estimation.density_estimation as dd
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
-try:
-  import matplotlib.pyplot as plt
-except:
-  pass
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from src.environments.Glucose import Glucose
 import src.estimation.bellman_error as be
@@ -73,9 +70,9 @@ class GlucoseTransitionModel(ABC):
     no_treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))
 
     for ix, x in enumerate(treat_test_features):
+      print('treat test features')
       print(ix)
       for draw in range(NUM_SAMPLES_FROM_DENSITY):
-        # g, r = self.draw_from_conditional_kde([x])
         g = self.draw_from_bootstrap_conditional_predictive_distribution([x])
         treat_glucoses[ix, draw] = g
     for ix, x in enumerate(no_treat_test_features):
@@ -99,7 +96,7 @@ class GlucoseTransitionModel(ABC):
                      label='95% percentile region of estimated conditional density')
     plt.title('Conditional glucose as function of previous glucose')
     plt.legend()
-    plt_name = 'conditional-glucose-n={}'.format(self.X_.shape[0])
+    plt_name = 'conditional-glucose-n={}-method={}'.format(self.X_.shape[0], self.__class__.__name__)
     plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
     plt.savefig(plt_name)
     plt.close()
@@ -256,7 +253,7 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     :return:
     """
     self.bootstrap_and_fit_conditional_densities()
-    glucose_ = self.draw_from_conditional_kde(x)
+    glucose_, _ = self.draw_from_conditional_kde(x)
     return glucose_
 
   def draw_from_conditional_kde(self, x):

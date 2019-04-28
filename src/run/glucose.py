@@ -17,7 +17,7 @@ import yaml
 from functools import partial
 
 
-def compare_parametric_and_nonparametric_bootstrap_predictive_dbns(n_patients, T):
+def compare_parametric_and_nonparametric_bootstrap_predictive_dbns(n_patients=15, T=5):
   """
 
   :param n_patient: number of patients to generate data for
@@ -164,13 +164,5 @@ def run(policy_name, T, decay_function=None):
 
 
 if __name__ == '__main__':
-  np.random.seed(1)
-  run('kde', 25)
-  run('kde', 50)
-  np.random.seed(2)
-  run('kde', 25)
-  run('kde', 50)
-  np.random.seed(3)
-  run('kde', 25)
-  run('kde', 50)
+  compare_parametric_and_nonparametric_bootstrap_predictive_dbns()
 
