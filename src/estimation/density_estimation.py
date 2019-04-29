@@ -13,8 +13,9 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
-import pymc3 as pm
+# import pymc3 as pm
 from sklearn.ensemble import RandomForestRegressor
+from pyearth import Earth
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.linear_model import RidgeCV
 from sklearn.kernel_ridge import KernelRidge
@@ -24,8 +25,8 @@ import numpy as np
 from numba import njit
 import scipy as sp
 import pandas as pd
-import theano
-from theano import shared, tensor as tt
+# import theano
+# from theano import shared, tensor as tt
 from src.environments.Glucose import Glucose
 try:
   import matplotlib.pyplot as plt
@@ -37,7 +38,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 SEED = 972915 # from random.org; for reproducibility
 np.random.seed(SEED)
-theano.config.compute_test_value = 'off'
+# theano.config.compute_test_value = 'off'
 
 
 def norm_cdf(z):
@@ -275,7 +276,8 @@ def two_step_ckde_cv(X, y):
 
   # Instead of using local weighted regression, can't we use our favorite regression estimator to get this
   # conditional mean?
-  regressor = RandomForestRegressor()
+  regressor = Earth()
+  # regressor = RandomForestRegressor()
   # regressor = GridSearchCV(KernelRidge(kernel='rbf', gamma=0.1), cv=5,
   #                          param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3],
   #                          "gamma": np.logspace(-2, 2, 5)})
@@ -315,6 +317,7 @@ class ConditionalKDE(object):
 
     # Select bandwidth with CV
     self.regressor, self.b1, self.b2, self.e_hat = two_step_ckde_cv(self.X, self.y)
+
 
   def sample_from_conditional_kde(self, x_, n):
     """

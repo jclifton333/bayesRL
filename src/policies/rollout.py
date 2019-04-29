@@ -324,12 +324,12 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
   return mean_cumulative_regret
 
 
-def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
-  n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
-  mean_cumulative_reward = 0.0
+def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep, estimator):
+  cumulative_rewards = []
   for rep in range(n_rep):
-    if estimator.__class__.__name__ == 'LinearGlucoseModel':
-      estimator.bootstrap_and_fit_conditional_densities()
+    # if estimator.__class__.__name__ == 'LinearGlucoseModel':
+    #   estimator.bootstrap_and_fit_conditional_densities()
+    estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
     rewards = 0.0
     X_rep = [X_[2, :].reshape(1, -1) for X_ in env.X]
     R_rep = [R_[0] for R_ in env.R]
@@ -364,5 +364,12 @@ def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_
       current_x = new_current_x
       # _, r = sim_env.step(action)
       rewards += (rewards_t - rewards) / (t + 1.0)
-    mean_cumulative_reward += (rewards - mean_cumulative_reward) / (rep + 1.0)
-  return mean_cumulative_reward
+    cumulative_rewards.append(rewards)
+  return cumulative_rewards
+
+
+def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
+  n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
+  values = collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep,
+                                    estimator)
+  return np.mean(values)

@@ -9,20 +9,18 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 from scipy.stats import norm, multivariate_normal
 import copy
+from pyearth import Earth
 import numpy as np
-import pymc3 as pm
+# import pymc3 as pm
 import src.estimation.density_estimation as dd
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
-try:
-  import matplotlib.pyplot as plt
-except:
-  pass
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from src.environments.Glucose import Glucose
 import src.estimation.bellman_error as be
 import src.policies.simulation_optimization_policies as opt
-from theano import shared
+# from theano import shared
 from abc import ABCMeta, abstractmethod
 # Create ABC base class compatible with Python 2.7 and 3.x
 ABC = ABCMeta('ABC', (object, ), {'__slots__': ()})
@@ -50,6 +48,64 @@ class GlucoseTransitionModel(ABC):
   def fit(self, X, y):
     self.fit_unconditional_densities(X)
     self.fit_conditional_densities(X, y)
+
+  def plot_regression_line(self):
+    # Get features at which to evaluate
+    if self.test:
+      NUM_SAMPLES_FROM_DENSITY = 1
+    else:
+      NUM_SAMPLES_FROM_DENSITY = 100
+
+    test_glucose = np.linspace(50, 200, 50)
+    test_feature_base = self.X_[np.random.choice(self.X_.shape[0]), :]
+    treat_test_feature_base = copy.copy(test_feature_base)
+    treat_test_feature_base[-2] = 1
+    test_feature_base = self.X_[np.random.choice(self.X_.shape[0]), :]
+    no_treat_test_feature_base = copy.copy(test_feature_base)
+    no_treat_test_feature_base[-2] = 0
+    treat_test_features = np.array([np.concatenate(([1.0, g], treat_test_feature_base[2:])) for g in test_glucose])
+    no_treat_test_features = np.array([np.concatenate(([1.0, g], no_treat_test_feature_base[2:])) for g in test_glucose])
+
+    # From from ppd at each point
+    treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))  # 100 ppd draws at each of 50 values
+    no_treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))
+
+    for ix, x in enumerate(treat_test_features):
+      print('treat test features')
+      print(ix)
+      for draw in range(NUM_SAMPLES_FROM_DENSITY):
+        g = self.draw_from_bootstrap_conditional_predictive_distribution([x])
+        treat_glucoses[ix, draw] = g
+    for ix, x in enumerate(no_treat_test_features):
+      for draw in range(NUM_SAMPLES_FROM_DENSITY):
+        # g, r = self.draw_from_conditional_kde([x])
+        g = self.draw_from_bootstrap_conditional_predictive_distribution([x])
+        no_treat_glucoses[ix, draw] = g
+
+    treat_glucoses_mean = treat_glucoses.mean(axis=1)
+    no_treat_glucoses_mean = no_treat_glucoses.mean(axis=1)
+    treat_glucoses_percentile = np.percentile(treat_glucoses, [2.5, 97.5], axis=1).T  # 50x2 array [lower percentile, upper percentile]
+    no_treat_glucoses_percentile = np.percentile(no_treat_glucoses, [2.5, 97.5], axis=1).T
+
+    # Plot
+    plt.figure()
+    plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Insulin')
+    plt.fill_between(test_glucose, treat_glucoses_percentile[:, 0], treat_glucoses_percentile[:, 1], alpha=0.2,
+                     label='95% percentile region of estimated conditional density, trt')
+    plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No insulin')
+    plt.fill_between(test_glucose, no_treat_glucoses_percentile[:, 0], no_treat_glucoses_percentile[:, 1], alpha=0.2,
+                     label='95% percentile region of estimated conditional density, no trt')
+    plt.title('Conditional glucose as function of previous glucose')
+    plt.legend()
+    plt_name = 'conditional-glucose-n={}-method={}'.format(self.X_.shape[0], self.__class__.__name__)
+    plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
+    plt.savefig(plt_name)
+    plt.close()
+    # plt.show()
+
+  @abstractmethod
+  def draw_from_bootstrap_conditional_predictive_distribution(self, x):
+    pass
 
   @abstractmethod
   def fit_unconditional_densities(self, X):
@@ -107,12 +163,17 @@ class LinearGlucoseModel(GlucoseTransitionModel):
     self.glucose_sigma_hat = np.sqrt(np.sum((self.regressor_.predict(self.X_) - self.y_)**2) /
                                      (self.n - self.p))
 
-  def draw_from_ppd(self, x):
+  # ToDo: This should be implemented in superclass
+  def draw_from_conditional_density(self, x):
     if self.ar1:
       g = np.random.normal(self.regressor_.predict(x[0, LinearGlucoseModel.AR1_INDICES].reshape(1, -1)),
                            self.glucose_sigma_hat)[0]
     else:
       g = np.random.normal(self.regressor_.predict(x), self.glucose_sigma_hat)[0]
+    return g
+
+  def draw_from_ppd(self, x):
+    g = self.draw_from_conditional_density(x)
     if np.random.random() < self.food_nonzero_prob:
       f = np.random.normal(self.food_mean, self.food_std)
     else:
@@ -124,6 +185,11 @@ class LinearGlucoseModel(GlucoseTransitionModel):
     r = glucose_reward_function(g)
     return np.array([g, f, e]), r
 
+  def draw_from_bootstrap_conditional_predictive_distribution(self, x):
+    self.bootstrap_and_fit_conditional_densities()
+    glucose_ = self.draw_from_conditional_density(x)
+    return glucose_
+
 
 class KdeGlucoseModel(GlucoseTransitionModel):
   def __init__(self, use_true_food_and_exercise_distributions=False, test=False):
@@ -131,10 +197,21 @@ class KdeGlucoseModel(GlucoseTransitionModel):
                                     use_true_food_and_exercise_distributions=use_true_food_and_exercise_distributions,
                                     test=test)
     self.kde_by_action = {i: {j: {} for j in range(2)} for i in range(2)}
+    self.already_fit = False
 
-  def fit_conditional_densities(self, X, y):
-    # Conditional kde from https: // www.ssc.wisc.edu / ~bhansen / papers / ncde.pdf
-    # Fit 4 separate conditional kdes: one for each combination of (a_t, a_{t-1})
+  def fit_conditional_densities(self, X, y, reuse_hyperparameters=False):
+    """
+    Conditional kde from https: // www.ssc.wisc.edu / ~bhansen / papers / ncde.pdf
+    Fit 4 separate conditional kdes: one for each combination of (a_t, a_{t-1})
+
+    :param X:
+    :param y:
+    :param reuse_hyperparameters: if true and if self.already_fitted, use hyperparams from previous cv.
+                                  (for when we want to refit on multiple bootstrap samples and not re-compute
+                                   hyperparameters every time).
+    :return:
+    """
+    self.already_fit = True
     self.X_, self.y_ = X, y
     self.scaler = StandardScaler()
     self.scaler.fit(X[:, 1:7])
@@ -147,20 +224,23 @@ class KdeGlucoseModel(GlucoseTransitionModel):
 
     for i in range(2):
       for j in range(2):
-        self.fit_kde_by_action(i, j)
+        self.fit_kde_by_action(i, j, reuse_hyperparameters=reuse_hyperparameters)
 
-  def bootstrap_and_fit_conditional_densities(self):
+  def bootstrap_and_fit_conditional_densities(self, reuse_hyperparameters=False):
     n = self.X_.shape[0]
     bootstrap_ixs = np.random.choice(n, size=n, replace=False)
     X, y = self.X_[bootstrap_ixs, :], self.y_[bootstrap_ixs]
-    self.fit_conditional_densities(X, y)
+    self.fit_conditional_densities(X, y, reuse_hyperparameters=reuse_hyperparameters)
 
-  def fit_kde_by_action(self, at, atm1):
+  def fit_kde_by_action(self, at, atm1, reuse_hyperparameters=False):
     """
     Fit conditional denisty estimator at combination of last 2 actions.
 
     :param at: 0 or 1
     :param atm1: 0 or 1
+    :param reuse_hyperparameters: if true and if self.already_fitted, use hyperparams from previous cv.
+                                  (for when we want to refit on multiple bootstrap samples and not re-compute
+                                   hyperparameters every time).
     :return:
     """
     ixs = self.kde_by_action[at][atm1]['ixs'][0]
@@ -171,14 +251,36 @@ class KdeGlucoseModel(GlucoseTransitionModel):
 
     self.kde_by_action[at][atm1]['fit'] = True
     self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'] = self.X_without_action[ixs, :], self.y_[ixs]
-    regressor, b1, b2, e_hat = dd.two_step_ckde_cv(self.kde_by_action[at][atm1]['X'], self.kde_by_action[at][atm1]['y'])
+
+    X_at_atm1 = self.kde_by_action[at][atm1]['X']
+    y_at_atm1 = self.kde_by_action[at][atm1]['y']
+    if not reuse_hyperparameters or not self.already_fit:
+      regressor, b1, b2, e_hat = dd.two_step_ckde_cv(X_at_atm1, y_at_atm1)
+      self.kde_by_action[at][atm1]['b1'] = b1
+      self.kde_by_action[at][atm1]['b2'] = b2
+    else:
+      # Just fit conditional mean and get residuals; previously-computed hyperparameters will be used to draw from
+      # conditional density.
+      # regressor = RandomForestRegressor()
+      regressor = Earth()
+      regressor.fit(X_at_atm1, y_at_atm1)
+      e_hat = y_at_atm1 - regressor.predict(X_at_atm1)
     self.kde_by_action[at][atm1]['b0'] = regressor
-    self.kde_by_action[at][atm1]['b1'] = b1
-    self.kde_by_action[at][atm1]['b2'] = b2
     self.kde_by_action[at][atm1]['e_hat'] = e_hat
 
   def fit_unconditional_densities(self, X):
     pass
+
+  def draw_from_bootstrap_conditional_predictive_distribution(self, x):
+    """
+    Bootstrap; fit ckde; draw from conditional distribution at x.
+
+    :param x:
+    :return:
+    """
+    self.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
+    glucose_, _ = self.draw_from_conditional_kde(x)
+    return glucose_
 
   def draw_from_conditional_kde(self, x):
     """
@@ -220,58 +322,6 @@ class KdeGlucoseModel(GlucoseTransitionModel):
 
     s = np.array([glucose, food, activity])
     return s, r
-
-  def plot_regression_line(self):
-    # Get features at which to evaluate
-    if self.test:
-      NUM_SAMPLES_FROM_DENSITY = 1
-    else:
-      NUM_SAMPLES_FROM_DENSITY = 1000
-
-    test_glucose = np.linspace(50, 200, 50)
-    test_feature_base = self.X_[np.random.choice(self.X_.shape[0]), :]
-    treat_test_feature_base = copy.copy(test_feature_base)
-    treat_test_feature_base[-2] = 1
-    test_feature_base = self.X_[np.random.choice(self.X_.shape[0]), :]
-    no_treat_test_feature_base = copy.copy(test_feature_base)
-    no_treat_test_feature_base[-2] = 0
-    treat_test_features = np.array([np.concatenate(([1.0, g], treat_test_feature_base[2:])) for g in test_glucose])
-    no_treat_test_features = np.array([np.concatenate(([1.0, g], no_treat_test_feature_base[2:])) for g in test_glucose])
-
-    # From from ppd at each point
-    treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))  # 100 ppd draws at each of 50 values
-    no_treat_glucoses = np.zeros((50, NUM_SAMPLES_FROM_DENSITY))
-
-    for ix, x in enumerate(treat_test_features):
-      print(ix)
-      for draw in range(NUM_SAMPLES_FROM_DENSITY):
-        g, r = self.draw_from_conditional_kde([x])
-        treat_glucoses[ix, draw] = g
-    for ix, x in enumerate(no_treat_test_features):
-      for draw in range(NUM_SAMPLES_FROM_DENSITY):
-        g, r = self.draw_from_conditional_kde([x])
-        no_treat_glucoses[ix, draw] = g
-
-    treat_glucoses_mean = treat_glucoses.mean(axis=1)
-    no_treat_glucoses_mean = no_treat_glucoses.mean(axis=1)
-    treat_glucoses_percentile = np.percentile(treat_glucoses, [2.5, 97.5], axis=1).T  # 50x2 array [lower percentile, upper percentile]
-    no_treat_glucoses_percentile = np.percentile(no_treat_glucoses, [2.5, 97.5], axis=1).T
-
-    # Plot
-    plt.figure()
-    plt.plot(test_glucose, treat_glucoses_mean, color='blue', label='Insulin')
-    plt.fill_between(test_glucose, treat_glucoses_percentile[:, 0], treat_glucoses_percentile[:, 1], alpha=0.2,
-                     label='95% percentile region of estimated conditional density')
-    plt.plot(test_glucose, no_treat_glucoses_mean, color='green', label='No insulin')
-    plt.fill_between(test_glucose, no_treat_glucoses_percentile[:, 0], no_treat_glucoses_percentile[:, 1], alpha=0.2,
-                     label='95% percentile region of estimated conditional density')
-    plt.title('Conditional glucose as function of previous glucose\nConditional KDE')
-    plt.legend()
-    plt_name = 'conditional-glucose-n={}'.format(self.X_.shape[0])
-    plt_name = os.path.join(project_dir, 'src', 'analysis', plt_name)
-    plt.savefig(plt_name)
-    plt.close()
-    # plt.show()
 
 
 class BayesGlucoseModel(GlucoseTransitionModel):
