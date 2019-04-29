@@ -9,6 +9,7 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 from scipy.stats import norm, multivariate_normal
 import copy
+from pyearth import Earth
 import numpy as np
 # import pymc3 as pm
 import src.estimation.density_estimation as dd
@@ -260,7 +261,8 @@ class KdeGlucoseModel(GlucoseTransitionModel):
     else:
       # Just fit conditional mean and get residuals; previously-computed hyperparameters will be used to draw from
       # conditional density.
-      regressor = RandomForestRegressor()
+      # regressor = RandomForestRegressor()
+      regressor = Earth()
       regressor.fit(X_at_atm1, y_at_atm1)
       e_hat = y_at_atm1 - regressor.predict(X_at_atm1)
     self.kde_by_action[at][atm1]['b0'] = regressor
