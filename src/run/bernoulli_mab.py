@@ -16,6 +16,7 @@ from functools import partial
 import datetime
 import yaml
 import multiprocessing as mp
+import time
 
 
 def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo_reps=1000, posterior_sample=True):
@@ -200,19 +201,26 @@ def episode(policy_name, label, list_of_reward_mus=[0.3, 0.6], T=50, monte_carlo
           'rewards_list': rewards_list, 'actions_list': actions_list}
 
 
-def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo_reps=1000, posterior_sample=False):
+def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo_reps=1000, posterior_sample=False,
+        batches=1):
   """
 
   :return:
   """
   replicates = mp.cpu_count()
-  num_cpus = int(mp.cpu_count())
-  pool = mp.Pool(processes=num_cpus)
+  replicates_per_batch = int(replicates / batches)
+  pool = mp.Pool(processes=replicates_per_batch)
   episode_partial = partial(episode, policy_name, list_of_reward_mus=list_of_reward_mus, 
                             T=T, monte_carlo_reps=monte_carlo_reps,
                             posterior_sample=posterior_sample)
 
-  results= pool.map(episode_partial, range(replicates))
+  t0 = time.time()
+  results = []
+  for batch in range(batches):
+    batch_results = pool.map(episode_partial, range(int(replicates_per_batch*batch),
+                                                    int(replicates_per_batch*(batch+1))))
+    results += batch_results
+  t1 = time.time()
 
   # results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
@@ -228,7 +236,7 @@ def run(policy_name, list_of_reward_mus=[0.3, 0.6], save=True, T=50, monte_carlo
                'se_regret': float(np.std(cumulative_regret))/np.sqrt(replicates),
                'regret list': [float(r) for r in cumulative_regret],
                'zeta_sequences': zeta_sequences, 'estimated_means': estimated_means, 'estimated_vars': estimated_vars,
-               'rewards': rewards, 'actions': actions}
+               'rewards': rewards, 'actions': actions, 'time': float(t1 - t0), 'batches': batches}
 
     base_name = 'bernoullimab-policy-{}-numAct-{}'.format(policy_name, len(list_of_reward_mus))
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -244,11 +252,8 @@ if __name__ == '__main__':
   # run('eps', T=50, monte_carlo_reps=1000, posterior_sample=True)
   # list_of_reward_mus = [0.73, 0.56, 0.33, 0.04, 0.66]
   list_of_reward_mus = [0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42]
-  np.random.seed(1)
-  run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=50, monte_carlo_reps=1000, posterior_sample=True)
-  np.random.seed(2)
-  run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=50, monte_carlo_reps=1000, posterior_sample=True)
-  np.random.seed(3)
-  run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=50, monte_carlo_reps=1000, posterior_sample=True)
-  # run('eps-decay-fixed', T=50, monte_carlo_reps=1000, posterior_sample=True)
+  run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=5, monte_carlo_reps=10, posterior_sample=True, batches=1)
+  run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=5, monte_carlo_reps=10, posterior_sample=True, batches=2)
+  run('eps-decay', list_of_reward_mus=list_of_reward_mus, T=5, monte_carlo_reps=10, posterior_sample=True, batches=4)
+
 
