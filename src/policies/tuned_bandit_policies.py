@@ -134,7 +134,10 @@ def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, tim
 
   # One-step FQI
   m = RandomForestRegressor()
-  m.fit(X_flat, R_flat)
+  # Remove infs and nans
+  # ToDo: Figure out why there are infs and nans in the first place! 
+  not_nan_or_inf_ixs = np.where(np.isfinite(R_flat) == True)
+  m.fit(X_flat[not_nan_or_inf_ixs], R_flat[not_nan_or_inf_ixs])
 
   # Get argmax of fitted function at current state
   if fixed_eps is None:
