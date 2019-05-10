@@ -140,14 +140,15 @@ def operating_characteristics_curves(eta_baseline, eta_hat, policy, mu_0, xbar, 
   :param mc_reps:
   :return:
   """
-  CUTOFFS = np.linspace(0.1, T-t, 20)
+  CUTOFFS = np.linspace(0.1, T-t, 10)
   powers = []
   type_1_errors = []
 
   for cutoff in CUTOFFS:
+    print(cutoff)
     operating_characteristics_ = \
      operating_characteristics(cutoff, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T, mc_reps=1000)
-    powers.append(operating_characteristics_['powers'])
+    powers.append(operating_characteristics_['power'])
     type_1_errors.append(operating_characteristics_['type_1_error'])
 
   return {'cutoffs': CUTOFFS, 'powers': powers, 'type_1_errors': type_1_errors}
@@ -159,9 +160,9 @@ if __name__ == "__main__":
   mu_1 = 1.0
   t = 3
   num_pulls = 1
-  T = 50
+  T = 10
   xbar = np.random.normal(mu_1, scale=np.sqrt(1 / num_pulls))
-  mc_reps = 1000
+  mc_reps = 10
 
   # Policy settings
   eta_hat = lambda xbar_, t_, T_: 1 / t_
@@ -175,14 +176,16 @@ if __name__ == "__main__":
 
   # Get OCs
   operating_characteristics_curves_ = \
-    operating_characteristics_curves(eta_baseline, eta_hat, eps_greedy_policy, mu_0, xbar, t, T, mc_reps=mc_reps)
+    operating_characteristics_curves(eta_baseline, eta_hat, eps_greedy_policy, mu_0, xbar, num_pulls, t, T,
+                                     mc_reps=mc_reps)
 
   cutoffs = operating_characteristics_curves_['cutoffs']
   powers = operating_characteristics_curves_['powers']
   type_1_errors = operating_characteristics_curves_['type_1_errors']
 
-  plt.plot(cutoffs, powers)
-  pl.plot(cutoffs, type_1_errors)
+  plt.scatter(type_1_errors, powers)
+  plt.xlabel('alphas')
+  plt.ylabel('powers')
   plt.show()
 
 
