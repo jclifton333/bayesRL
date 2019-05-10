@@ -8,6 +8,7 @@ Actions code as
   1: unknown arm
 """
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
@@ -29,7 +30,7 @@ def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
   xbar_rollout = xbar
   for tprime in range(t, T):
     eta_tprime = eta(xbar_rollout, t, T)
-    action = policy(xbar_rollout, eta_tprime)
+    action = policy(xbar_rollout, mu_0, eta_tprime)
 
     if action:
       x_tprime = np.random.normal(loc=mu_1)
@@ -140,9 +141,51 @@ def operating_characteristics_curves(eta_baseline, eta_hat, policy, mu_0, xbar, 
   :return:
   """
   CUTOFFS = np.linspace(0.1, T-t, 20)
+  powers = []
+  type_1_errors = []
 
   for cutoff in CUTOFFS:
-   operating_characteristics_ = \
+    operating_characteristics_ = \
      operating_characteristics(cutoff, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T, mc_reps=1000)
+    powers.append(operating_characteristics_['powers'])
+    type_1_errors.append(operating_characteristics_['type_1_error'])
+
+  return {'cutoffs': CUTOFFS, 'powers': powers, 'type_1_errors': type_1_errors}
+
+
+if __name__ == "__main__":
+  # Bandit settings
+  mu_0 = 0.0
+  mu_1 = 1.0
+  t = 3
+  num_pulls = 1
+  T = 50
+  xbar = np.random.normal(mu_1, scale=np.sqrt(1 / num_pulls))
+  mc_reps = 1000
+
+  # Policy settings
+  eta_hat = lambda xbar_, t_, T_: 1 / t_
+  eta_baseline = lambda xbar_, t_, T_: 0.1
+
+  def eps_greedy_policy(xbar_, mu_0, eta_):
+    if np.random.random() > 1 - eta_:
+      return xbar_ > mu_0
+    else:
+      return np.random.choice(2)
+
+  # Get OCs
+  operating_characteristics_curves_ = \
+    operating_characteristics_curves(eta_baseline, eta_hat, eps_greedy_policy, mu_0, xbar, t, T, mc_reps=mc_reps)
+
+  cutoffs = operating_characteristics_curves_['cutoffs']
+  powers = operating_characteristics_curves_['powers']
+  type_1_errors = operating_characteristics_curves_['type_1_errors']
+
+  plt.plot(cutoffs, powers)
+  pl.plot(cutoffs, type_1_errors)
+  plt.show()
+
+
+
 
 
