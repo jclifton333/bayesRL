@@ -88,7 +88,8 @@ def rejection_rate(cutoff, sampling_dbn_of_diff, eta_baseline, eta_hat, policy, 
   return rejection_rate_
 
 
-def operating_characteristics(cutoff, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T, mc_reps=1000):
+def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T,
+                              mc_reps=1000):
   """
   Compute power and type 1 error at a given cutoff.
 
@@ -109,14 +110,10 @@ def operating_characteristics(cutoff, eta_baseline, eta_hat, policy, mu_0, xbar,
   type_1_error = 0.0
   power = 1.0
 
-  for mu_1 in CANDIDATE_MU1:
+  for sampling_dbn_, mu_1 in zip(sampling_dbns, CANDIDATE_MU1):
     # Decide if H0 or H1 is true
     regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, xbar, num_pulls, t, T)
     regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T)
-
-    # ToDo: this should be done only once for each mu1 (e.g. inside operating_characteristics_curves)!
-    sampling_dbn_ = regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000)
-    pdb.set_trace()
 
     if regret_eta_baseline <= regret_eta_hat:  # H0
       type_1_error_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls,
@@ -144,14 +141,21 @@ def operating_characteristics_curves(eta_baseline, eta_hat, policy, mu_0, xbar, 
   :param mc_reps:
   :return:
   """
-  CUTOFFS = np.linspace(0.1, T-t, 10)
+  CUTOFFS = np.linspace(0, 3, 30)
+  CANDIDATE_MU1 = np.linspace(mu_0 - 5, mu_0 + 5, 10)  # mu_1 vals to search over when computing operating chars.
   powers = []
   type_1_errors = []
+  sampling_dbns = []
+
+  for mu_1 in CANDIDATE_MU1:
+    sampling_dbn__mu_1 = \
+      regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000)
+    sampling_dbns.append(sampling_dbn__mu_1 / np.std(sampling_dbn__mu_1))
 
   for cutoff in CUTOFFS:
-    print(cutoff)
     operating_characteristics_ = \
-     operating_characteristics(cutoff, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T, mc_reps=1000)
+     operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T,
+                               mc_reps=1000)
     powers.append(operating_characteristics_['power'])
     type_1_errors.append(operating_characteristics_['type_1_error'])
 
@@ -162,11 +166,11 @@ if __name__ == "__main__":
   # Bandit settings
   mu_0 = 0.0
   mu_1 = 1.0
-  t = 3
-  num_pulls = 1
-  T = 10
+  t = 10
+  num_pulls = 8
+  T = 20
   xbar = np.random.normal(mu_1, scale=np.sqrt(1 / num_pulls))
-  mc_reps = 10
+  mc_reps = 1000
 
   # Policy settings
   eta_hat = lambda xbar_, t_, T_: 1 / t_
