@@ -9,6 +9,7 @@ Actions code as
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import pdb
 
 
 def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
@@ -66,7 +67,8 @@ def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pull
   return diffs
 
 
-def rejection_rate(cutoff, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000):
+def rejection_rate(cutoff, sampling_dbn_of_diff, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
+                   mc_reps=1000):
   """
   Get rejection rate of the test that rejects when
     diff = R_t:T(eta_baseline, xbar) - R_t:T(eta_hat, xbar) > cutoff.
@@ -82,8 +84,6 @@ def rejection_rate(cutoff, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls,
   :param mc_reps:
   :return:
   """
-  sampling_dbn_of_diff = regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
-                                                  mc_reps=1000)
   rejection_rate_ = np.mean(sampling_dbn_of_diff > cutoff)
   return rejection_rate_
 
@@ -114,12 +114,16 @@ def operating_characteristics(cutoff, eta_baseline, eta_hat, policy, mu_0, xbar,
     regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, xbar, num_pulls, t, T)
     regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T)
 
+    # ToDo: this should be done only once for each mu1 (e.g. inside operating_characteristics_curves)!
+    sampling_dbn_ = regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000)
+    pdb.set_trace()
+
     if regret_eta_baseline <= regret_eta_hat:  # H0
-      type_1_error_at_mu1 = rejection_rate(cutoff, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
-                                           mc_reps=mc_reps)
+      type_1_error_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls,
+                                           t, T, mc_reps=mc_reps)
       type_1_error = np.max((type_1_error, type_1_error_at_mu1))
     else:  # H1
-      power_at_mu1 = rejection_rate(cutoff, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
+      power_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
                                     mc_reps=mc_reps)
       power = np.min((power, power_at_mu1))
   return {'type_1_error': type_1_error, 'power': power}
