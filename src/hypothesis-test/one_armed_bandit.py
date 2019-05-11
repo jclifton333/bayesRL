@@ -43,7 +43,7 @@ def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
   return regret
 
 
-def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000):
+def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, x_bar, num_pulls, t, T, mc_reps=1000):
   """
   Get sampling distribution of test statistic
     diff = R_t:T(eta_baseline, xbar) - R_t:T(eta_hat, xbar).
@@ -60,9 +60,11 @@ def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pull
   diffs = []
 
   for rep in range(mc_reps):
-    xbar = np.random.normal(loc=mu_1, scale=np.sqrt(1 / num_pulls))
-    regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, xbar, num_pulls, t, T)
-    regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T)
+    # Mimic sampling splitting
+    xbar_model = np.random.normal(loc=mu_1, scale=np.sqrt(2 / num_pulls))
+    x_bar = np.random.normal(loc=mu_1, scale=np.sqrt(2 / num_pulls))
+    regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, xbar_model, x_bar, num_pulls, t, T)
+    regret_eta_hat = true_regret(eta_hat, policy, mu_0, xbar_model, x_bar, num_pulls, t, T)
     diffs.append(regret_eta_baseline - regret_eta_hat)
 
   return diffs
@@ -113,8 +115,9 @@ def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, poli
 
   for sampling_dbn_, mu_1 in zip(sampling_dbns, CANDIDATE_MU1):
     # Decide if H0 or H1 is true
-    regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, xbar, num_pulls, t, T)
-    regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T)
+    # ToDo: Can't hold xbar fixed!  (because mu_1 is varying!)
+    regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, num_pulls, t, T)
+    regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, num_pulls, t, T)
 
     if regret_eta_baseline <= regret_eta_hat:  # H0
       type_1_error_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls,
@@ -150,7 +153,7 @@ def operating_characteristics_curves(eta_baseline, eta_hat, policy, mu_0, xbar, 
 
   for mu_1 in CANDIDATE_MU1:
     sampling_dbn__mu_1 = \
-      regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000)
+      regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=1000)
     sampling_dbns.append(sampling_dbn__mu_1 / np.std(sampling_dbn__mu_1))
 
   for cutoff in CUTOFFS:
@@ -168,7 +171,6 @@ if __name__ == "__main__":
   mu_0 = 0.0
   mu_1 = 1.0
   T = 50
-  xbar = np.random.normal(mu_1, scale=np.sqrt(1 / num_pulls))
   mc_reps = 1000
 
   # Policy settings
@@ -181,26 +183,39 @@ if __name__ == "__main__":
     else:
       return np.random.choice(2)
 
-  t_list = np.linspace(1, 40, 20)
+  policy = eps_greedy_policy
+  t_list = np.linspace(20, 50, 20)
   num_pulls_list = t_list
-  alpahs_list = 1.0 / np.power(t_list + 1, 1.5)
+  alphas_list = [0.05]*20
 
   powers = []
   type_1_errors = []
-  for alpha, t, num_pulls in zip(t_list, num_pulls_list):
-    cutoff = norm.ppf(alpha)
+  CANDIDATE_MU1 = np.linspace(mu_0 - 5, mu_0 + 5, 10)  # mu_1 vals to search over when computing operating chars.
+  for alpha, t, num_pulls in zip(alphas_list, t_list, num_pulls_list):
+    cutoff = 1 - norm.ppf(alpha)
+    t = int(t)
+
+    # Get sampling dbns
+    sampling_dbns = []
+    for mu_1 in CANDIDATE_MU1:
+      sampling_dbn_mu_1 = \
+        regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000)
+      normalized_sampling_dbn = sampling_dbn_mu_1 / np.std(sampling_dbn_mu_1)
+      sampling_dbns.append(normalized_sampling_dbn)
 
     # Get OCs
     operating_characteristics_ = \
-      operating_characteristics_curves(cutoff, eta_baseline, eta_hat, eps_greedy_policy, mu_0, xbar, num_pulls, t, T,
-                                       mc_reps=mc_reps)
+      operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, policy, mu_0, num_pulls, t, T,
+                                mc_reps=1000)
 
     power = operating_characteristics_['power']
     type_1_error = operating_characteristics_['type_1_error']
     powers.append(power)
     type_1_errors.append(type_1_error)
+    print('power: {}\nalpha: {}'.format(powers, type_1_errors))
 
   plt.scatter(t_list, powers, label='power')
+  plt.scatter(t_list, type_1_errors, label='alpha')
   plt.scatter()
 
   # cutoffs = operating_characteristics_curves_['cutoffs']
