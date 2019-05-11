@@ -10,6 +10,7 @@ Actions code as
 import numpy as np
 import matplotlib.pyplot as plt
 import pdb
+from scipy.stats import norm
 
 
 def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
@@ -108,7 +109,7 @@ def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, poli
   CANDIDATE_MU1 = np.linspace(mu_0 - 5, mu_0 + 5, 10)  # mu_1 vals to search over when computing operating chars.
 
   type_1_error = 0.0
-  power = 1.0
+  power = 0.0
 
   for sampling_dbn_, mu_1 in zip(sampling_dbns, CANDIDATE_MU1):
     # Decide if H0 or H1 is true
@@ -122,7 +123,7 @@ def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, poli
     else:  # H1
       power_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
                                     mc_reps=mc_reps)
-      power = np.min((power, power_at_mu1))
+      power = np.max((power, power_at_mu1))
   return {'type_1_error': type_1_error, 'power': power}
 
 
@@ -166,9 +167,7 @@ if __name__ == "__main__":
   # Bandit settings
   mu_0 = 0.0
   mu_1 = 1.0
-  t = 10
-  num_pulls = 8
-  T = 20
+  T = 50
   xbar = np.random.normal(mu_1, scale=np.sqrt(1 / num_pulls))
   mc_reps = 1000
 
@@ -182,19 +181,38 @@ if __name__ == "__main__":
     else:
       return np.random.choice(2)
 
-  # Get OCs
-  operating_characteristics_curves_ = \
-    operating_characteristics_curves(eta_baseline, eta_hat, eps_greedy_policy, mu_0, xbar, num_pulls, t, T,
-                                     mc_reps=mc_reps)
+  t_list = np.linspace(1, 40, 20)
+  num_pulls_list = t_list
+  alpahs_list = 1.0 / np.power(t_list + 1, 1.5)
 
-  cutoffs = operating_characteristics_curves_['cutoffs']
-  powers = operating_characteristics_curves_['powers']
-  type_1_errors = operating_characteristics_curves_['type_1_errors']
+  powers = []
+  type_1_errors = []
+  for alpha, t, num_pulls in zip(t_list, num_pulls_list):
+    cutoff = norm.ppf(alpha)
 
-  plt.scatter(type_1_errors, powers)
-  plt.xlabel('alphas')
-  plt.ylabel('powers')
-  plt.show()
+    # Get OCs
+    operating_characteristics_ = \
+      operating_characteristics_curves(cutoff, eta_baseline, eta_hat, eps_greedy_policy, mu_0, xbar, num_pulls, t, T,
+                                       mc_reps=mc_reps)
+
+    power = operating_characteristics_['power']
+    type_1_error = operating_characteristics_['type_1_error']
+    powers.append(power)
+    type_1_errors.append(type_1_error)
+
+  plt.scatter(t_list, powers, label='power')
+  plt.scatter()
+
+  # cutoffs = operating_characteristics_curves_['cutoffs']
+  # powers = operating_characteristics_curves_['powers']
+  # type_1_errors = operating_characteristics_curves_['type_1_errors']
+
+  # # plt.scatter(type_1_errors, powers)
+  # # plt.xlabel('alphas')
+  # # plt.ylabel('powers')
+  # plt.plot(cutoffs, powers, label='powers')
+  # plt.plot(cutoffs, type_1_errors, label='alphas')
+  # plt.show()
 
 
 
