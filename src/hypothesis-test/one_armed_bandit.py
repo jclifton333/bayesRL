@@ -92,7 +92,7 @@ def rejection_rate(cutoff, sampling_dbn_of_diff, eta_baseline, eta_hat, policy, 
 
 
 def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T,
-                              mc_reps=1000):
+                              candidate_mu1s, mc_reps=1000):
   """
   Compute power and type 1 error at a given cutoff.
 
@@ -108,16 +108,14 @@ def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, poli
   :param mc_reps:
   :return:
   """
-  CANDIDATE_MU1 = np.linspace(mu_0 - 5, mu_0 + 5, 10)  # mu_1 vals to search over when computing operating chars.
-
   type_1_error = 0.0
   power = 0.0
 
-  for sampling_dbn_, mu_1 in zip(sampling_dbns, CANDIDATE_MU1):
+  for sampling_dbn_, mu_1 in zip(sampling_dbns, candidate_mu1s):
     # Decide if H0 or H1 is true
-    # ToDo: Can't hold xbar fixed!  (because mu_1 is varying!)
-    regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, num_pulls, t, T)
-    regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, num_pulls, t, T)
+    # ToDo: May not want to hold xbar fixed? (because mu_1 is varying!)
+    regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, xbar, num_pulls, t, T)
+    regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T)
 
     if regret_eta_baseline <= regret_eta_hat:  # H0
       type_1_error_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls,
@@ -126,6 +124,7 @@ def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, poli
     else:  # H1
       power_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
                                     mc_reps=mc_reps)
+      pdb.set_trace()
       power = np.max((power, power_at_mu1))
   return {'type_1_error': type_1_error, 'power': power}
 
@@ -190,23 +189,26 @@ if __name__ == "__main__":
 
   powers = []
   type_1_errors = []
-  CANDIDATE_MU1 = np.linspace(mu_0 - 5, mu_0 + 5, 10)  # mu_1 vals to search over when computing operating chars.
   for alpha, t, num_pulls in zip(alphas_list, t_list, num_pulls_list):
+    xbar = np.random.normal(mu_1, scale=1 / np.sqrt(num_pulls))
     cutoff = 1 - norm.ppf(alpha)
     t = int(t)
+    candidate_mu1_lower = xbar - 1.96/np.sqrt(num_pulls)
+    candidate_mu1_upper = xbar + 1.96/np.sqrt(num_pulls)
+    candidate_mu1s = np.linspace(candidate_mu1_lower, candidate_mu1_upper, 10)
 
     # Get sampling dbns
     sampling_dbns = []
-    for mu_1 in CANDIDATE_MU1:
+    for mu_1 in candidate_mu1s:
       sampling_dbn_mu_1 = \
-        regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T, mc_reps=1000)
+        regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=1000)
       normalized_sampling_dbn = sampling_dbn_mu_1 / np.std(sampling_dbn_mu_1)
       sampling_dbns.append(normalized_sampling_dbn)
 
     # Get OCs
     operating_characteristics_ = \
-      operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, policy, mu_0, num_pulls, t, T,
-                                mc_reps=1000)
+      operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T,
+                                candidate_mu1s, mc_reps=1000)
 
     power = operating_characteristics_['power']
     type_1_error = operating_characteristics_['type_1_error']
