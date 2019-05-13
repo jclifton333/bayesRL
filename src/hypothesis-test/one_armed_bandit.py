@@ -14,7 +14,7 @@ import copy
 from scipy.stats import norm
 
 
-def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
+def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=100):
   """
   Get the true regret (under mu_0 and mu_1) of given policy and a given initial xbar.
 
@@ -28,23 +28,26 @@ def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
   :param T:
   :return:
   """
-  regret = 0.0
-  num_pulls_rep = num_pulls
-  xbar_rollout = copy.copy(xbar)
-  for tprime in range(t, T):
-    eta_tprime = eta(xbar_rollout, t, T)
-    action = policy(xbar_rollout, mu_0, eta_tprime)
+  regrets = []
+  for rollout in range(mc_reps):
+    regret = 0.0
+    num_pulls_rep = copy.copy(num_pulls)
+    xbar_rollout = copy.copy(xbar)
+    for tprime in range(t, T):
+      eta_tprime = eta(xbar_rollout, t, T)
+      action = policy(xbar_rollout, mu_0, eta_tprime)
 
-    if action:
-      x_tprime = np.random.normal(loc=mu_1)
-      num_pulls_rep += 1
-      xbar_rollout += (x_tprime - xbar_rollout) / num_pulls_rep
+      if action:
+        x_tprime = np.random.normal(loc=mu_1)
+        num_pulls_rep += 1
+        xbar_rollout += (x_tprime - xbar_rollout) / num_pulls_rep
 
-    regret += (mu_0 < mu_1)*(mu_1 - mu_0)*(1 - action) + (mu_0 > mu_1)*(mu_0 - mu_1)*action
-  return regret
+      regret += (mu_0 < mu_1)*(mu_1 - mu_0)*(1 - action) + (mu_0 > mu_1)*(mu_0 - mu_1)*action
+    regrets.append(regret)
+  return np.mean(regrets)
 
 
-def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, x_bar, num_pulls, t, T, mc_reps=1000):
+def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, x_bar, num_pulls, t, T, mc_reps=100):
   """
   Get sampling distribution of test statistic
     diff = R_t:T(eta_baseline, xbar) - R_t:T(eta_hat, xbar).
@@ -67,7 +70,6 @@ def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, x_bar, n
     regret_eta_hat = true_regret(eta_hat, policy, mu_0, xbar_model, x_bar, num_pulls, t, T)
     regret_eta_baselines.append(regret_eta_baseline)
     regret_eta_hats.append(regret_eta_hat)
-  pdb.set_trace()
   diffs = np.array(regret_eta_baselines) - np.array(regret_eta_hats)
   return diffs
 
@@ -214,6 +216,7 @@ if __name__ == "__main__":
   powers = []
   type_1_errors = []
   for alpha, t, num_pulls in zip(alphas_list, t_list, num_pulls_list):
+    t = int(t)
     xbar = np.random.normal(mu_1, scale=1 / np.sqrt(num_pulls))
     candidate_mu1_lower = xbar - 1.96/np.sqrt(num_pulls)
     candidate_mu1_upper = xbar + 1.96/np.sqrt(num_pulls)
@@ -221,12 +224,20 @@ if __name__ == "__main__":
 
     # Get sampling dbns
     sampling_dbns = []
+    sampling_dbns_h0 = []
     for mu_1 in candidate_mu1s:
       sampling_dbn_mu_1 = \
         regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=1000)
       normalized_sampling_dbn = sampling_dbn_mu_1 / np.std(sampling_dbn_mu_1)
       sampling_dbns.append(normalized_sampling_dbn)
-    cutoff = uniform_empirical_cutoff(alpha, sampling_dbns)
+
+      # Check if H0 obtains for this mu_1; if so, add to list
+      regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, xbar, num_pulls, t, T)
+      regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T)
+      if regret_eta_hat >= regret_eta_baseline:
+        sampling_dbns_h0.append(normalized_sampling_dbn)
+
+    cutoff = uniform_empirical_cutoff(alpha, sampling_dbns_h0)
 
     # Get OCs
     operating_characteristics_ = \
