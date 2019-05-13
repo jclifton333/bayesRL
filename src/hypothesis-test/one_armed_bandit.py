@@ -70,6 +70,29 @@ def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, x_bar, n
   return diffs
 
 
+def empirical_cutoff(alpha, sampling_dbn):
+  """
+  Get cutoff corresponding to exceedence probability of alpha wrt sampling_dbn.
+
+  :param alpha:
+  :param sampling_dbn:
+  :return:
+  """
+  empirical_cutoff_ = np.percentile(sampling_dbn, (1-alpha)*100)
+  return empirical_cutoff_
+
+
+def uniform_empirical_cutoff(alpha, sampling_dbns):
+  """
+  Get cutoff needed to control type1 error across mus corresponding to elements of sampling_dbns.
+  :param alpha:
+  :param sampling_dbns:
+  :return:
+  """
+  cutoffs = [empirical_cutoff(alpha, sampling_dbn_) for sampling_dbn_ in sampling_dbns]
+  return np.max(cutoffs)
+
+
 def rejection_rate(cutoff, sampling_dbn_of_diff, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
                    mc_reps=1000):
   """
@@ -124,7 +147,6 @@ def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, poli
     else:  # H1
       power_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
                                     mc_reps=mc_reps)
-      pdb.set_trace()
       power = np.max((power, power_at_mu1))
   return {'type_1_error': type_1_error, 'power': power}
 
@@ -191,8 +213,6 @@ if __name__ == "__main__":
   type_1_errors = []
   for alpha, t, num_pulls in zip(alphas_list, t_list, num_pulls_list):
     xbar = np.random.normal(mu_1, scale=1 / np.sqrt(num_pulls))
-    cutoff = 1 - norm.ppf(alpha)
-    t = int(t)
     candidate_mu1_lower = xbar - 1.96/np.sqrt(num_pulls)
     candidate_mu1_upper = xbar + 1.96/np.sqrt(num_pulls)
     candidate_mu1s = np.linspace(candidate_mu1_lower, candidate_mu1_upper, 10)
@@ -204,6 +224,7 @@ if __name__ == "__main__":
         regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=1000)
       normalized_sampling_dbn = sampling_dbn_mu_1 / np.std(sampling_dbn_mu_1)
       sampling_dbns.append(normalized_sampling_dbn)
+    cutoff = uniform_empirical_cutoff(alpha, sampling_dbns)
 
     # Get OCs
     operating_characteristics_ = \
