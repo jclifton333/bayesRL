@@ -10,6 +10,7 @@ Actions code as
 import numpy as np
 import matplotlib.pyplot as plt
 import pdb
+import copy
 from scipy.stats import norm
 
 
@@ -29,7 +30,7 @@ def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T):
   """
   regret = 0.0
   num_pulls_rep = num_pulls
-  xbar_rollout = xbar
+  xbar_rollout = copy.copy(xbar)
   for tprime in range(t, T):
     eta_tprime = eta(xbar_rollout, t, T)
     action = policy(xbar_rollout, mu_0, eta_tprime)
@@ -57,16 +58,17 @@ def regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, x_bar, n
   :param T: Time horizon
   :return:
   """
-  diffs = []
-
+  regret_eta_baselines = []
+  regret_eta_hats = []
   for rep in range(mc_reps):
     # Mimic sampling splitting
-    xbar_model = np.random.normal(loc=mu_1, scale=np.sqrt(2 / num_pulls))
-    x_bar = np.random.normal(loc=mu_1, scale=np.sqrt(2 / num_pulls))
+    xbar_model = np.random.normal(loc=mu_1, scale=np.sqrt(1 / num_pulls))
     regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, xbar_model, x_bar, num_pulls, t, T)
     regret_eta_hat = true_regret(eta_hat, policy, mu_0, xbar_model, x_bar, num_pulls, t, T)
-    diffs.append(regret_eta_baseline - regret_eta_hat)
-
+    regret_eta_baselines.append(regret_eta_baseline)
+    regret_eta_hats.append(regret_eta_hat)
+  pdb.set_trace()
+  diffs = np.array(regret_eta_baselines) - np.array(regret_eta_hats)
   return diffs
 
 
