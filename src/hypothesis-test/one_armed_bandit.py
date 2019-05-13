@@ -14,7 +14,7 @@ import copy
 from scipy.stats import norm
 
 
-def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=100):
+def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=5000):
   """
   Get the true regret (under mu_0 and mu_1) of given policy and a given initial xbar.
 
@@ -179,7 +179,7 @@ def operating_characteristics_curves(eta_baseline, eta_hat, policy, mu_0, xbar, 
   for mu_1 in CANDIDATE_MU1:
     sampling_dbn__mu_1 = \
       regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=1000)
-    sampling_dbns.append(sampling_dbn__mu_1 / np.std(sampling_dbn__mu_1))
+    sampling_dbns.append(sampling_dbn__mu_1)
 
   for cutoff in CUTOFFS:
     operating_characteristics_ = \
@@ -199,19 +199,22 @@ if __name__ == "__main__":
   mc_reps = 1000
 
   # Policy settings
-  eta_hat = lambda xbar_, t_, T_: 1 / t_
+  eta_hat = lambda xbar_, t_, T_: 0.025
   eta_baseline = lambda xbar_, t_, T_: 0.1
 
   def eps_greedy_policy(xbar_, mu_0, eta_):
-    if np.random.random() > 1 - eta_:
+    if np.random.random() > eta_:
       return xbar_ > mu_0
     else:
       return np.random.choice(2)
 
   policy = eps_greedy_policy
-  t_list = np.linspace(20, 50, 20)
-  num_pulls_list = t_list
-  alphas_list = [0.05]*20
+  # t_list = np.linspace(20, 50, 20)
+  # num_pulls_list = t_list
+  # alphas_list = [0.05]*20
+  t_list = [20, 30, 40]
+  num_pulls_list = [15, 25, 35]
+  alphas_list = [0.05, 0.05, 0.05]
 
   powers = []
   type_1_errors = []
@@ -225,15 +228,15 @@ if __name__ == "__main__":
     # Get sampling dbns
     sampling_dbns = []
     sampling_dbns_h0 = []
-    for mu_1 in candidate_mu1s:
+    for mu_1_hypothesis in candidate_mu1s:
       sampling_dbn_mu_1 = \
-        regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=1000)
-      normalized_sampling_dbn = sampling_dbn_mu_1 / np.std(sampling_dbn_mu_1)
+        regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1_hypothesis, xbar, num_pulls, t, T, mc_reps=1000)
+      normalized_sampling_dbn = sampling_dbn_mu_1
       sampling_dbns.append(normalized_sampling_dbn)
 
       # Check if H0 obtains for this mu_1; if so, add to list
-      regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1, xbar, num_pulls, t, T)
-      regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1, xbar, num_pulls, t, T)
+      regret_eta_baseline = true_regret(eta_baseline, policy, mu_0, mu_1_hypothesis, xbar, num_pulls, t, T)
+      regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1_hypothesis, xbar, num_pulls, t, T)
       if regret_eta_hat >= regret_eta_baseline:
         sampling_dbns_h0.append(normalized_sampling_dbn)
 
