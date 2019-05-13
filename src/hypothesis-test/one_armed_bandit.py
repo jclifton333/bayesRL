@@ -34,7 +34,7 @@ def true_regret(eta, policy, mu_0, mu_1, xbar, num_pulls, t, T, mc_reps=5000):
     num_pulls_rep = copy.copy(num_pulls)
     xbar_rollout = copy.copy(xbar)
     for tprime in range(t, T):
-      eta_tprime = eta(xbar_rollout, t, T)
+      eta_tprime = eta(xbar_rollout, t, tprime, T)
       action = policy(xbar_rollout, mu_0, eta_tprime)
 
       if action:
@@ -199,8 +199,8 @@ if __name__ == "__main__":
   mc_reps = 1000
 
   # Policy settings
-  eta_hat = lambda xbar_, t_, T_: 0.025
-  eta_baseline = lambda xbar_, t_, T_: 0.1
+  eta_hat = lambda xbar_, t_start, t_, T_: 1.0 / (t_ - t_start + 1)
+  eta_baseline = lambda xbar_, t_start, t_, T_: 0.1
 
   def eps_greedy_policy(xbar_, mu_0, eta_):
     if np.random.random() > eta_:
@@ -240,7 +240,10 @@ if __name__ == "__main__":
       if regret_eta_hat >= regret_eta_baseline:
         sampling_dbns_h0.append(normalized_sampling_dbn)
 
-    cutoff = uniform_empirical_cutoff(alpha, sampling_dbns_h0)
+    if len(sampling_dbns_h0) > 0:
+      cutoff = uniform_empirical_cutoff(alpha, sampling_dbns_h0)
+    else:
+      cutoff = 0.0
 
     # Get OCs
     operating_characteristics_ = \
