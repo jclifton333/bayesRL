@@ -151,6 +151,7 @@ def operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, poli
     else:  # H1
       power_at_mu1 = rejection_rate(cutoff, sampling_dbn_, eta_baseline, eta_hat, policy, mu_0, mu_1, num_pulls, t, T,
                                     mc_reps=mc_reps)
+      pdb.set_trace()
       power = np.max((power, power_at_mu1))
   return {'type_1_error': type_1_error, 'power': power}
 
@@ -191,16 +192,34 @@ def operating_characteristics_curves(eta_baseline, eta_hat, policy, mu_0, xbar, 
   return {'cutoffs': CUTOFFS, 'powers': powers, 'type_1_errors': type_1_errors}
 
 
+def optimal_simple_eps_decay_policy(policy, mu_0, mu_1, T):
+  """
+  Optimize theta for epsilon schedules of the form theta / t using grid search.
+
+  :return:
+  """
+  best_regret = float('inf')
+  best_theta = 0.5
+  for theta in np.linspace(0.5, 5, 10):
+    eta_hat_theta = lambda xbar_, t_start, t_, T_: theta / (t_ + 1)
+    regret_theta = true_regret(eta_hat_theta, policy, mu_0, mu_1, 0.0, 0, 0, T)
+    if regret_theta < best_regret:
+      best_regret = regret_theta
+      best_theta = theta
+  return best_theta
+
+
+
 if __name__ == "__main__":
   # Bandit settings
   mu_0 = 0.0
   mu_1 = 1.0
-  T = 50
-  mc_reps = 1000
+  T = 20
+  mc_reps = 100
 
   # Policy settings
-  eta_hat = lambda xbar_, t_start, t_, T_: 1.0 / (t_ - t_start + 1)
-  eta_baseline = lambda xbar_, t_start, t_, T_: 0.1
+  eta_hat = lambda xbar_, t_start, t_, T_: 0.5 / (t_ - t_start + 1)
+  eta_baseline = lambda xbar_, t_start, t_, T_: 1.0 / (t_ - t_start + 1)
 
   def eps_greedy_policy(xbar_, mu_0, eta_):
     if np.random.random() > eta_:
@@ -209,12 +228,9 @@ if __name__ == "__main__":
       return np.random.choice(2)
 
   policy = eps_greedy_policy
-  # t_list = np.linspace(20, 50, 20)
-  # num_pulls_list = t_list
-  # alphas_list = [0.05]*20
-  t_list = [20, 30, 40]
-  num_pulls_list = [15, 25, 35]
-  alphas_list = [0.05, 0.05, 0.05]
+  t_list = [10]
+  num_pulls_list = [5]
+  alphas_list = [0.05]
 
   powers = []
   type_1_errors = []
@@ -228,9 +244,11 @@ if __name__ == "__main__":
     # Get sampling dbns
     sampling_dbns = []
     sampling_dbns_h0 = []
+    sampling_dbns_h1 = []
     for mu_1_hypothesis in candidate_mu1s:
+      print('sampling dbn for mu1={}'.format(mu_1_hypothesis))
       sampling_dbn_mu_1 = \
-        regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1_hypothesis, xbar, num_pulls, t, T, mc_reps=1000)
+        regret_diff_sampling_dbn(eta_baseline, eta_hat, policy, mu_0, mu_1_hypothesis, xbar, num_pulls, t, T, mc_reps=10)
       normalized_sampling_dbn = sampling_dbn_mu_1
       sampling_dbns.append(normalized_sampling_dbn)
 
@@ -239,21 +257,20 @@ if __name__ == "__main__":
       regret_eta_hat = true_regret(eta_hat, policy, mu_0, mu_1_hypothesis, xbar, num_pulls, t, T)
       if regret_eta_hat >= regret_eta_baseline:
         sampling_dbns_h0.append(normalized_sampling_dbn)
+      else:
+        sampling_dbns_h1.append(normalized_sampling_dbn)
 
     if len(sampling_dbns_h0) > 0:
       cutoff = uniform_empirical_cutoff(alpha, sampling_dbns_h0)
     else:
       cutoff = 0.0
 
-    # Get OCs
-    operating_characteristics_ = \
-      operating_characteristics(cutoff, sampling_dbns, eta_baseline, eta_hat, policy, mu_0, xbar, num_pulls, t, T,
-                                candidate_mu1s, mc_reps=1000)
+    # Operating characteristics
+    mean_power = np.mean([np.mean(np.array(sd1) > cutoff) for sd1 in sampling_dbns_h1])
+    max_t1error = np.max([np.mean(np.array(sd0) > cutoff) for sd0 in sampling_dbns_h0])
 
-    power = operating_characteristics_['power']
-    type_1_error = operating_characteristics_['type_1_error']
-    powers.append(power)
-    type_1_errors.append(type_1_error)
+    powers.append(mean_power)
+    type_1_errors.append(max_t1error)
     print('power: {}\nalpha: {}'.format(powers, type_1_errors))
 
   plt.scatter(t_list, powers, label='power')
