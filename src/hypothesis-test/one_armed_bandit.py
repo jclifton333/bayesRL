@@ -192,22 +192,6 @@ def operating_characteristics_curves(eta_baseline, eta_hat, policy, mu_0, xbar, 
   return {'cutoffs': CUTOFFS, 'powers': powers, 'type_1_errors': type_1_errors}
 
 
-def optimal_simple_eps_decay_policy(policy, mu_0, mu_1, T):
-  """
-  Optimize theta for epsilon schedules of the form theta / t using grid search.
-
-  :return:
-  """
-  best_regret = float('inf')
-  best_theta = 0.5
-  for theta in np.linspace(0.5, 5, 10):
-    eta_hat_theta = lambda xbar_, t_start, t_, T_: theta / (t_ + 1)
-    regret_theta = true_regret(eta_hat_theta, policy, mu_0, mu_1, 0.0, 0, 0, T)
-    if regret_theta < best_regret:
-      best_regret = regret_theta
-      best_theta = theta
-  return best_theta
-
 
 
 if __name__ == "__main__":
