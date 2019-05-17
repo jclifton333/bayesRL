@@ -5,6 +5,18 @@ import numpy as np
 import one_armed_bandit as oab
 
 
+def optimal_simple_eps_fixed_policy(policy, mu_0, mu_1, T):
+  best_regret = float('inf')
+  best_theta = 0.5
+  for theta in np.linspace(0.01, 0.2, 10):
+    eta_hat_theta = lambda xbar_, t_start, t_, T_: theta
+    regret_theta = oab.true_regret(eta_hat_theta, policy, mu_0, mu_1, 0.0, 0, 0, T)
+    if regret_theta < best_regret:
+      best_regret = regret_theta
+      best_theta = theta
+  return best_theta
+
+
 def optimal_simple_eps_decay_policy(policy, mu_0, mu_1, T):
   """
   Optimize theta for epsilon schedules of the form theta / t using grid search.
@@ -22,7 +34,8 @@ def optimal_simple_eps_decay_policy(policy, mu_0, mu_1, T):
   return best_theta
 
 
-def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha_schedule, mu_0=0.0, mu_1=1.0, T=50, sampling_dbn_draws=100):
+def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha_schedule, mu_0=0.0, mu_1=1.0, T=50,
+                                    sampling_dbn_draws=100):
 
   # Initial pull from unknown arm
   xbar = np.random.normal(loc=mu_1)
@@ -30,7 +43,7 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
 
   for t in range(T):
     # Get action
-    exploration_parameter = baseline_exploration_schedule(xbar, t, T)
+    exploration_parameter = baseline_exploration_schedule(xbar, t, None, T)
     a = policy(xbar, mu_0, exploration_parameter)
 
     # Observe reward
@@ -40,8 +53,9 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
       xbar += (x_t - xbar) / num_pulls
 
     # Estimate optimal tuning schedule
-    best_exploration_parameter = optimal_simple_eps_decay_policy(policy, mu_0, xbar, T)
-    estimated_exploration_schedule = lambda xbar_, t_, T_: best_exploration_parameter / t_
+    best_exploration_parameter = optimal_simple_eps_fixed_policy(policy, mu_0, xbar, T)
+    estimated_exploration_schedule = lambda xbar_, t_, tprime, T_: best_exploration_parameter
+    print(t)
 
     # Hypothesis test operating characteristics
     alpha_t = alpha_schedule(t)
@@ -89,6 +103,27 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
 
   return
 
+
+if __name__ == "__main__":
+  # Sim settings
+  T = 20
+  sampling_dbn_draws = 100
+
+  def policy(xbar_, mu0_, eps_):
+    if np.random.random() < eps_:
+      return np.random.choice(2)
+    else:
+      return xbar_ > mu0_
+
+  def baseline_exploration_schedule(xbar_, t_, tprime, T_):
+    return 0.05
+
+  def alpha_schedule(t_):
+    return 0.05
+
+  # Run
+  online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha_schedule, mu_0=0.0, mu_1=1.0, T=T,
+                                  sampling_dbn_draws=sampling_dbn_draws)
 
 
 
