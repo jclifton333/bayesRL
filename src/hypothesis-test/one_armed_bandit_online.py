@@ -67,7 +67,7 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
 
   for t in range(T):
     # Get action
-    exploration_parameter = baseline_exploration_schedule(xbar, t, None, T)
+    exploration_parameter = baseline_exploration_schedule(xbar, t, None, T
     a = policy(xbar, mu_0, exploration_parameter)
 
     # Observe reward
