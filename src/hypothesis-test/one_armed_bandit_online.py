@@ -68,12 +68,11 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
     # Sampling distributions of regret under each mu_1 and corresponding true regrets
     sampling_dbns_h0 = []
     sampling_dbns_h1 = []
-    cutoff = 0.0
     for mu_1_hypothesis in candidate_mu1s:
       sampling_dbn_mu_1 = \
         oab.regret_diff_sampling_dbn(baseline_exploration_schedule, estimated_exploration_schedule, policy, mu_0,
                                      mu_1_hypothesis, xbar, num_pulls, t, T,
-                                     mc_reps=10)
+                                     mc_reps=100)
 
       # Check if H0 obtains for this mu_1; if so, add to list
       regret_eta_baseline = oab.true_regret(baseline_exploration_schedule, policy, mu_0, mu_1_hypothesis, xbar,
@@ -84,13 +83,11 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
       print('mu1 hyp: {} regret eta hat: {} regret eta baseline: {}'.format(mu_1_hypothesis, regret_eta_hat, regret_eta_baseline))
       if regret_eta_hat >= regret_eta_baseline:
         sampling_dbns_h0.append(sampling_dbn_mu_1)
-        # Update cutoff value to ensure t1error bound of alpha
-        cutoff_at_mu1 = oab.uniform_empirical_cutoff(alpha_t, sampling_dbn_mu_1)
-        cutoff = np.max((cutoff, cutoff_at_mu1))
       else:
         sampling_dbns_h1.append(sampling_dbn_mu_1)
 
     # Operating characteristics
+    cutoff = oab.uniform_empirical_cutoff(alpha_t, sampling_dbns_h0)
     max_t1error = np.max([np.mean(sd0 > cutoff) for sd0 in sampling_dbns_h0])
     mean_power = np.mean([np.mean(sd1 > cutoff) for sd1 in sampling_dbns_h1])
 
