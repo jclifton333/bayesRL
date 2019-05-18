@@ -53,7 +53,7 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
   num_pulls = 1
 
   alpha_schedule_lst = [float(alpha_schedule(v)) for v in range(T)]
-  baseline_exploration_schedule_lst = [float(baseline_exploration_schedule(v)) for v in range(T)]
+  baseline_exploration_schedule_lst = [float(baseline_exploration_schedule(mu_1, v, None, T)) for v in range(T)]
 
   # Prepare to collect and save results
   settings = {'policy': policy.__name__, 'mu': [float(mu_0), float(mu_1)], 'T': T,
