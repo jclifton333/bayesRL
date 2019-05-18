@@ -58,7 +58,7 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
   # Prepare to collect and save results
   settings = {'policy': policy.__name__, 'mu': [float(mu_0), float(mu_1)], 'T': T,
               'alpha_schedule': alpha_schedule_lst, 'baseline_exploration_schedule': baseline_exploration_schedule_lst}
-  results_at_each_timestep = {'power': [], 'ph1': []}
+  results_at_each_timestep = {'power': [], 'ph1': [], 'true_regret_diff': []}
   if not os.path.exists('oc-results'):
       os.makedirs('oc-results')
   prefix = 'oc-results/{}-T={}'.format(settings['policy'], T)
@@ -110,6 +110,13 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
       else:
         sampling_dbns_h1.append(sampling_dbn_mu_1)
 
+    # Record estimated and true regrets
+    true_regret_eta_baseline = oab.true_regret(baseline_exploration_schedule, policy, mu_0, mu_1, xbar,
+                                               num_pulls, t, T, mc_reps=100)
+    true_regret_eta_hat = oab.true_regret(estimated_exploration_schedule, policy, mu_0, mu_1, xbar,
+                                          num_pulls, t, T, mc_reps=100) 
+    true_regret_diff = float(regret_eta_hat - regret_eta_baseline)
+
     # Operating characteristics
     cutoff = oab.uniform_empirical_cutoff(alpha_t, sampling_dbns_h0)
     max_t1error = np.max([np.mean(sd0 > cutoff) for sd0 in sampling_dbns_h0])
@@ -120,8 +127,9 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
     prob_h1 = len(sampling_dbns_h1) / len(candidate_mu1s)
 
     # Update results
-    results_at_each_timestep['power'].append(mean_power)
-    results_at_each_timestep['ph1'].append(prob_h1)
+    results_at_each_timestep['power'].append(float(mean_power))
+    results_at_each_timestep['ph1'].append(float(prob_h1))
+    results_at_each_timestep['true_regret_diff'].append(true_regret_diff)
 
     print('t: {}\nt1error: {} power:{}\nph0: {} ph1: {}\n'.format(t, max_t1error, mean_power, prob_h0, prob_h1))
 
