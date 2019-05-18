@@ -3,6 +3,7 @@ Evaluate operating characteristics of hypothesis test at each step of one-armed 
 """
 import numpy as np
 import one_armed_bandit as oab
+import os
 import yaml
 import datetime
 
@@ -52,10 +53,17 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
   num_pulls = 1
 
   alpha_schedule_lst = [float(alpha_schedule(v)) for v in range(T)]
-  baseline_exploration_schedule = [float(baseline_exploration_schedule(v)) for v in range(T)]
+  baseline_exploration_schedule_lst = [float(baseline_exploration_schedule(v)) for v in range(T)]
+
+  # Prepare to collect and save results
   settings = {'policy': policy.__name__, 'mu': [float(mu_0), float(mu_1)], 'T': T,
-              'alpha_schedule': alpha_schedule_lst, 'baseline_exploration_schedule': baseline_exploration_schedule}
+              'alpha_schedule': alpha_schedule_lst, 'baseline_exploration_schedule': baseline_exploration_schedule_lst}
   results_at_each_timestep = {'power': [], 'ph1': []}
+  if not os.path.exists('oc-results'):
+      os.makedirs('oc-results')
+  prefix = 'oc-results/{}-T={}'.format(settings['policy'], T)
+  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+  results_fname = '{}_{}.yml'.format(prefix, suffix)
 
   for t in range(T):
     # Get action
@@ -117,15 +125,10 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
 
     print('t: {}\nt1error: {} power:{}\nph0: {} ph1: {}\n'.format(t, max_t1error, mean_power, prob_h0, prob_h1))
 
-  # Save results
-  if not os.path.exists('oc-results'):
-    os.makedirs('oc-results')
-  prefix = 'oc-results/{}-T={}'.format(settings['policy'], T)
-  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-  results_fname =  '{}_{}.yml'.format(prefix, suffix)
-  results = {'settings': settings, 'results': results_at_each_timestep}
-  with open(results_fname, 'w') as outfile:
-    yaml.dump(results, outfile)
+    # Save results
+    results = {'settings': settings, 'results': results_at_each_timestep}
+    with open(results_fname, 'w') as outfile:
+      yaml.dump(results, outfile)
 
   return
 
