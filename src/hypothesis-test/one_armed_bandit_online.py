@@ -81,15 +81,14 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
       regret_eta_hat = oab.true_regret(estimated_exploration_schedule, policy, mu_0, mu_1_hypothesis, xbar, num_pulls,
                                        t, T)
 
+      print('mu1 hyp: {} regret eta hat: {} regret eta baseline: {}'.format(mu_1_hypothesis, regret_eta_hat, regret_eta_baseline))
       if regret_eta_hat >= regret_eta_baseline:
         sampling_dbns_h0.append(sampling_dbn_mu_1)
+        # Update cutoff value to ensure t1error bound of alpha
+        cutoff_at_mu1 = oab.uniform_empirical_cutoff(alpha_t, sampling_dbn_mu_1)
+        cutoff = np.max((cutoff, cutoff_at_mu1))
       else:
         sampling_dbns_h1.append(sampling_dbn_mu_1)
-
-      # Update cutoff value to ensure t1error bound of alpha
-      if len(sampling_dbns_h0) > 0:
-        cutoff_at_mu1 = oab.uniform_empirical_cutoff(alpha_t, sampling_dbns_h0)
-        cutoff = np.max((cutoff, cutoff_at_mu1))
 
     # Operating characteristics
     max_t1error = np.max([np.mean(sd0 > cutoff) for sd0 in sampling_dbns_h0])
