@@ -3,21 +3,27 @@ Evaluate operating characteristics of hypothesis test at each step of one-armed 
 """
 import numpy as np
 import one_armed_bandit as oab
+import yaml
+import datetime
 
 
-def optimal_simple_eps_fixed_policy(policy, mu_0, mu_1, T):
+def optimal_simple_eps_fixed_policy(policy, mu_0, mu_1_conf_dbn, T, num_draws=100):
   best_regret = float('inf')
-  best_theta = 0.5
+  best_theta = 0.01
   for theta in np.linspace(0.01, 0.2, 10):
     eta_hat_theta = lambda xbar_, t_start, t_, T_: theta
-    regret_theta = oab.true_regret(eta_hat_theta, policy, mu_0, mu_1, 0.0, 0, 0, T)
+    regret_theta = 0.0
+    for draw in range(num_draws):
+      mu_1 = mu_1_conf_dbn()
+      regret_theta_draw = oab.true_regret(eta_hat_theta, policy, mu_0, mu_1, 0.0, 0.0, 0, T, mc_reps=1)
+      regret_theta += (regret_theta_draw - regret_theta) / (draw + 1)
     if regret_theta < best_regret:
       best_regret = regret_theta
       best_theta = theta
   return best_theta
 
 
-def optimal_simple_eps_decay_policy(policy, mu_0, mu_1, T):
+def optimal_simple_eps_decay_policy(policy, mu_0, mu_1_conf_dbn, T, num_draws=100):
   """
   Optimize theta for epsilon schedules of the form theta / t using grid search.
 
@@ -27,7 +33,11 @@ def optimal_simple_eps_decay_policy(policy, mu_0, mu_1, T):
   best_theta = 0.5
   for theta in np.linspace(0.5, 5, 10):
     eta_hat_theta = lambda xbar_, t_start, t_, T_: theta / (t_ + 1)
-    regret_theta = oab.true_regret(eta_hat_theta, policy, mu_0, mu_1, 0.0, 0, 0, T)
+    regret_theta = 0.0
+    for draw in range(num_draws):
+      mu_1 = mu_1_conf_dbn()
+      regret_theta_draw = oab.true_regret(eta_hat_theta, policy, mu_0, mu_1, 0.0, 0, T, mc_reps=1)
+      regret_theta += (regret_theta_draw - regret_theta) / (draw + 1)
     if regret_theta < best_regret:
       best_regret = regret_theta
       best_theta = theta
@@ -41,6 +51,12 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
   xbar = np.random.normal(loc=mu_1)
   num_pulls = 1
 
+  alpha_schedule_lst = [float(alpha_schedule(v)) for v in range(T)]
+  baseline_exploration_schedule = [float(baseline_exploration_schedule(v)) for v in range(T)]
+  settings = {'policy': policy.__name__, 'mu': [float(mu_0), float(mu_1)], 'T': T,
+              'alpha_schedule': alpha_schedule_lst, 'baseline_exploration_schedule': baseline_exploration_schedule}
+  results_at_each_timestep = {'power': [], 'ph1': []}
+
   for t in range(T):
     # Get action
     exploration_parameter = baseline_exploration_schedule(xbar, t, None, T)
@@ -53,9 +69,11 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
       xbar += (x_t - xbar) / num_pulls
 
     # Estimate optimal tuning schedule
-    best_exploration_parameter = optimal_simple_eps_fixed_policy(policy, mu_0, xbar, T)
+    def mu_1_conf_dbn():
+      return np.random.normal(loc=xbar, scale=1/np.sqrt(num_pulls))
+
+    best_exploration_parameter = optimal_simple_eps_fixed_policy(policy, mu_0, mu_1_conf_dbn, T)
     estimated_exploration_schedule = lambda xbar_, t_, tprime, T_: best_exploration_parameter
-    print(t)
 
     # Hypothesis test operating characteristics
     alpha_t = alpha_schedule(t)
@@ -76,11 +94,9 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
 
       # Check if H0 obtains for this mu_1; if so, add to list
       regret_eta_baseline = oab.true_regret(baseline_exploration_schedule, policy, mu_0, mu_1_hypothesis, xbar,
-                                            num_pulls, t, T)
+                                            num_pulls, t, T, mc_reps=100)
       regret_eta_hat = oab.true_regret(estimated_exploration_schedule, policy, mu_0, mu_1_hypothesis, xbar, num_pulls,
-                                       t, T)
-
-      print('mu1 hyp: {} regret eta hat: {} regret eta baseline: {}'.format(mu_1_hypothesis, regret_eta_hat, regret_eta_baseline))
+                                       t, T, mc_reps=100)
       if regret_eta_hat >= regret_eta_baseline:
         sampling_dbns_h0.append(sampling_dbn_mu_1)
       else:
@@ -95,7 +111,21 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
     prob_h0 = len(sampling_dbns_h0) / len(candidate_mu1s)
     prob_h1 = len(sampling_dbns_h1) / len(candidate_mu1s)
 
+    # Update results
+    results_at_each_timestep['power'].append(mean_power)
+    results_at_each_timestep['ph1'].append(prob_h1)
+
     print('t: {}\nt1error: {} power:{}\nph0: {} ph1: {}\n'.format(t, max_t1error, mean_power, prob_h0, prob_h1))
+
+  # Save results
+  if not os.path.exists('oc-results'):
+    os.makedirs('oc-results')
+  prefix = 'oc-results/{}-T={}'.format(settings['policy'], T)
+  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+  results_fname =  '{}_{}.yml'.format(prefix, suffix)
+  results = {'settings': settings, 'results': results_at_each_timestep}
+  with open(results_fname, 'w') as outfile:
+    yaml.dump(results, outfile)
 
   return
 
