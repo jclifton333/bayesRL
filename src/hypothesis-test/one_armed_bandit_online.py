@@ -125,17 +125,17 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
       cutoff = 0.0
 
     # Operating characteristics at true mu_1
-    true_sampling_dbn =  
+    true_sampling_dbn = \
       oab.regret_diff_sampling_dbn(baseline_exploration_schedule, estimated_exploration_schedule, policy, mu_0,
                                    mu_1, xbar, num_pulls, t, T,
                                    mc_reps=100)
     num_reject = np.mean(true_sampling_dbn > cutoff)
     if true_regret_diff >= 0:
-      results_at_each_timestep(['power_at_true_mu1']).append(None)
-      results_at_each_timestep(['t1error_at_true_mu1']).append(float(num_reject))
+      results_at_each_timestep['power_at_true_mu1'].append(None)
+      results_at_each_timestep['t1error_at_true_mu1'].append(float(num_reject))
     else:
-      results_at_each_timestep(['power_at_true_mu1']).append(float(num_reject))
-      results_at_each_timestep(['t1error_at_true_mu1']).append(None)
+      results_at_each_timestep['power_at_true_mu1'].append(float(num_reject))
+      results_at_each_timestep['t1error_at_true_mu1'].append(None)
 
     if len(sampling_dbns_h0) > 0:
       max_t1error = np.max([np.mean(sd0 > cutoff) for sd0 in sampling_dbns_h0])
