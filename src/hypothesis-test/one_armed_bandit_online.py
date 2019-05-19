@@ -58,7 +58,8 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
   # Prepare to collect and save results
   settings = {'policy': policy.__name__, 'mu': [float(mu_0), float(mu_1)], 'T': T,
               'alpha_schedule': alpha_schedule_lst, 'baseline_exploration_schedule': baseline_exploration_schedule_lst}
-  results_at_each_timestep = {'power': [], 'ph1': [], 'true_regret_diff': []}
+  results_at_each_timestep = {'power': [], 'ph1': [], 'true_regret_diff': [], 't1error_at_true_mu1': [], 
+                              'power_at_true_mu1': []}
   if not os.path.exists('oc-results'):
       os.makedirs('oc-results')
   prefix = 'oc-results/{}-T={}'.format(settings['policy'], T)
@@ -117,11 +118,24 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
                                           num_pulls, t, T, mc_reps=100) 
     true_regret_diff = float(regret_eta_hat - regret_eta_baseline)
 
-    # Operating characteristics
+    # Operating characteristics at candidate mu_1s
     if len(sampling_dbns_h0) > 0:
       cutoff = oab.uniform_empirical_cutoff(alpha_t, sampling_dbns_h0)
     else:
       cutoff = 0.0
+
+    # Operating characteristics at true mu_1
+    true_sampling_dbn =  
+      oab.regret_diff_sampling_dbn(baseline_exploration_schedule, estimated_exploration_schedule, policy, mu_0,
+                                   mu_1, xbar, num_pulls, t, T,
+                                   mc_reps=100)
+    num_reject = np.mean(true_sampling_dbn > cutoff)
+    if true_regret_diff >= 0:
+      results_at_each_timestep(['power_at_true_mu1']).append(None)
+      results_at_each_timestep(['t1error_at_true_mu1']).append(float(num_reject))
+    else:
+      results_at_each_timestep(['power_at_true_mu1']).append(float(num_reject))
+      results_at_each_timestep(['t1error_at_true_mu1']).append(None)
 
     if len(sampling_dbns_h0) > 0:
       max_t1error = np.max([np.mean(sd0 > cutoff) for sd0 in sampling_dbns_h0])
