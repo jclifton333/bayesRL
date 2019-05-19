@@ -67,7 +67,7 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
 
   for t in range(T):
     # Get action
-    exploration_parameter = baseline_exploration_schedule(xbar, t, None, T
+    exploration_parameter = baseline_exploration_schedule(xbar, t, None, T)
     a = policy(xbar, mu_0, exploration_parameter)
 
     # Observe reward
@@ -118,9 +118,19 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
     true_regret_diff = float(regret_eta_hat - regret_eta_baseline)
 
     # Operating characteristics
-    cutoff = oab.uniform_empirical_cutoff(alpha_t, sampling_dbns_h0)
-    max_t1error = np.max([np.mean(sd0 > cutoff) for sd0 in sampling_dbns_h0])
-    mean_power = np.mean([np.mean(sd1 > cutoff) for sd1 in sampling_dbns_h1])
+    if len(sampling_dbns_h0) > 0:
+      cutoff = oab.uniform_empirical_cutoff(alpha_t, sampling_dbns_h0)
+    else:
+      cutoff = 0.0
+
+    if len(sampling_dbns_h0) > 0:
+      max_t1error = np.max([np.mean(sd0 > cutoff) for sd0 in sampling_dbns_h0])
+    else:
+      max_t1error = None
+    if len(sampling_dbns_h1) > 0:
+      mean_power = np.mean([np.mean(sd1 > cutoff) for sd1 in sampling_dbns_h1])
+    else:
+      mean_power = None
 
     # P(H0) and P(H1) (conditional on this set of candidate mu1s...)
     prob_h0 = len(sampling_dbns_h0) / len(candidate_mu1s)
@@ -153,7 +163,7 @@ if __name__ == "__main__":
       return xbar_ > mu0_
 
   def baseline_exploration_schedule(xbar_, t_, tprime, T_):
-    return 0.05
+    return 0.5
 
   def alpha_schedule(t_):
     return 0.05
