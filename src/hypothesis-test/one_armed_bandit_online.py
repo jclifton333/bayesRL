@@ -6,6 +6,8 @@ import one_armed_bandit as oab
 import os
 import yaml
 import datetime
+import multiprocessing as mp
+from functools import partial
 
 
 def optimal_simple_eps_fixed_policy(policy, mu_0, mu_1_conf_dbn, T, num_draws=100):
@@ -45,8 +47,9 @@ def optimal_simple_eps_decay_policy(policy, mu_0, mu_1_conf_dbn, T, num_draws=10
   return best_theta
 
 
-def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha_schedule, mu_0=0.0, mu_1=1.0, T=50,
+def online_oab_with_hypothesis_test(seed, policy, baseline_exploration_schedule, alpha_schedule, mu_0=0.0, mu_1=1.0, T=50,
                                     sampling_dbn_draws=100):
+  np.random.seed(seed)
 
   # Initial pull from unknown arm
   xbar = np.random.normal(loc=mu_1)
@@ -60,11 +63,7 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
               'alpha_schedule': alpha_schedule_lst, 'baseline_exploration_schedule': baseline_exploration_schedule_lst}
   results_at_each_timestep = {'power': [], 'ph1': [], 'true_regret_diff': [], 't1error_at_true_mu1': [], 
                               'power_at_true_mu1': []}
-  if not os.path.exists('oc-results'):
-      os.makedirs('oc-results')
-  prefix = 'oc-results/{}-T={}'.format(settings['policy'], T)
-  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-  results_fname = '{}_{}.yml'.format(prefix, suffix)
+
 
   for t in range(T):
     # Get action
@@ -157,16 +156,12 @@ def online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha
 
     print('t: {}\nt1error: {} power:{}\nph0: {} ph1: {}\n'.format(t, max_t1error, mean_power, prob_h0, prob_h1))
 
-    # Save results
-    results = {'settings': settings, 'results': results_at_each_timestep}
-    with open(results_fname, 'w') as outfile:
-      yaml.dump(results, outfile)
-
-  return
+  return {'settings': settings, 'results': results_at_each_timestep}
 
 
 if __name__ == "__main__":
   # Sim settings
+  NUM_PROCESSES = int(mp.cpu_count())
   T = 20
   sampling_dbn_draws = 100
 
@@ -182,9 +177,24 @@ if __name__ == "__main__":
   def alpha_schedule(t_):
     return 0.05
 
-  # Run
-  online_oab_with_hypothesis_test(policy, baseline_exploration_schedule, alpha_schedule, mu_0=0.0, mu_1=1.0, T=T,
-                                  sampling_dbn_draws=sampling_dbn_draws)
+  online_oab_part = partial(online_oab_with_hypothesis_test, policy=policy,
+                            baseline_exploration_schedule=baseline_exploration_schedule, alpha_schedule=alpha_schedule,
+                            mu_0=0.0, mu_1=1.0, T=50, sampling_dbn_draws=100)
+
+  pool = mp.Pool(NUM_PROCESSES)
+  results_list = pool.map(online_oab_part, range(NUM_PROCESSES))
+
+  # Save results
+  settings = results_list[0]['settings']
+  results_for_each_rep = [d['results'] for d in results_list]
+  results = {'settings': settings, 'results': results_for_each_rep}
+  if not os.path.exists('oc-results'):
+      os.makedirs('oc-results')
+  prefix = 'oc-results/{}-T={}'.format(settings['policy'], T)
+  suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+  results_fname = '{}_{}.yml'.format(prefix, suffix)
+  with open(results_fname, 'w') as outfile:
+    yaml.dump(results, outfile)
 
 
 
