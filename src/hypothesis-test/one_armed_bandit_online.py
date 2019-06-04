@@ -161,7 +161,7 @@ def online_oab_with_hypothesis_test(seed, policy, baseline_exploration_schedule,
 
 if __name__ == "__main__":
   # Sim settings
-  NUM_PROCESSES = int(mp.cpu_count())
+  NUM_PROCESSES = 12
   T = 20
   sampling_dbn_draws = 100
 
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
   online_oab_part = partial(online_oab_with_hypothesis_test, policy=policy,
                             baseline_exploration_schedule=baseline_exploration_schedule, alpha_schedule=alpha_schedule,
-                            mu_0=0.0, mu_1=1.0, T=50, sampling_dbn_draws=100)
+                            mu_0=0.0, mu_1=1.0, T=20, sampling_dbn_draws=100)
 
   pool = mp.Pool(NUM_PROCESSES)
   results_list = pool.map(online_oab_part, range(NUM_PROCESSES))
