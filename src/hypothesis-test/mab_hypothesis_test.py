@@ -1,4 +1,38 @@
 import numpy as np
+import copy
+
+
+def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T, mc_reps=5000):
+  """
+
+  :param policy:
+  :param true_model:
+  :param estimated_model:
+  :param num_pulls:
+  :param t:
+  :param T:
+  :param mc_reps:
+  :return:
+  """
+  mu_opt = np.max([params[0] for params in true_model])
+  regrets = []
+  for rollout in range(mc_reps):
+    regret = 0.0
+    num_pulls_rep = copy.copy(num_pulls)
+    estimated_model_rollout = copy.copy(estimated_model)
+    for tprime in range(t, T):
+      # Take action
+      action = policy(estimated_model_rollout, true_model, t, T)
+      reward = np.random.normal(true_model[a][0], true_model[a][1])
+
+      # Update model estimate
+      estimated_model[a][-1].append(reward)
+      estimated_model[a][0] = np.mean(estimated_model[a][-1])
+      estimated_model[a][1] = np.std(estimated_model[a][-1])
+
+      regret += (mu_opt - true_model[a][0])
+    regrets.append(regret)
+  return np.mean(regrets)
 
 
 def normal_mab_sampling_dbn(true_model_params, num_pulls):
@@ -41,3 +75,13 @@ def mab_hypothesis_test(baseline_policy, proposed_policy, xbar, true_model, esti
     proposed_policy_regrets.append(proposed_regret)
   diffs = np.array(baseline_policy_regrets) - np.array(proposed_policy_regrets)
   return diffs
+
+
+def cutoff_for_ht(alpha, sampling_dbns):
+  cutoffs = [np.percentile(sampling_dbn, (1 - alpha)*100) for sampling_dbn in sampling_dbns]
+  return  np.max(cutoffs)
+
+
+
+
+
