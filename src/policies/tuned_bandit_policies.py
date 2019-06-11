@@ -10,7 +10,7 @@ sys.path.append(project_dir)
 
 import scipy.integrate as integrate
 from scipy.stats import norm
-from sklearn.ensemble import RandomForestRegressor
+from scipy.stats import beta
 from scipy.linalg import block_diag
 from scipy.special import expit
 import scipy.stats
@@ -18,9 +18,6 @@ import src.policies.linear_algebra as la
 import pdb
 import numpy as np
 import copy
-
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def linear_cb_two_arm_ts_policy(beta_hat, sampling_cov_list, context, tuning_function, tuning_function_parameter,
@@ -89,7 +86,35 @@ def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tun
   z = scipy.stats.norm.ppf(one_minus_alpha)
   action = np.argmax(estimated_means + z * standard_errors)
   return action
-  
+
+#def bernoulli_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, 
+#                             tuning_function, T, t, tuning_function_parameter, env):
+#  # For UCB: get CI from sampling distribution of frequentist estimated p, p_hat
+#  # Need to check this part, here env is the real environments, be careful
+#  sampling_estimated_means = np.array([sum(env.draws_from_each_arm[a]) for a in range(env.number_of_actions)]).astype(float)/env.number_of_pulls
+#  standard_errors = np.sqrt(sampling_estimated_means*(1-sampling_estimated_means)/env.number_of_pulls)
+#  one_minus_alpha = 0.5*tuning_function(T, t, tuning_function_parameter) + 0.5
+#  z = scipy.stats.norm.ppf(one_minus_alpha)
+#  action = np.argmax(sampling_estimated_means + z * standard_errors)
+#  return action
+
+
+def bernoulli_mab_ucb_posterior_policy(estimated_means, standard_errors, number_of_pulls, 
+                             tuning_function, tuning_function_parameter, T, t, env):
+  # For UCB: get CI from posterior distribution (Beta dbn) 
+  # one-sided interval, when tuning_value=0, upper-bound is actually estimated median instaead of estimated mean
+  tuning_value = tuning_function(T, t, tuning_function_parameter)
+  if tuning_value > 0.9: # such that it falls between [0,1]
+    tuning_value = 0.9
+  one_minus_alpha = 0.5*tuning_value + 0.5
+  upper_bound = []
+  for a in range(env.number_of_actions):
+    alpha_p = env.posterior_params_dict[a]['alpha_post']
+    beta_p = env.posterior_params_dict[a]['beta_post']
+    upper_bound = np.append(upper_bound, beta.ppf(one_minus_alpha, alpha_p, beta_p))
+  action = np.random.choice(np.flatnonzero(upper_bound == np.max(upper_bound)))
+  return action
+
 
 def mab_thompson_sampling_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
                                  tuning_function_parameter, T, t, env):
@@ -107,58 +132,6 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
   sampling_dbn_draws = np.array([np.random.normal(mu, shrinkage * se) for mu, se in zip(estimated_means,
                                                                                         standard_errors)])
   return np.argmax(sampling_dbn_draws)
-
-
-def glucose_one_step_policy(env, tuning_function, tuning_function_parameter, time_horizon, t, fixed_eps=None,
-                            X=None, R=None):
-  """
-  Assuming epsilon-greedy exploration.
-
-  :param env:
-  :param tuning_function:
-  :param tuning_function_parameter:
-  :param time_horizon:
-  :param t:
-  :return:
-  """
-  # Get features and response
-  if X is None:
-    X, R = env.X, env.R
-    X = [X_i[2:, :] for X_i in X]
-    R = [R_i[:-1] for R_i in env.R]
-  X_flat = np.vstack(X)
-  R_flat = np.hstack(R)
-  # R_flat_check = np.array([env.reward_function(None, x[1:4]) for x in X_flat])
-  # if not np.array_equal(R_flat, R_flat_check):
-  #   pdb.set_trace()
-
-  # One-step FQI
-  m = RandomForestRegressor()
-  # Remove infs and nans
-  # ToDo: Figure out why there are infs and nans in the first place! 
-  not_nan_or_inf_ixs = np.where(np.isfinite(R_flat) == True)
-  m.fit(X_flat[not_nan_or_inf_ixs], R_flat[not_nan_or_inf_ixs])
-
-  # Get argmax of fitted function at current state
-  if fixed_eps is None:
-    epsilon = tuning_function(time_horizon, t, tuning_function_parameter)
-  else:
-    epsilon = fixed_eps
-  action = np.zeros(0)
-  # for X_i in X:
-  for i in range(env.nPatients):
-    # x_i = X_i[-1, :]
-    x_i = np.concatenate(([1], env.current_state[i], env.last_state[i], [env.last_action[i]], [0]))
-    if np.random.random() < epsilon:
-      action_i = int(np.random.choice(2))
-    else:
-      # number_of_ties = np.sum(m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)) == m.predict(env.get_state_at_action(1, x_i).reshape(1, -1)))
-      # print('number of ties: {}'.format(number_of_ties))
-      action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)),
-                            m.predict(env.get_state_at_action(1, x_i).reshape(1, -1))])
-    action = np.append(action, action_i)
-
-  return action
 
 
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):
@@ -197,18 +170,6 @@ def expit_epsilon_decay(T, t, zeta):
   return zeta[0] * expit(zeta[2]*(T - t - zeta[1]))
 
 
-def expit_epsilon_decay_info_state(T, t, zeta, **kwargs):
-  """
-  Use info state, for two-armed multiarmed bandit only.
-  :param T: 
-  :param t: 
-  :return: 
-  """
-  xbar_diff, sigma_ratio = kwargs['xbar_diff'], kwargs['sigma_ratio']
-  return zeta[0] * expit(zeta[1]*(T-t) + zeta[2]*xbar_diff + zeta[3]*sigma_ratio + zeta[4]*(T-t)*xbar_diff
-                         + zeta[5]*(T-t)*sigma_ratio - zeta[6])
-
-
 def step_function(T, t, zeta):
   J = len(zeta)
   interval = int(T/float(J))
@@ -230,7 +191,20 @@ def stepwise_linear_epsilon(T, t, zeta):
   return epsilon
 
 
+def information_expit_epsilon_decay(T, t, zeta, R, delta):
+  # 1, delta, R, R*delta, T-t, (T-t)*delta, (T-t)*R, (T-t)*R*delta
+  covari = np.kron([1, T-t], np.kron([1, R],[1,delta]))
+  return zeta[0] * expit(np.dot(zeta[1:9],covari))
 
+
+def information_expit_epsilon_decay2(T, t, zeta, delta):
+  # 1, delta, T-t, (T-t)*delta
+  covari = np.kron([1, T-t], [1,delta])
+  return zeta[0] * expit(np.dot(zeta[1:],covari))
+
+
+def bern_expit_epsilon_decay(T, s1, s2, n1, n2, zeta):
+  return zeta[0] * expit(np.dot([1, T-n1-n2, s1, s2, n1, n2], zeta[1:]))
 
 
 
