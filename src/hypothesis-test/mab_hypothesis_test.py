@@ -97,25 +97,43 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
   :param mc_reps:
   :return:
   """
-  # Get cutoff by searching over possible models
-  sampling_dbns = []
-  for true_model in true_model_list:
-    # ToDo: check if in H0
-    sampling_dbn = mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
-                                           t, T, sampling_dbn, mc_reps=1000)
-    sampling_dbns.append(sampling_dbn)
-  cutoff = cutoff_for_ht(alpha, sampling_dbns)
-
-  # Compare test statistic to cutoff
+  # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = true_normal_mab_regret(baseline_policy, estimated_model, estimated_model, num_pulls, t, T,
                                                      mc_reps=5000)
   estimated_proposed_regret = true_normal_mab_regret(proposed_policy, estimated_model, estimated_model, num_pulls, t, T,
                                                      mc_reps=5000)
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
-  if test_statistic > cutoff:
-    return True
-  else:
+  if test_statistic < 0:
     return False
+  else:
+    # Get cutoff by searching over possible models
+    sampling_dbns = []
+    for true_model in true_model_list:
+      # Check if true_model is in H0
+      true_baseline_regret = true_normal_mab_regret(baseline_policy, true_model, estimated_model, num_pulls, t, T,
+                                                    mc_reps=5000)
+      true_proposed_regret = true_normal_mab_regret(baseline_policy, true_model, estimated_model, num_pulls, t, T,
+                                                    mc_reps=5000)
+      # If in H0, get sampling dbn
+      if true_baseline_regret < true_proposed_regret:
+        sampling_dbn = mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
+                                               t, T, sampling_dbn, mc_reps=1000)
+      sampling_dbns.append(sampling_dbn)
+
+    if sampling_dbns:  # If sampling dbns non-empty, compute cutoff
+      cutoff = cutoff_for_ht(alpha, sampling_dbns)
+      if test_statistic > cutoff:
+        return True
+      else:
+        return False
+    else:  # If sampling_dbns empty, use cutoff=0
+      return True
+
+
+
+
+
+
 
 
 
