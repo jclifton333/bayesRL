@@ -1,0 +1,191 @@
+import sys
+import pdb
+import os
+this_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.join(this_dir, '..', '..')
+sys.path.append(project_dir)
+
+from src.policies import tuned_bandit_policies as tuned_bandit
+from functools import partial
+import numpy as np
+import copy
+
+
+def normal_sampling_dbn(model_params, num_pulls):
+  """
+
+  :param model_params: List of tuples [(mu1, sigma1), (mu2, sigma2), ...]
+  :param num_pulls: List of [num pulls arm 1, num pulls arms 2, ...]
+  :return:
+  """
+  standard_deviations = [param[1] / num_pulls_ for param, num_pulls_, in zip(model_params, num_pulls)]
+  means = [param[0] for param in model_params]
+  return np.random.normal(loc=means, scale=standard_deviations)
+
+
+def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T, mc_reps=10):
+  """
+
+  :param policy:
+  :param true_model:
+  :param estimated_model:
+  :param num_pulls:
+  :param t:
+  :param T:
+  :param mc_reps:
+  :return:
+  """
+  mu_opt = np.max([params[0] for params in true_model])
+  regrets = []
+  for rollout in range(mc_reps):
+    regret = 0.0
+    num_pulls_rep = copy.copy(num_pulls)
+    estimated_model_rollout = copy.deepcopy(estimated_model)
+    for tprime in range(t, T):
+      # Take action
+      a = policy(estimated_model_rollout, num_pulls_rep, t)
+      reward = np.random.normal(true_model[a][0], true_model[a][1])
+
+      # Update model estimate
+      estimated_model_rollout[a][-1] = np.append(estimated_model_rollout[a][-1], reward)
+      estimated_model_rollout[a][0] = np.mean(estimated_model_rollout[a][-1])
+      estimated_model_rollout[a][1] = np.std(estimated_model_rollout[a][-1])
+      num_pulls_rep[a] += 1
+
+      regret += (mu_opt - true_model[a][0])
+    regrets.append(regret)
+  return np.mean(regrets)
+
+
+def normal_mab_sampling_dbn(true_model_params, num_pulls):
+  """
+
+  :param true_model_params:
+  :param num_pulls:
+  :return:
+  """
+  sampled_model = []
+  for arm_params, arm_pulls in zip(true_model_params, num_pulls):
+    mean, sigma = arm_params
+    reward_draws = np.random.normal(loc=mean, scale=sigma, size=arm_pulls)
+    sampled_model.append([np.mean(reward_draws), np.std(reward_draws) / np.sqrt(arm_pulls)])
+  return sampled_model
+
+
+def mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
+                            t, T, sampling_dbn, true_mab_regret, mc_reps=1000):
+  """
+
+  :param baseline_policy:
+  :param proposed_policy:
+  :param mu:
+  :param xbar:
+  :param true_model:
+  :param estimated_model:
+  :param t:
+  :param T:
+  :param mc_reps:
+  :return:
+  """
+  baseline_policy_regrets = []
+  proposed_policy_regrets = []
+  for rep in range(mc_reps):
+    sampled_model = sampling_dbn(true_model, num_pulls)
+    baseline_regret = true_mab_regret(baseline_policy, sampled_model, estimated_model, num_pulls, t, T)
+    proposed_regret = true_mab_regret(proposed_policy, sampled_model, estimated_model, num_pulls, t, T)
+    baseline_policy_regrets.append(baseline_regret)
+    proposed_policy_regrets.append(proposed_regret)
+  diffs = np.array(baseline_policy_regrets) - np.array(proposed_policy_regrets)
+  return diffs
+
+
+def cutoff_for_ht(alpha, sampling_dbns):
+  cutoffs = [np.percentile(sampling_dbn, (1 - alpha)*100) for sampling_dbn in sampling_dbns]
+  return np.max(cutoffs)
+
+
+def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
+                   t, T, sampling_dbn_sampler, alpha, true_mab_regret, mc_reps=1000):
+  """
+
+  :param baseline_policy:
+  :param proposed_policy:
+  :param true_model_list:
+  :param estimated_model:
+  :param num_pulls:
+  :param t:
+  :param T:
+  :param sampling_dbn:
+  :param mc_reps:
+  :return:
+  """
+  # Check that estimated proposed regret is smaller than baseline; if not, do not reject
+  estimated_baseline_regret = true_mab_regret(baseline_policy, estimated_model, estimated_model, num_pulls, t, T,
+                                              mc_reps=1000)
+  estimated_proposed_regret = true_mab_regret(proposed_policy, estimated_model, estimated_model, num_pulls, t, T,
+                                              mc_reps=1000)
+  test_statistic = estimated_baseline_regret - estimated_proposed_regret
+  print(test_statistic)
+  if test_statistic < 0:
+    return False
+  else:
+    # Get cutoff by searching over possible models
+    sampling_dbns = []
+    for true_model in true_model_list:
+      # Check if true_model is in H0
+      true_baseline_regret = true_mab_regret(baseline_policy, true_model, estimated_model, num_pulls, t, T,
+                                             mc_reps=10)
+      true_proposed_regret = true_mab_regret(proposed_policy, true_model, estimated_model, num_pulls, t, T,
+                                             mc_reps=10)
+      # If in H0, get sampling dbn
+      if true_baseline_regret < true_proposed_regret:
+        sampling_dbn = mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
+                                               t, T, sampling_dbn_sampler, true_mab_regret, mc_reps=10)
+        sampling_dbns.append(sampling_dbn)
+
+    if sampling_dbns:  # If sampling dbns non-empty, compute cutoff
+      cutoff = cutoff_for_ht(alpha, sampling_dbns)
+      if test_statistic > cutoff:
+        return True
+      else:
+        return False
+    else:  # If sampling_dbns empty, use cutoff=0
+      return True
+
+
+if __name__ == "__main__":
+  # Settings
+  T = 20
+  t = 1
+  num_candidate_models = 10
+  baseline_schedule = [0.05 for _ in range(T)]
+  alpha_schedule = [0.5 for _ in range(T)]
+  baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
+  tuning_function = tuned_bandit.expit_epsilon_decay
+  policy = tuned_bandit.mab_epsilon_greedy_policy
+  tuning_function_parameter = ([0.05, 45, 2.5])
+
+  # Do hypothesis test
+  pulls_from_each_arm = [np.random.normal(loc=0.0, size=2), np.random.normal(loc=1.0, size=2)]
+  estimated_model = [[np.mean(pulls), np.std(pulls), pulls] for pulls in pulls_from_each_arm]
+  number_of_pulls = [2, 2]
+
+  def baseline_policy(estimated_model_params, number_of_pulls_, t):
+    estimated_means = [param[0] for param in estimated_model_params]
+    return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
+                  tuning_function_parameter=None, T=T, t=t, env=None)
+
+  def proposed_policy(estimated_model_params, number_of_pulls_, t):
+    estimated_means = [param[0] for param in estimated_model_params]
+    return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
+                  tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
+
+  true_model_list = [[(np.random.normal(0.0), np.random.gamma(1.0)) for i in range(2)]
+                     for j in range(num_candidate_models)]
+  for i in range(10):
+    ans = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
+                         normal_mab_sampling_dbn, alpha_schedule[t], true_normal_mab_regret)
+    print(ans)
+
+
+

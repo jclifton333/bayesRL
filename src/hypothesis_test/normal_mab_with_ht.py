@@ -18,18 +18,6 @@ import mab_hypothesis_test as ht
 import numpy as np
 
 
-def normal_sampling_dbn(model_params, num_pulls):
-  """
-
-  :param model_params: List of tuples [(mu1, sigma1), (mu2, sigma2), ...]
-  :param num_pulls: List of [num pulls arm 1, num pulls arms 2, ...]
-  :return:
-  """
-  standard_deviations = [param[1] / num_pulls_ for param, num_pulls_, in zip(model_params, num_pulls)]
-  means = [param[0] for param in model_params]
-  return np.random.normal(loc=means, scale=standard_deviations)
-
-
 def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
             monte_carlo_reps=1000, posterior_sample=False):
   """
@@ -121,9 +109,11 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
       true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
         sampled_model = env.sample_from_bootstrap()
-        true_model_list.append((sampled_model['mu_draw'], np.sqrt(sampled_model['var_draw'])))
+        param_list_for_sampled_model = [(mu, sigma_sq) for mu, sigma_sq in zip(sampled_model['mu_draw'],
+                                                                               sampled_model['var_draw'])]
+        true_model_list.append(param_list_for_sampled_model)
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
-                                      env.number_of_pulls, t, T, normal_sampling_dbn,
+                                      env.number_of_pulls, t, T, ht.normal_sampling_dbn,
                                       alpha_schedule[t])
 
     if ht_rejected:
