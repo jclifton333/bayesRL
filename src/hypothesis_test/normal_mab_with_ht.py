@@ -114,7 +114,8 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
         true_model_list.append(param_list_for_sampled_model)
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.normal_sampling_dbn,
-                                      alpha_schedule[t])
+                                      alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
+                                      mc_reps=100)
 
     if ht_rejected:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
@@ -135,3 +136,12 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
   return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence,
           'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list,
           'rewards_list': rewards_list, 'actions_list': actions_list}
+
+
+if __name__ == "__main__":
+  T = 10
+  label = 0
+  baseline_schedule = [0.1 for _ in range(T)]
+  alpha_schedule = [0.05 for _ in range(T)]
+  episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3, 0.6], T=T,
+          monte_carlo_reps=100, posterior_sample=False)

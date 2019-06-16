@@ -18,7 +18,8 @@ def normal_sampling_dbn(model_params, num_pulls):
   :param num_pulls: List of [num pulls arm 1, num pulls arms 2, ...]
   :return:
   """
-  standard_deviations = [param[1] / num_pulls_ for param, num_pulls_, in zip(model_params, num_pulls)]
+  standard_deviations = [param[1] / np.max((1.0, num_pulls_))
+                         for param, num_pulls_, in zip(model_params, num_pulls)]
   means = [param[0] for param in model_params]
   return np.random.normal(loc=means, scale=standard_deviations)
 
@@ -39,10 +40,16 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
   mu_opt = np.max([params[0] for params in true_model])
   regrets = []
   mc_reps = pre_generated_data[0].shape[1]
+  sum_squared_diffs = [params[1] * np.max((pulls - 1, 1))
+                       for params, pulls in zip(estimated_model, number_of_pulls)]  # Need these
+  # for stable online update of variance estimate
+
   for rollout in range(mc_reps):
     regret = 0.0
     num_pulls_rep = copy.copy(num_pulls)
     estimated_model_rollout = copy.deepcopy(estimated_model)
+    sum_squared_diffs_rollout = copy.deepcopy(sum_squared_diffs)
+
     for tprime in range(t, T):
       # Take action
       a = policy(estimated_model_rollout, num_pulls_rep, t)
@@ -52,15 +59,20 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
       n = num_pulls_rep[a] + 1
       estimated_model_rollout[a][-1] = np.append(estimated_model_rollout[a][-1], reward)
 
-      # Incremental updates to mean, var
-      # ToDo: watch out for instability in the variance update
+      # Incremental update to mean
       previous_mean = estimated_model_rollout[a][0]
       error = reward - previous_mean
       new_mean = previous_mean + (error / n)
-      previous_var = estimated_model_rollout[a][1]
-      new_var = (n-2)/(n-1)*previous_var + error**2 / n
+
+      # Incremental update to ssd, var
+      previous_sum_squared_diffs = sum_squared_diffs_rollout[a]
+      new_sum_squared_diffs = previous_sum_squared_diffs + error * (reward - new_mean)
+      new_var = new_sum_squared_diffs / np.max((1.0, n - 1))
+
+      # Update parameter lists
       estimated_model_rollout[a][0] = new_mean
       estimated_model_rollout[a][1] = new_var
+      sum_squared_diffs_rollout[a] = new_sum_squared_diffs
       num_pulls_rep[a] = n
 
       regret += (mu_opt - true_model[a][0])
@@ -77,9 +89,10 @@ def normal_mab_sampling_dbn(true_model_params, num_pulls):
   """
   sampled_model = []
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
-    mean, sigma = arm_params
-    sampled_mean = np.random.normal(loc=mean, scale=sigma/np.sqrt(arm_pulls))
-    sampled_variance = (sigma**2 / (arm_pulls - 1)) * np.random.gamma((arm_pulls - 1)/2, 2)
+    mean, sigma_sq = arm_params
+    sampled_mean = np.random.normal(loc=mean, scale=np.sqrt(sigma_sq / arm_pulls))
+    pulls_m1 = np.max((1.0, arm_pulls - 1))
+    sampled_variance = (sigma_sq / pulls_m1) * np.random.gamma(pulls_m1/2, 2)
     sampled_model.append([sampled_mean, sampled_variance])
   return sampled_model
 
@@ -131,8 +144,8 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   """
   draws_for_each_arm = []
   for arm_params in true_model:
-    mu, sigma = arm_params[0], arm_params[1]
-    draws = np.random.normal(loc=mu, scale=sigma, size=(T, mc_reps))
+    mu, sigma_sq = arm_params[0], arm_params[1]
+    draws = np.random.normal(loc=mu, scale=np.sqrt(sigma), size=(T, mc_reps))
     draws_for_each_arm.append(draws)
   return draws_for_each_arm
 
@@ -209,7 +222,7 @@ if __name__ == "__main__":
 
   # Do hypothesis test
   pulls_from_each_arm = [np.random.normal(loc=0.0, size=2), np.random.normal(loc=1.0, size=2)]
-  estimated_model = [[np.mean(pulls), np.std(pulls), pulls] for pulls in pulls_from_each_arm]
+  estimated_model = [[np.mean(pulls), np.var(pulls), pulls] for pulls in pulls_from_each_arm]
   number_of_pulls = [2, 2]
 
   def baseline_policy(estimated_model_params, number_of_pulls_, t):
