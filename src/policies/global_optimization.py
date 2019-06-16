@@ -5,7 +5,7 @@ from scipy.optimize import basinhopping
 
 
 def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon, env, mc_replicates,
-             rollout_function_kwargs, bounds, explore_, positive_zeta=False):
+             rollout_function_kwargs, bounds, explore_, positive_zeta=False, test=False):
 
   # Assuming 10 params!
   # def objective(zeta0, zeta1, zeta2, zeta3, zeta4, zeta5, zeta6, zeta7, zeta8, zeta9):
@@ -16,11 +16,19 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
     value = rollout_function(zeta, policy, time_horizon, tuning_function, env, **rollout_function_kwargs)
     return value
 
+  # If test, only try one point
+  if test:
+    init_points = 0
+    n_iter = 1
+  else:
+    init_points = 10
+    n_iter = 10
+
   # bounds = {'zeta{}'.format(i): (lower_bound, upper_bound) for i in range(10)}
   explore_.update({'zeta{}'.format(i): [zeta_prev[i]] for i in range(len(zeta_prev))})
   bo = BayesianOptimization(objective, bounds, verbose=False)
   bo.explore(explore_)
-  bo.maximize(init_points=10, n_iter=10)
+  bo.maximize(init_points=init_points, n_iter=n_iter)
   best_param = bo.res['max']['max_params']
   best_param = np.array([best_param['zeta{}'.format(i)] for i in range(len(bounds))])
   return best_param

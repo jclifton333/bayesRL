@@ -41,7 +41,7 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
   regrets = []
   mc_reps = pre_generated_data[0].shape[1]
   sum_squared_diffs = [params[1] * np.max((pulls - 1, 1))
-                       for params, pulls in zip(estimated_model, number_of_pulls)]  # Need these
+                       for params, pulls in zip(estimated_model, num_pulls)]  # Need these
   # for stable online update of variance estimate
 
   for rollout in range(mc_reps):
@@ -52,12 +52,14 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
 
     for tprime in range(t, T):
       # Take action
-      a = policy(estimated_model_rollout, num_pulls_rep, t)
-      reward = pre_generated_data[a][t, rollout]
+      a = policy(estimated_model_rollout, num_pulls_rep, tprime)
+      try:
+        reward = pre_generated_data[a][tprime - t, rollout]
+      except:
+        pdb.set_trace()
 
       # Update model estimate
       n = num_pulls_rep[a] + 1
-      estimated_model_rollout[a][-1] = np.append(estimated_model_rollout[a][-1], reward)
 
       # Incremental update to mean
       previous_mean = estimated_model_rollout[a][0]
@@ -145,7 +147,7 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   draws_for_each_arm = []
   for arm_params in true_model:
     mu, sigma_sq = arm_params[0], arm_params[1]
-    draws = np.random.normal(loc=mu, scale=np.sqrt(sigma), size=(T, mc_reps))
+    draws = np.random.normal(loc=mu, scale=np.sqrt(sigma_sq), size=(T, mc_reps))
     draws_for_each_arm.append(draws)
   return draws_for_each_arm
 

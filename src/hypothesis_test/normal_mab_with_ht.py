@@ -19,7 +19,7 @@ import numpy as np
 
 
 def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
-            monte_carlo_reps=1000, posterior_sample=False):
+            monte_carlo_reps=1000, test=False):
   """
   Currently assuming eps-greedy.
 
@@ -96,11 +96,11 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
       tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env, monte_carlo_reps,
                                                {'pre_simulated_data': pre_simulated_data},
-                                               bounds, explore_, positive_zeta=positive_zeta)
+                                               bounds, explore_, positive_zeta=positive_zeta, test=test)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
       # Conduct hypothesis test
-      estimated_model = [(xbar, np.sqrt(sigma_sq_hat)) for xbar, sigma_sq_hat
+      estimated_model = [[xbar, np.sqrt(sigma_sq_hat)] for xbar, sigma_sq_hat
                          in zip(env.estimated_means, env.estimated_vars)]
       baseline_policy = partial(policy, tuning_function=baseline_tuning_function,
                                 tuning_function_parameter=None, T=T, t=t, env=None)
@@ -109,8 +109,8 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
       true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
         sampled_model = env.sample_from_bootstrap()
-        param_list_for_sampled_model = [(mu, sigma_sq) for mu, sigma_sq in zip(sampled_model['mu_draw'],
-                                                                               sampled_model['var_draw'])]
+        param_list_for_sampled_model = [[sampled_model[a]['mu_draw'], sampled_model[a]['var_draw']]
+                                        for a in range(env.number_of_actions)]
         true_model_list.append(param_list_for_sampled_model)
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.normal_sampling_dbn,
@@ -144,4 +144,4 @@ if __name__ == "__main__":
   baseline_schedule = [0.1 for _ in range(T)]
   alpha_schedule = [0.05 for _ in range(T)]
   episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3, 0.6], T=T,
-          monte_carlo_reps=100, posterior_sample=False)
+          monte_carlo_reps=100, test=True)
