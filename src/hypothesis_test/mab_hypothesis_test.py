@@ -52,11 +52,9 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
 
     for tprime in range(t, T):
       # Take action
-      a = policy(estimated_model_rollout, num_pulls_rep, tprime)
-      try:
-        reward = pre_generated_data[a][tprime - t, rollout]
-      except:
-        pdb.set_trace()
+      a = policy([param[0] for param in estimated_model_rollout], None, num_pulls_rep, tprime)
+      reward = pre_generated_data[a][tprime - t, rollout]
+
 
       # Update model estimate
       n = num_pulls_rep[a] + 1
@@ -152,6 +150,38 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   return draws_for_each_arm
 
 
+def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, num_pulls, t, T,
+                                     sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
+                                     true_model_params, outer_loop_mc_reps=100, inner_loop_mc_reps=100):
+  # Get true regrets to see if H0 is true
+  draws_from_estimated_model = pre_generate_mab_data(true_model_params, T-t, inner_loop_mc_reps)
+  baseline_regret_at_truth = true_mab_regret(baseline_policy, true_model_params, estimated_model, num_pulls, t, T,
+                                             draws_from_estimated_model)
+  proposed_regret_at_truth = true_mab_regret(proposed_policy, true_model_params, estimated_model, num_pulls, t, T,
+                                             draws_from_estimated_model)
+  true_diff = baseline_regret_at_truth - proposed_regret_at_truth
+
+  # Rejection rate
+  rejections = []
+  for sample in range(outer_loop_mc_reps):
+    estimated_model = sampling_dbn_sampler(baseline_policy, proposed_policy, true_model_params, estimated_model,
+                                           num_pulls, t, T, sampling_dbn_sampler, true_mab_regret,
+                                           pre_generate_mab_data, reps_to_compute_regret=inner_loop_mc_reps)
+    reject = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
+                            t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
+                            mc_reps=inner_loop_mc_reps)
+    rejections.append(reject)
+
+  if true_diff > 0:  # H0 false
+    type1 = None
+    type2 = np.mean(rejections)
+  else: # H0 true
+    type1 = np.mean(rejections)
+    type2 = None
+
+  return {'type1': type1, 'type2': type2}
+
+
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                    t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data, mc_reps=1000):
   """
@@ -177,7 +207,7 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
                                               draws_from_estimated_model)
 
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
-  print('test statistic: {}'.format(test_statistic))
+
   if test_statistic < 0:
     return False
   else:

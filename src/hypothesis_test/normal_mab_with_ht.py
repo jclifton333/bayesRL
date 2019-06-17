@@ -48,6 +48,7 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
               'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0, 1.0,  85.04499728],
               'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5, 2.5, 0.09655535]}
   posterior_sample = True
+  when_hypothesis_rejected = float('inf')
 
   # Initialize environment
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
@@ -102,10 +103,13 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
       # Conduct hypothesis test
       estimated_model = [[xbar, np.sqrt(sigma_sq_hat)] for xbar, sigma_sq_hat
                          in zip(env.estimated_means, env.estimated_vars)]
-      baseline_policy = partial(policy, tuning_function=baseline_tuning_function,
-                                tuning_function_parameter=None, T=T, t=t, env=None)
-      proposed_policy = partial(policy, tuning_function=tuning_function,
-                                tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
+
+      def baseline_policy(means, standard_errors, num_pulls, tprime):
+        return policy(means, standard_errors, num_pulls, baseline_tuning_function, None, T, tprime, None)
+
+      def proposed_policy(means, standard_errors, num_pulls, tprime):
+        return policy(means, standard_errors, num_pulls, tuning_function, tuning_function_parameter, T, tprime, None)
+
       true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
         sampled_model = env.sample_from_bootstrap()
@@ -120,6 +124,7 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
     if ht_rejected:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env)
+      when_hypothesis_rejected = int(t)
     else:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
                       None, T, t, env)
@@ -133,9 +138,7 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
     regret = mu_opt - env.list_of_reward_mus[action]
     cumulative_regret += regret
 
-  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence,
-          'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list,
-          'rewards_list': rewards_list, 'actions_list': actions_list}
+  return {'cumulative_regret': cumulative_regret, 'when_hypothesis_rejected': when_hypothesis_rejected}
 
 
 if __name__ == "__main__":
