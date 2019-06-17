@@ -150,10 +150,11 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   return draws_for_each_arm
 
 
-def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, num_pulls, t, T,
+def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
                                      sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
                                      true_model_params, outer_loop_mc_reps=100, inner_loop_mc_reps=100):
   # Get true regrets to see if H0 is true
+  # ToDo: not quite right yet!
   draws_from_estimated_model = pre_generate_mab_data(true_model_params, T-t, inner_loop_mc_reps)
   baseline_regret_at_truth = true_mab_regret(baseline_policy, true_model_params, estimated_model, num_pulls, t, T,
                                              draws_from_estimated_model)
@@ -164,9 +165,7 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
   # Rejection rate
   rejections = []
   for sample in range(outer_loop_mc_reps):
-    estimated_model = sampling_dbn_sampler(baseline_policy, proposed_policy, true_model_params, estimated_model,
-                                           num_pulls, t, T, sampling_dbn_sampler, true_mab_regret,
-                                           pre_generate_mab_data, reps_to_compute_regret=inner_loop_mc_reps)
+    estimated_model = sampling_dbn_sampler(true_model_params, num_pulls)
     reject = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                             t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
                             mc_reps=inner_loop_mc_reps)

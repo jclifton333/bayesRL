@@ -31,7 +31,12 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
   :param posterior_sample:
   :return:
   """
-  NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
+  if test:
+    NUM_CANDIDATE_HYPOTHESES = 1
+    mc_reps_for_ht = 5
+  else:
+    NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
+    mc_reps_for_ht = 100
   np.random.seed(label)
 
   # Settings
@@ -119,7 +124,7 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.normal_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
-                                      mc_reps=100)
+                                      mc_reps=mc_reps_for_ht)
 
     if ht_rejected:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
@@ -138,13 +143,58 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
     regret = mu_opt - env.list_of_reward_mus[action]
     cumulative_regret += regret
 
-  return {'cumulative_regret': cumulative_regret, 'when_hypothesis_rejected': when_hypothesis_rejected}
+  return {'cumulative_regret': cumulative_regret, 'when_hypothesis_rejected': when_hypothesis_rejected,
+          'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule}
+
+
+def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps=100, test=False):
+  """
+
+  :return:
+  """
+  POLICY_NAME = 'eps-greedy-ht'
+  BASELINE_SCHEDULE = [0.1 for _ in range(T)]
+  ALPHA_SCHEDULE = [0.05 for _ in range(T)]
+
+  if test:
+    replicates = num_cpus = 1
+    T = 5
+    monte_carlo_reps = 5
+  else:
+    replicates = 24
+    num_cpus = 24
+
+  pool = mp.Pool(processes=num_cpus)
+  episode_partial = partial(episode, baseline_schedule=BASELINE_SCHEDULE, alpha_schedule=ALPHA_SCHEDULE,
+                            std=std, T=T, monte_carlo_reps=monte_carlo_reps,
+                            list_of_reward_mus=list_of_reward_mus, test=test)
+  num_batches = int(replicates / num_cpus)
+
+  results = []
+  for batch in range(num_batches):
+    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+    results += results_for_batch
+
+  # results = pool.map(episode_partial, range(replicates))
+  cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
+  when_hypothesis_rejected = [d['when_hypothesis_rejected'] for d in results]
+  # Save results
+  if save:
+    results = {'T': float(T), 'mean_regret': float(np.mean(cumulative_regret)),
+               'std_regret': float(np.std(cumulative_regret)),
+               'regret list': [float(r) for r in cumulative_regret], 'baseline_schedule': BASELINE_SCHEDULE,
+               'alpha_schedule': ALPHA_SCHEDULE, 'when_hypothesis_rejected': when_hypothesis_rejected}
+
+    base_name = \
+      'normalmab-{}-numAct-{}'.format(POLICY_NAME, len(list_of_reward_mus))
+    prefix = os.path.join(project_dir, 'src', 'run', base_name)
+    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = '{}_{}.yml'.format(prefix, suffix)
+    with open(filename, 'w') as outfile:
+      yaml.dump(results, outfile)
+
+  return
 
 
 if __name__ == "__main__":
-  T = 10
-  label = 0
-  baseline_schedule = [0.1 for _ in range(T)]
-  alpha_schedule = [0.05 for _ in range(T)]
-  episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3, 0.6], T=T,
-          monte_carlo_reps=100, test=True)
+  run(test=False)
