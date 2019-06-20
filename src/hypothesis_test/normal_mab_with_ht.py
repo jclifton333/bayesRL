@@ -164,16 +164,19 @@ def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps
     replicates = 24
     num_cpus = 24
 
-  pool = mp.Pool(processes=num_cpus)
+  # pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, baseline_schedule=BASELINE_SCHEDULE, alpha_schedule=ALPHA_SCHEDULE,
                             std=std, T=T, monte_carlo_reps=monte_carlo_reps,
                             list_of_reward_mus=list_of_reward_mus, test=test)
   num_batches = int(replicates / num_cpus)
 
   results = []
-  for batch in range(num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
+  for i in range(10):
+    episode_partial(i)
+
+  # for batch in range(num_batches):
+  #   results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+  #   results += results_for_batch
 
   # results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]

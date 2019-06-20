@@ -144,7 +144,10 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   """
   draws_for_each_arm = []
   for arm_params in true_model:
-    mu, sigma_sq = arm_params[0], arm_params[1]
+    try:
+      mu, sigma_sq = arm_params[0], arm_params[1]
+    except:
+      pdb.set_trace()
     draws = np.random.normal(loc=mu, scale=np.sqrt(sigma_sq), size=(T, mc_reps))
     draws_for_each_arm.append(draws)
   return draws_for_each_arm
