@@ -122,7 +122,7 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
                                         for a in range(env.number_of_actions)]
         true_model_list.append(param_list_for_sampled_model)
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
-                                      env.number_of_pulls, t, T, ht.normal_sampling_dbn,
+                                      env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
                                       mc_reps=mc_reps_for_ht)
 
@@ -164,19 +164,19 @@ def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps
     replicates = 24
     num_cpus = 24
 
-  # pool = mp.Pool(processes=num_cpus)
+  pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, baseline_schedule=BASELINE_SCHEDULE, alpha_schedule=ALPHA_SCHEDULE,
                             std=std, T=T, monte_carlo_reps=monte_carlo_reps,
                             list_of_reward_mus=list_of_reward_mus, test=test)
   num_batches = int(replicates / num_cpus)
 
-  results = []
-  for i in range(10):
-    episode_partial(i)
+  # results = []
+  # for i in range(10):
+  #   episode_partial(i)
 
-  # for batch in range(num_batches):
-  #   results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-  #   results += results_for_batch
+  for batch in range(num_batches):
+    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+    results += results_for_batch
 
   # results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]

@@ -72,7 +72,7 @@ def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls,
   epsilon = tuning_function(T, t, tuning_function_parameter)
   greedy_action = np.argmax(estimated_means)
   if np.random.random() < epsilon:
-    action = np.random.choice(2)
+    action = np.random.choice(len(estimated_means))
   else:
     action = greedy_action
   return action

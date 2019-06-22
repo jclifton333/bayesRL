@@ -11,19 +11,6 @@ import numpy as np
 import copy
 
 
-def normal_sampling_dbn(model_params, num_pulls):
-  """
-
-  :param model_params: List of tuples [(mu1, sigma1), (mu2, sigma2), ...]
-  :param num_pulls: List of [num pulls arm 1, num pulls arms 2, ...]
-  :return:
-  """
-  standard_deviations = [param[1] / np.max((1.0, num_pulls_))
-                         for param, num_pulls_, in zip(model_params, num_pulls)]
-  means = [param[0] for param in model_params]
-  return np.random.normal(loc=means, scale=standard_deviations)
-
-
 def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_generated_data):
   """
 
@@ -144,10 +131,7 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   """
   draws_for_each_arm = []
   for arm_params in true_model:
-    try:
-      mu, sigma_sq = arm_params[0], arm_params[1]
-    except:
-      pdb.set_trace()
+    mu, sigma_sq = arm_params[0], arm_params[1]
     draws = np.random.normal(loc=mu, scale=np.sqrt(sigma_sq), size=(T, mc_reps))
     draws_for_each_arm.append(draws)
   return draws_for_each_arm
