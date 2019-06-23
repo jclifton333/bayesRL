@@ -125,11 +125,12 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
                                       env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
                                       mc_reps=mc_reps_for_ht)
+      if ht_rejected:
+        when_hypothesis_rejected = int(t)
 
     if ht_rejected:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env)
-      when_hypothesis_rejected = int(t)
     else:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
                       None, T, t, env)
@@ -170,7 +171,7 @@ def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps
                             list_of_reward_mus=list_of_reward_mus, test=test)
   num_batches = int(replicates / num_cpus)
 
-  # results = []
+  results = []
   # for i in range(10):
   #   episode_partial(i)
 
