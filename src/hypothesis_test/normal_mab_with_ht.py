@@ -136,6 +136,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env)
     else:
+      pdb.set_trace()
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
                       None, T, t, env)
 
@@ -158,7 +159,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, mon
   :return:
   """
   BASELINE_SCHEDULE = [0.1 for _ in range(T)]
-  ALPHA_SCHEDULE = [0.05 for _ in range(T)]
+  ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
 
   if test:
     replicates = num_cpus = 1
@@ -204,5 +205,18 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, mon
 
 
 if __name__ == "__main__":
-  run(policy_name='baseline', test=False)
-  run(policy_name='eps-greedy-ht', test=False)
+  # std = 0.1
+  # list_of_reward_mus = [0.3, 0.6]
+  # save = True
+  # T = 50
+  # monte_carlo_reps = 100
+  # test = False
+  # BASELINE_SCHEDULE = [0.1 for _ in range(T)]
+  # ALPHA_SCHEDULE = [0.05 for _ in range(T)]
+  # policy_name = 'baseline'
+
+  # episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
+  #   alpha_schedule = ALPHA_SCHEDULE, std = std, T = T, monte_carlo_reps = monte_carlo_reps,
+  #   list_of_reward_mus = list_of_reward_mus, test = test)
+  # episode_partial(0)
+  run('eps-greedy-ht')
