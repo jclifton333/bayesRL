@@ -18,7 +18,7 @@ import mab_hypothesis_test as ht
 import numpy as np
 
 
-def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
+def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
             monte_carlo_reps=1000, test=False):
   """
   Currently assuming eps-greedy.
@@ -46,7 +46,10 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
   baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
   tuning_function = tuned_bandit.expit_epsilon_decay
   policy = tuned_bandit.mab_epsilon_greedy_policy
-  ht_rejected = False
+  if policy_name == 'baseline':
+    ht_rejected = True
+  else:
+    ht_rejected = False
   tuning_function_parameter = np.array([0.05, 45, 2.5])
   bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
   explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.1, 0.05, 4.43802103],
@@ -148,12 +151,11 @@ def episode(label, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mu
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule}
 
 
-def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps=100, test=False):
+def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps=100, test=False):
   """
 
   :return:
   """
-  POLICY_NAME = 'eps-greedy-ht'
   BASELINE_SCHEDULE = [0.1 for _ in range(T)]
   ALPHA_SCHEDULE = [0.05 for _ in range(T)]
 
@@ -166,8 +168,8 @@ def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps
     num_cpus = 24
 
   pool = mp.Pool(processes=num_cpus)
-  episode_partial = partial(episode, baseline_schedule=BASELINE_SCHEDULE, alpha_schedule=ALPHA_SCHEDULE,
-                            std=std, T=T, monte_carlo_reps=monte_carlo_reps,
+  episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
+                            alpha_schedule=ALPHA_SCHEDULE, std=std, T=T, monte_carlo_reps=monte_carlo_reps,
                             list_of_reward_mus=list_of_reward_mus, test=test)
   num_batches = int(replicates / num_cpus)
 
@@ -190,7 +192,7 @@ def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps
                'alpha_schedule': ALPHA_SCHEDULE, 'when_hypothesis_rejected': when_hypothesis_rejected}
 
     base_name = \
-      'normalmab-{}-numAct-{}'.format(POLICY_NAME, len(list_of_reward_mus))
+      'normalmab-{}-numAct-{}'.format(policy_name, len(list_of_reward_mus))
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -201,4 +203,5 @@ def run(std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps
 
 
 if __name__ == "__main__":
-  run(test=False)
+  run(policy_name='baseline', test=False)
+  run(policy_name='eps-greedy-ht', test=False)

@@ -42,7 +42,6 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
       a = policy([param[0] for param in estimated_model_rollout], None, num_pulls_rep, tprime)
       reward = pre_generated_data[a][tprime - t, rollout]
 
-
       # Update model estimate
       n = num_pulls_rep[a] + 1
 
@@ -141,7 +140,6 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
                                      sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
                                      true_model_params, outer_loop_mc_reps=100, inner_loop_mc_reps=100):
   # Get true regrets to see if H0 is true
-  # ToDo: not quite right yet!
   draws_from_estimated_model = pre_generate_mab_data(true_model_params, T-t, inner_loop_mc_reps)
   baseline_regret_at_truth = true_mab_regret(baseline_policy, true_model_params, estimated_model, num_pulls, t, T,
                                              draws_from_estimated_model)
@@ -243,12 +241,12 @@ if __name__ == "__main__":
   estimated_model = [[np.mean(pulls), np.var(pulls), pulls] for pulls in pulls_from_each_arm]
   number_of_pulls = [2, 2]
 
-  def baseline_policy(estimated_model_params, number_of_pulls_, t):
+  def baseline_policy(estimated_model_params, standard_errors, number_of_pulls_, t):
     estimated_means = [param[0] for param in estimated_model_params]
     return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
                   tuning_function_parameter=None, T=T, t=t, env=None)
 
-  def proposed_policy(estimated_model_params, number_of_pulls_, t):
+  def proposed_policy(estimated_model_params, standard_errors, number_of_pulls_, t):
     estimated_means = [param[0] for param in estimated_model_params]
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
