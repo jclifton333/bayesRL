@@ -47,9 +47,10 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   tuning_function = tuned_bandit.expit_epsilon_decay
   policy = tuned_bandit.mab_epsilon_greedy_policy
   if policy_name == 'baseline':
-    ht_rejected = True
+    tune = False
   else:
-    ht_rejected = False
+    tune = True
+  ht_rejected = False
   tuning_function_parameter = np.array([0.05, 45, 2.5])
   bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
   explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.1, 0.05, 4.43802103],
@@ -77,7 +78,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
 
-    if not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
+    if tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
       if posterior_sample:
         reward_means = []
         reward_vars = []
@@ -131,7 +132,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
       if ht_rejected:
         when_hypothesis_rejected = int(t)
 
-    if ht_rejected:
+    if ht_rejected and tune:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env)
     else:
@@ -164,8 +165,8 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, mon
     T = 5
     monte_carlo_reps = 5
   else:
-    replicates = 24
-    num_cpus = 24
+    replicates = 48
+    num_cpus = 48
 
   pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
