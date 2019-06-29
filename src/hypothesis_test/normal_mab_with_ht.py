@@ -209,7 +209,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, mon
                'std_regret': float(np.std(cumulative_regret)),
                'regret list': [float(r) for r in cumulative_regret], 'baseline_schedule': BASELINE_SCHEDULE,
                'alpha_schedule': ALPHA_SCHEDULE, 'when_hypothesis_rejected': when_hypothesis_rejected,
-               'type1' type1_errors, 'powers': powers}
+               'type1': type1_errors, 'powers': powers}
 
     base_name = \
       'normalmab-{}-numAct-{}'.format(policy_name, len(list_of_reward_mus))
