@@ -61,6 +61,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
 
   # Initialize environment
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
+  true_model_params = [[mu, var] for mu, var in zip(env.list_of_reward_mus, env.list_of_reward_vars)]
 
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
@@ -74,9 +75,28 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   estimated_vars_list = []
   actions_list = []
   rewards_list = []
+  t1_errors = []
+  powers = []
   for t in range(T):
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
+
+    # Stuff needed for hypothesis test / operating chars
+    estimated_model = [[xbar, np.sqrt(sigma_sq_hat)] for xbar, sigma_sq_hat
+                       in zip(env.estimated_means, env.estimated_vars)]
+
+    def baseline_policy(means, standard_errors, num_pulls, tprime):
+      return policy(means, standard_errors, num_pulls, baseline_tuning_function, None, T, tprime, None)
+
+    def proposed_policy(means, standard_errors, num_pulls, tprime):
+      return policy(means, standard_errors, num_pulls, tuning_function, tuning_function_parameter, T, tprime, None)
+
+    true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
+    for draw in range(NUM_CANDIDATE_HYPOTHESES):
+      sampled_model = env.sample_from_bootstrap()
+      param_list_for_sampled_model = [[sampled_model[a]['mu_draw'], sampled_model[a]['var_draw']]
+                                      for a in range(env.number_of_actions)]
+      true_model_list.append(param_list_for_sampled_model)
 
     if tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
       if posterior_sample:
@@ -109,22 +129,8 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
                                                bounds, explore_, positive_zeta=positive_zeta, test=test)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
-      # Conduct hypothesis test
-      estimated_model = [[xbar, np.sqrt(sigma_sq_hat)] for xbar, sigma_sq_hat
-                         in zip(env.estimated_means, env.estimated_vars)]
 
-      def baseline_policy(means, standard_errors, num_pulls, tprime):
-        return policy(means, standard_errors, num_pulls, baseline_tuning_function, None, T, tprime, None)
 
-      def proposed_policy(means, standard_errors, num_pulls, tprime):
-        return policy(means, standard_errors, num_pulls, tuning_function, tuning_function_parameter, T, tprime, None)
-
-      true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
-      for draw in range(NUM_CANDIDATE_HYPOTHESES):
-        sampled_model = env.sample_from_bootstrap()
-        param_list_for_sampled_model = [[sampled_model[a]['mu_draw'], sampled_model[a]['var_draw']]
-                                        for a in range(env.number_of_actions)]
-        true_model_list.append(param_list_for_sampled_model)
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
@@ -136,9 +142,17 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env)
     else:
-      pdb.set_trace()
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
                       None, T, t, env)
+
+    # Get operating characteristics
+    operating_char_dict = ht.mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
+                                                              estimated_model, env.number_of_pulls,
+                                                              t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
+                                                              ht.true_normal_mab_regret,
+                                                              ht.pre_generate_normal_mab_data, true_model_params)
+    t1_errors.append(operating_char_dict['type1'])
+    powers.append(operating_char_dict['type2'])
 
     res = env.step(action)
     u = res['Utility']
@@ -150,7 +164,8 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
     cumulative_regret += regret
 
   return {'cumulative_regret': cumulative_regret, 'when_hypothesis_rejected': when_hypothesis_rejected,
-          'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule}
+          'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
+          'power': powers}
 
 
 def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps=100, test=False):
@@ -186,12 +201,15 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, mon
   # results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
   when_hypothesis_rejected = [d['when_hypothesis_rejected'] for d in results]
+  type1_errors = [d['type1'] for d in results]
+  powers = [d['power'] for d in results]
   # Save results
   if save:
     results = {'T': float(T), 'mean_regret': float(np.mean(cumulative_regret)),
                'std_regret': float(np.std(cumulative_regret)),
                'regret list': [float(r) for r in cumulative_regret], 'baseline_schedule': BASELINE_SCHEDULE,
-               'alpha_schedule': ALPHA_SCHEDULE, 'when_hypothesis_rejected': when_hypothesis_rejected}
+               'alpha_schedule': ALPHA_SCHEDULE, 'when_hypothesis_rejected': when_hypothesis_rejected,
+               'type1' type1_errors, 'powers': powers}
 
     base_name = \
       'normalmab-{}-numAct-{}'.format(policy_name, len(list_of_reward_mus))

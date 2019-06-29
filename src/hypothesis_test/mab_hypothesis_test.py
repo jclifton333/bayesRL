@@ -158,9 +158,9 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
 
   if true_diff > 0:  # H0 false
     type1 = None
-    type2 = np.mean(rejections)
+    type2 = float(np.mean(rejections))
   else: # H0 true
-    type1 = np.mean(rejections)
+    type1 = float(np.mean(rejections))
     type2 = None
 
   return {'type1': type1, 'type2': type2}
