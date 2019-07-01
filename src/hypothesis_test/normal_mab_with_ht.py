@@ -223,19 +223,19 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
 
 
 if __name__ == "__main__":
-  std = 0.1
-  list_of_reward_mus = [0.3, 0.6]
-  save = False
-  T = 50
-  monte_carlo_reps = 100
-  test = True
-  BASELINE_SCHEDULE = [0.1 for _ in range(T)]
-  ALPHA_SCHEDULE = [0.05 for _ in range(T)]
-  policy_name = 'ht'
+  # std = 0.1
+  # list_of_reward_mus = [0.3, 0.6]
+  # save = False
+  # T = 50
+  # monte_carlo_reps = 100
+  # test = True
+  # BASELINE_SCHEDULE = [0.1 for _ in range(T)]
+  # ALPHA_SCHEDULE = [0.05 for _ in range(T)]
+  # policy_name = 'ht'
 
-  episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
-    alpha_schedule = ALPHA_SCHEDULE, std = std, T = T, monte_carlo_reps = monte_carlo_reps,
-    list_of_reward_mus = list_of_reward_mus, test = test)
-  episode_partial(0)
+  # episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
+  #   alpha_schedule = ALPHA_SCHEDULE, std = std, T = T, monte_carlo_reps = monte_carlo_reps,
+  #   list_of_reward_mus = list_of_reward_mus, test = test)
+  # episode_partial(0)
 
-  # run('eps-greedy-ht')
+  run('eps-greedy-ht')
