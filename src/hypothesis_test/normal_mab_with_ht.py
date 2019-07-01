@@ -168,7 +168,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
           'power': powers}
 
 
-def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=50, monte_carlo_reps=100, test=False):
+def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100, test=False):
   """
 
   :return:
