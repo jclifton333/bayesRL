@@ -32,7 +32,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   :return:
   """
   if test:
-    NUM_CANDIDATE_HYPOTHESES = 1
+    NUM_CANDIDATE_HYPOTHESES = 5
     mc_reps_for_ht = 5
   else:
     NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
@@ -93,7 +93,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
 
     true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
     for draw in range(NUM_CANDIDATE_HYPOTHESES):
-      sampled_model = env.sample_from_bootstrap()
+      sampled_model = env.sample_from_posterior()
       param_list_for_sampled_model = [[sampled_model[a]['mu_draw'], sampled_model[a]['var_draw']]
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
@@ -223,18 +223,19 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
 
 
 if __name__ == "__main__":
-  # std = 0.1
-  # list_of_reward_mus = [0.3, 0.6]
-  # save = True
-  # T = 50
-  # monte_carlo_reps = 100
-  # test = False
-  # BASELINE_SCHEDULE = [0.1 for _ in range(T)]
-  # ALPHA_SCHEDULE = [0.05 for _ in range(T)]
-  # policy_name = 'baseline'
+  std = 0.1
+  list_of_reward_mus = [0.3, 0.6]
+  save = False
+  T = 50
+  monte_carlo_reps = 100
+  test = True
+  BASELINE_SCHEDULE = [0.1 for _ in range(T)]
+  ALPHA_SCHEDULE = [0.05 for _ in range(T)]
+  policy_name = 'ht'
 
-  # episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
-  #   alpha_schedule = ALPHA_SCHEDULE, std = std, T = T, monte_carlo_reps = monte_carlo_reps,
-  #   list_of_reward_mus = list_of_reward_mus, test = test)
-  # episode_partial(0)
-  run('eps-greedy-ht')
+  episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
+    alpha_schedule = ALPHA_SCHEDULE, std = std, T = T, monte_carlo_reps = monte_carlo_reps,
+    list_of_reward_mus = list_of_reward_mus, test = test)
+  episode_partial(0)
+
+  # run('eps-greedy-ht')

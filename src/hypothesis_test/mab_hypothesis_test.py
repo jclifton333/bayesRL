@@ -151,6 +151,7 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
   rejections = []
   for sample in range(outer_loop_mc_reps):
     estimated_model = sampling_dbn_sampler(true_model_params, num_pulls)
+    pdb.set_trace()
     reject = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                             t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
                             mc_reps=inner_loop_mc_reps)
