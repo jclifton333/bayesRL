@@ -51,6 +51,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   else:
     tune = True
   ht_rejected = False
+  no_rejections_yet = False
   tuning_function_parameter = np.array([0.05, 45, 2.5])
   bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
   explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.1, 0.05, 4.43802103],
@@ -61,7 +62,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
 
   # Initialize environment
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
-  true_model_params = [[mu, var] for mu, var in zip(env.list_of_reward_mus, env.list_of_reward_vars)]
+  true_model_params = [[mu, np.sqrt(var)] for mu, var in zip(env.list_of_reward_mus, env.list_of_reward_vars)]
 
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
@@ -94,7 +95,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
     true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
     for draw in range(NUM_CANDIDATE_HYPOTHESES):
       sampled_model = env.sample_from_posterior()
-      param_list_for_sampled_model = [[sampled_model[a]['mu_draw'], sampled_model[a]['var_draw']]
+      param_list_for_sampled_model = [[sampled_model[a]['mu_draw'], np.sqrt(sampled_model[a]['var_draw'])]
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
 
@@ -130,13 +131,13 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
 
-
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
                                       mc_reps=mc_reps_for_ht)
-      if ht_rejected:
+      if ht_rejected and no_rejections_yet:
         when_hypothesis_rejected = int(t)
+        no_rejections_yet = False
 
     if ht_rejected and tune:
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
@@ -238,4 +239,5 @@ if __name__ == "__main__":
   #   list_of_reward_mus = list_of_reward_mus, test = test)
   # episode_partial(0)
 
+  run('eps-greedy-ht', std=1.0)
   run('eps-greedy-ht')

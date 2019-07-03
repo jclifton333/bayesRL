@@ -75,8 +75,8 @@ def normal_mab_sampling_dbn(true_model_params, num_pulls):
   """
   sampled_model = []
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
-    mean, sigma_sq = arm_params
-    sampled_mean = np.random.normal(loc=mean, scale=np.sqrt(sigma_sq / arm_pulls))
+    mean, sigma_sq = arm_params # Should be sigma, not sigma_sq
+    sampled_mean = np.random.normal(loc=mean, scale=sigma_sq / np.sqrt(arm_pulls))
     pulls_m1 = np.max((1.0, arm_pulls - 1))
     sampled_variance = (sigma_sq / pulls_m1) * np.random.gamma(pulls_m1/2, 2)
     sampled_model.append([sampled_mean, sampled_variance])
@@ -130,8 +130,8 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   """
   draws_for_each_arm = []
   for arm_params in true_model:
-    mu, sigma_sq = arm_params[0], arm_params[1]
-    draws = np.random.normal(loc=mu, scale=np.sqrt(sigma_sq), size=(T, mc_reps))
+    mu, sigma_sq = arm_params[0], arm_params[1]  # Should be sigma, not sigma_sq
+    draws = np.random.normal(loc=mu, scale=sigma_sq, size=(T, mc_reps))
     draws_for_each_arm.append(draws)
   return draws_for_each_arm
 
