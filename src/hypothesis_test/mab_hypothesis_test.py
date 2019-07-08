@@ -238,17 +238,15 @@ if __name__ == "__main__":
 
   # Do hypothesis test
   true_model_params = [(0.0, 1.0), (1.0, 1.0)]
-  pulls_from_each_arm = [np.random.normal(loc=l, scale=s, size=2) for l, s in true_model_params]
-  estimated_model = [[np.mean(pulls), np.var(pulls), pulls] for pulls in pulls_from_each_arm]
+  pulls_from_each_arm = [np.random.normal(loc=p[0], scale=p[1], size=2) for p in true_model_params]
+  estimated_model = [[np.mean(pulls), np.std(pulls)] for pulls in pulls_from_each_arm]
   number_of_pulls = [2, 2]
 
-  def baseline_policy(estimated_model_params, standard_errors, number_of_pulls_, t):
-    estimated_means = [param[0] for param in estimated_model_params]
+  def baseline_policy(estimated_means, standard_errors, number_of_pulls_, t):
     return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
                   tuning_function_parameter=None, T=T, t=t, env=None)
 
-  def proposed_policy(estimated_model_params, standard_errors, number_of_pulls_, t):
-    estimated_means = [param[0] for param in estimated_model_params]
+  def proposed_policy(estimated_means, standard_errors, number_of_pulls_, t):
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
