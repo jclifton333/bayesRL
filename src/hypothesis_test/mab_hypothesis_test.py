@@ -215,7 +215,6 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
 
     if sampling_dbns:  # If sampling dbns non-empty, compute cutoff
       cutoff = cutoff_for_ht(alpha, sampling_dbns)
-      print('cutoff: {}'.format(cutoff))
       if test_statistic > cutoff:
         return True
       else:
