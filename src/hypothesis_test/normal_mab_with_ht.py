@@ -51,7 +51,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   else:
     tune = True
   ht_rejected = False
-  no_rejections_yet = False
+  no_rejections_yet = True
   tuning_function_parameter = np.array([0.05, 45, 2.5])
   bounds = {'zeta0': (0.05, 1.0), 'zeta1': (1.0, 49.0), 'zeta2': (0.01, 2.5)}
   explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 0.1, 0.05, 4.43802103],

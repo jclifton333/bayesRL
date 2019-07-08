@@ -237,7 +237,8 @@ if __name__ == "__main__":
   tuning_function_parameter = ([0.05, 45, 2.5])
 
   # Do hypothesis test
-  pulls_from_each_arm = [np.random.normal(loc=0.0, size=2), np.random.normal(loc=1.0, size=2)]
+  true_model_params = [(0.0, 1.0), (1.0, 1.0)]
+  pulls_from_each_arm = [np.random.normal(loc=l, scale=s, size=2) for l, s in true_model_params]
   estimated_model = [[np.mean(pulls), np.var(pulls), pulls] for pulls in pulls_from_each_arm]
   number_of_pulls = [2, 2]
 
@@ -253,11 +254,17 @@ if __name__ == "__main__":
 
   true_model_list = [[(np.random.normal(0.0), np.random.gamma(1.0)) for i in range(2)]
                      for j in range(num_candidate_models)]
-  for i in range(1):
+  for i in range(5):
     ans = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
                          normal_mab_sampling_dbn, alpha_schedule[t], true_normal_mab_regret,
                          pre_generate_normal_mab_data, mc_reps=100)
-    print(ans)
+    # Get operating characteristics
+    operating_char_dict = mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
+                                                           estimated_model, number_of_pulls,
+                                                           t, T, normal_mab_sampling_dbn, alpha_schedule[t],
+                                                           true_normal_mab_regret,
+                                                           pre_generate_normal_mab_data, true_model_params)
+    print(operating_char_dict)
 
 
 
