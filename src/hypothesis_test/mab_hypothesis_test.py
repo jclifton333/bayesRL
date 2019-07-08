@@ -75,7 +75,7 @@ def normal_mab_sampling_dbn(true_model_params, num_pulls):
   """
   sampled_model = []
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
-    mean, sigma_sq = arm_params # Should be sigma, not sigma_sq
+    mean, sigma_sq = arm_params # Shouldsdf be sigma, not sigma_sq
     sampled_mean = np.random.normal(loc=mean, scale=sigma_sq / np.sqrt(arm_pulls))
     pulls_m1 = np.max((1.0, arm_pulls - 1))
     sampled_variance = (sigma_sq / pulls_m1) * np.random.gamma(pulls_m1/2, 2)
@@ -229,9 +229,11 @@ if __name__ == "__main__":
   t = 1
   num_candidate_models = 10
   baseline_schedule = [0.05 for _ in range(T)]
+  tuning_schedule = [0.2 for _ in range(T)]
   alpha_schedule = [0.05 for _ in range(T)]
   baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
-  tuning_function = tuned_bandit.expit_epsilon_decay
+  tuning_function = lambda T, t, zeta: tuning_schedule[t]
+  # tuning_function = tuned_bandit.expit_epsilon_decay
   policy = tuned_bandit.mab_epsilon_greedy_policy
   tuning_function_parameter = ([0.05, 45, 2.5])
 
@@ -249,9 +251,8 @@ if __name__ == "__main__":
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
-  true_model_list = [[(np.random.normal(0.0), np.random.gamma(1.0)) for i in range(2)]
-                     for j in range(num_candidate_models)]
-  for i in range(5):
+  true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1, 2)) for p in estimated_model]]
+  for i in range(10):
     ans = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
                          normal_mab_sampling_dbn, alpha_schedule[t], true_normal_mab_regret,
                          pre_generate_normal_mab_data, mc_reps=100)
