@@ -80,7 +80,7 @@ def true_cb_regret(policy, true_model, estimated_model, feature_function, num_pu
   return np.mean(regrets)
 
 
-def normal_mab_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, num_pulls):
+def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, num_pulls):
   """
 
   :param true_model_params:
@@ -92,33 +92,17 @@ def normal_mab_sampling_dbn(true_model_params, context_dbn_sampler, feature_func
   p = len(true_model_params[0][0])
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
     beta, theta = true_model_params
-    contexts = context_dbn_sampler(arm_pulls) # Draw contexts
-    means = np.dot(contexts, beta) # Get true means and variances at contexts
+    contexts = context_dbn_sampler(arm_pulls)  # Draw contexts
+    means = np.dot(contexts, beta)  # Get true means and variances at contexts
     sigma_sqs = np.dot(contexts, theta)
 
     # Sample beta_hat and theta_hat from sampling_dbn
     df = np.max((1.0, arm_pulls - p))
     cov = np.dot(contexts.prime, np.dot(np.diag(sigma_sqs), contexts))  # ToDo: Check this formula
     beta_hat = np.random.multinomial(beta, cov / df)
+    theta_hat = None # ToDo: figure out covariance estimator
 
-    theta_hat =
-
-
-
-
-
-
-
-    for pull in range(arm_pulls):
-
-= n
-
-    beta,
-    mean, sigma_sq = arm_params
-    sampled_mean = np.random.normal(loc=mean, scale=sigma_sq / np.sqrt(arm_pulls))
-    pulls_m1 = np.max((1.0, arm_pulls - 1))
-    sampled_variance = (sigma_sq / pulls_m1) * np.random.gamma(pulls_m1/2, 2)
-    sampled_model.append([sampled_mean, sampled_variance])
+    sampled_model.append([beta_hat, theta_hat])
   return sampled_model
 
 
@@ -141,7 +125,7 @@ def mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estima
   proposed_policy_regrets = []
   for rep in range(sampling_dbn_draws):
      # Sample model and pre-generate data
-    sampled_model = sampling_dbn(true_model, num_pulls)
+    sampled_model = sampling_dbn(true_model, context_dbn_sampler, feature_function, num_pulls)
     draws_from_sampled_model = pre_generate_mab_data(sampled_model, T-t, reps_to_compute_regret)
 
     baseline_regret = true_mab_regret(baseline_policy, sampled_model, estimated_model, num_pulls, t, T,
@@ -159,7 +143,7 @@ def cutoff_for_ht(alpha, sampling_dbns):
   return np.max(cutoffs)
 
 
-def pre_generate_normal_mab_data(true_model, T, mc_reps):
+def pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T, mc_reps):
   """
   Pre-generate draws from normal mab.
 
@@ -169,9 +153,11 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   """
   draws_for_each_arm = []
   for arm_params in true_model:
-    mu, sigma_sq = arm_params[0], arm_params[1]  # Should be sigma, not sigma_sq
-    draws = np.random.normal(loc=mu, scale=sigma_sq, size=(T, mc_reps))
-    draws_for_each_arm.append(draws)
+    beta, theta = arm_params[0], arm_params[1]  # Should be sigma, not sigma_sq
+    contexts = context_dbn_sampler(T*mc_reps)
+    means, sigma_sqs = np.dot(contexts, beta).reshape((T, mc_reps)), np.dot(contexts, theta).reshape((T, mc_reps))
+    draws = np.random.normal(loc=means, scale=np.sqrt(sigma_sqs))
+    draws_for_each_arm.append(draws, contexts)
   return draws_for_each_arm
 
 
