@@ -230,7 +230,7 @@ if __name__ == "__main__":
   num_candidate_models = 10
   baseline_schedule = [0.05 for _ in range(T)]
   tuning_schedule = [0.2 for _ in range(T)]
-  alpha_schedule = [0.05 for _ in range(T)]
+  alpha_schedule = [0.025 for _ in range(T)]
   baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
   tuning_function = lambda T, t, zeta: tuning_schedule[t]
   # tuning_function = tuned_bandit.expit_epsilon_decay
@@ -251,7 +251,9 @@ if __name__ == "__main__":
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
-  true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1, 2)) for p in estimated_model]]
+  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1, 2)) for p in estimated_model]]
+  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1)) for p in estimated_model]]
+  true_model_list = [[(np.random.normal(0.0, 1.0), np.random.gamma(1)) for p in estimated_model]]
   for i in range(10):
     ans = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
                          normal_mab_sampling_dbn, alpha_schedule[t], true_normal_mab_regret,
@@ -261,7 +263,8 @@ if __name__ == "__main__":
                                                            estimated_model, number_of_pulls,
                                                            t, T, normal_mab_sampling_dbn, alpha_schedule[t],
                                                            true_normal_mab_regret,
-                                                           pre_generate_normal_mab_data, true_model_params)
+                                                           pre_generate_normal_mab_data, true_model_params, 
+                                                           inner_loop_mc_reps=500, outer_loop_mc_reps=500)
     print(operating_char_dict)
 
 

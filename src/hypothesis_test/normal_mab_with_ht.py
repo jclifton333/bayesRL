@@ -36,7 +36,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
     mc_reps_for_ht = 5
   else:
     NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
-    mc_reps_for_ht = 100
+    mc_reps_for_ht = 500
   np.random.seed(label)
 
   # Settings
@@ -99,6 +99,15 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
 
+    # Get operating characteristics
+    if not ht_rejected:
+      operating_char_dict = ht.mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
+                                                                estimated_model, env.number_of_pulls,
+                                                                t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
+                                                                ht.true_normal_mab_regret,
+                                                                ht.pre_generate_normal_mab_data, true_model_params,
+                                                                inner_loop_mc_reps=500, outer_loop_mc_reps=500)
+
     if tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
       if posterior_sample:
         reward_means = []
@@ -146,12 +155,6 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
                       None, T, t, env)
 
-    # Get operating characteristics
-    operating_char_dict = ht.mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
-                                                              estimated_model, env.number_of_pulls,
-                                                              t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
-                                                              ht.true_normal_mab_regret,
-                                                              ht.pre_generate_normal_mab_data, true_model_params)
     t1_errors.append(operating_char_dict['type1'])
     powers.append(operating_char_dict['type2'])
 
