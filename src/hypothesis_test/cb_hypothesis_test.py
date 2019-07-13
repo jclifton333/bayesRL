@@ -1,3 +1,8 @@
+"""
+Models of the form
+[[beta_i, sigma_sq_i]_i=1^k], where for each arm i and context x, R_i | x ~ N( phi(x).beta_i, phi(x).theta_i ),
+where phi is a feature function.
+"""
 import sys
 import pdb
 import os
@@ -12,7 +17,7 @@ import copy
 from numba import njit, jit
 
 
-def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_generated_data):
+def true_cb_regret(policy, true_model, estimated_model, feature_function, num_pulls, t, T, pre_generated_data):
   """
 
   :param policy:
@@ -25,7 +30,6 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
   corresponding to each arm.
   :return:
   """
-  mu_opt = np.max([params[0] for params in true_model])
   regrets = []
   mc_reps = pre_generated_data[0].shape[1]
   sum_squared_diffs = [params[1] * np.max((pulls - 1, 1))
@@ -40,6 +44,9 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
 
     for tprime in range(t, T):
       # Take action
+      # ToDo: change pre_generated_data to include context
+      context = None
+      context_features = feature_function(context)
       a = policy([param[0] for param in estimated_model_rollout], None, num_pulls_rep, tprime)
       reward = pre_generated_data[a][tprime - t, rollout]
 
@@ -47,36 +54,67 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
       n = num_pulls_rep[a] + 1
 
       # Incremental update to mean
-      previous_mean = estimated_model_rollout[a][0]
-      error = reward - previous_mean
-      new_mean = previous_mean + (error / n)
+      previous_beta = estimated_model_rollout[a][0]
+      error = reward - np.dot(previous_beta, context_features)
+      new_beta = incremental_least_squares(XprimeX_inv, context_features, reward)
+      mean_at_new_beta = np.dot(new_beta, context_features)
 
+      # ToDo: this covariance estimator makes no sense
       # Incremental update to ssd, var
       previous_sum_squared_diffs = sum_squared_diffs_rollout[a]
-      new_sum_squared_diffs = previous_sum_squared_diffs + error * (reward - new_mean)
+      new_sum_squared_diffs = previous_sum_squared_diffs + error * (reward - mean_at_new_beta)
       new_var = new_sum_squared_diffs / np.max((1.0, n - 1))
+      new_theta = incremental_least_squares(XprimeX_inv, context_features, new_var)
 
       # Update parameter lists
-      estimated_model_rollout[a][0] = new_mean
+      estimated_model_rollout[a][0] = new_beta
       estimated_model_rollout[a][1] = new_var
       sum_squared_diffs_rollout[a] = new_sum_squared_diffs
       num_pulls_rep[a] = n
 
-      regret += (mu_opt - true_model[a][0])
+      # Get optimal arm
+      means_at_each_arm = [np.dot(context_features, true_model[a_][0]) for a_ in range(len(true_model))]
+      regret += (np.max(means_at_each_arm) - np.dot(context_features, true_model[a][0]))
+
     regrets.append(regret)
   return np.mean(regrets)
 
 
-def normal_mab_sampling_dbn(true_model_params, num_pulls):
+def normal_mab_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, num_pulls):
   """
 
   :param true_model_params:
+  :param context_dbn_sampler: returns samples from context distribution
   :param num_pulls:
   :return:
   """
   sampled_model = []
+  p = len(true_model_params[0][0])
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
-    mean, sigma_sq = arm_params # Shouldsdf be sigma, not sigma_sq
+    beta, theta = true_model_params
+    contexts = context_dbn_sampler(arm_pulls) # Draw contexts
+    means = np.dot(contexts, beta) # Get true means and variances at contexts
+    sigma_sqs = np.dot(contexts, theta)
+
+    # Sample beta_hat and theta_hat from sampling_dbn
+    df = np.max((1.0, arm_pulls - p))
+    cov = np.dot(contexts.prime, np.dot(np.diag(sigma_sqs), contexts))  # ToDo: Check this formula
+    beta_hat = np.random.multinomial(beta, cov / df)
+
+    theta_hat =
+
+
+
+
+
+
+
+    for pull in range(arm_pulls):
+
+= n
+
+    beta,
+    mean, sigma_sq = arm_params
     sampled_mean = np.random.normal(loc=mean, scale=sigma_sq / np.sqrt(arm_pulls))
     pulls_m1 = np.max((1.0, arm_pulls - 1))
     sampled_variance = (sigma_sq / pulls_m1) * np.random.gamma(pulls_m1/2, 2)
@@ -222,51 +260,3 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
         return False
     else:  # If sampling_dbns empty, use cutoff=0
       return True
-
-
-if __name__ == "__main__":
-  # Settings
-  T = 20
-  t = 1
-  num_candidate_models = 10
-  baseline_schedule = [0.05 for _ in range(T)]
-  tuning_schedule = [0.2 for _ in range(T)]
-  alpha_schedule = [0.025 for _ in range(T)]
-  baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
-  tuning_function = lambda T, t, zeta: tuning_schedule[t]
-  # tuning_function = tuned_bandit.expit_epsilon_decay
-  policy = tuned_bandit.mab_epsilon_greedy_policy
-  tuning_function_parameter = ([0.05, 45, 2.5])
-
-  # Do hypothesis test
-  true_model_params = [(0.0, 1.0), (1.0, 1.0)]
-  pulls_from_each_arm = [np.random.normal(loc=p[0], scale=p[1], size=2) for p in true_model_params]
-  estimated_model = [[np.mean(pulls), np.std(pulls)] for pulls in pulls_from_each_arm]
-  number_of_pulls = [2, 2]
-
-  def baseline_policy(estimated_means, standard_errors, number_of_pulls_, t):
-    return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
-                  tuning_function_parameter=None, T=T, t=t, env=None)
-
-  def proposed_policy(estimated_means, standard_errors, number_of_pulls_, t):
-    return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
-                  tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
-
-  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1, 2)) for p in estimated_model]]
-  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1)) for p in estimated_model]]
-  true_model_list = [[(np.random.normal(0.0, 1.0), np.random.gamma(1)) for p in estimated_model]]
-  for i in range(10):
-    ans = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
-                         normal_mab_sampling_dbn, alpha_schedule[t], true_normal_mab_regret,
-                         pre_generate_normal_mab_data, mc_reps=100)
-    # Get operating characteristics
-    operating_char_dict = mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
-                                                           estimated_model, number_of_pulls,
-                                                           t, T, normal_mab_sampling_dbn, alpha_schedule[t],
-                                                           true_normal_mab_regret,
-                                                           pre_generate_normal_mab_data, true_model_params, 
-                                                           inner_loop_mc_reps=100, outer_loop_mc_reps=200)
-    print(operating_char_dict)
-
-
-

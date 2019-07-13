@@ -17,6 +17,7 @@ import scipy.stats
 import src.policies.linear_algebra as la
 import pdb
 import numpy as np
+from numba import jit
 import copy
 
 
