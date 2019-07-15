@@ -13,13 +13,14 @@ sys.path.append(project_dir)
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.policies import linear_algebra as la
 from functools import partial
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import pairwise_kernels
 import numpy as np
 import copy
 from numba import njit, jit
 
 
-def true_cb_regret(policy, true_model, estimated_model, context_features, num_pulls, t, T, pre_generated_data):
+def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_generated_data):
   """
 
   :param policy:
@@ -33,19 +34,19 @@ def true_cb_regret(policy, true_model, estimated_model, context_features, num_pu
   :return:
   """
   regrets = []
-  mc_reps = pre_generated_data[0].shape[1]
-  context_features_dim = pre_generated_data[1][0].shape[0]
+  reward_draws, context_features = pre_generated_data
+  mc_reps = reward_draws[0].shape[1]
+  context_features_dim = len(context_features[0])
   for rollout in range(mc_reps):
     regret = 0.0
     num_pulls_rep = copy.copy(num_pulls)
-    estimated_model_rollout = copy.deepcopy(estimated_model) # ToDo: estimated model should include XprimeX_inv
-    XprimeX_invs, Xs, ys, beta_hats = estimated_model_rollout
+    estimated_model_rollout = copy.deepcopy(estimated_model)  # ToDo: estimated model should include XprimeX_inv
+    beta_hats, _, XprimeX_invs, Xs, ys = estimated_model_rollout
 
     for tprime in range(t, T):
       # Take action
-      # ToDo: change pre_generated_data to include context
       context_features_tprime = context_features[tprime, rollout]
-      means = [np.dot(beta_hat, context_features_tprime) for beta_hat in estimated_model_rollout[3]]
+      means = [np.dot(beta_hat, context_features_tprime) for beta_hat in estimated_model_rollout[0]]
       a = policy(means, None, num_pulls_rep, tprime)
       reward = pre_generated_data[a][tprime - t, rollout]
 
@@ -53,9 +54,9 @@ def true_cb_regret(policy, true_model, estimated_model, context_features, num_pu
       n = num_pulls_rep[a] + 1
 
       # Incremental update to model estimate
-      estimated_model_rollout[1][a] = np.vstack((estimated_model_rollout[1][a], context_features_tprime))
-      estimated_model_rollout[2][a] = np.hstack((estimated_model_rollout[2][a],reward))
-      estimated_model_rollout[0][a] = la.sherman_woodbury(estimated_model_rollout[0][a], context_features_tprime,
+      estimated_model_rollout[3][a] = np.vstack((estimated_model_rollout[1][a], context_features_tprime))
+      estimated_model_rollout[4][a] = np.hstack((estimated_model_rollout[2][a],reward))
+      estimated_model_rollout[2][a] = la.sherman_woodbury(estimated_model_rollout[0][a], context_features_tprime,
                                                           context_features_tprime)
       new_beta = np.dot(estimated_model_rollout[0][a], np.dot(estimated_model_rollout[1][a].T,
                                                               estimated_model_rollout[2][a]))
@@ -88,13 +89,19 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
     context_features = [feature_function(c) for c in contexts]
     means = np.dot(context_features, beta)  # Get true means and variances at contexts
     variances = np.dot(context_features, var_params)
-    covariance_matrix = np.diag(variances)
 
-    # Sample beta_hat and theta_hat from sampling_dbn
-    df = np.max((1.0, arm_pulls - p))
-    cov = np.dot(contexts.prime, np.dot(covariance_matrix, contexts))  # ToDo: Check this formula
-    beta_hat = np.random.multivariate_normal(beta, cov / df)
-    var_params_hat = None # ToDo: figure out covariance estimator
+    # Sample beta_hat from sampling_dbn
+    ys = np.random.normal(loc=means, scale=variances)
+    mean_regression = LinearRegression()
+    mean_regression.fit(context_features, ys)  # ToDo: handle intercept
+    beta_hat = mean_regression.coef_
+
+    # Sample theta_hat from sampling_dbn by regressing squared errors on contexts
+    # ToDo: allows negative variance, makes no sense!
+    errors = ys - mean_regression.predict(context_features)
+    variance_regression = LinearRegression()
+    variance_regression.fit(contexts, errors**2)
+    var_params_hat = variance_regression.coef_
 
     sampled_model.append([beta_hat, var_params_hat])
   return sampled_model
@@ -152,14 +159,14 @@ def pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T, m
   context_dim = len(context_features[0])
 
   # Draw rewards at each arm
-  for arm_params in true_model:
-    beta, variance_params = arm_params[0], arm_params[1]  # Should be sigma, not sigma_sq
+  for arm in range(len(true_model[0])):
+    beta, variance_params = true_model[0][arm], true_model[1][arm]  # Should be sigma, not sigma_sq
     means, sigma_sqs = np.dot(context_features, beta).reshape((T, mc_reps)), \
-                       np.dot(context_features, variance_params).reshape((T, mc_reps))
+                       (np.dot(context_features, variance_params)**2).reshape((T, mc_reps))
     draws = np.random.normal(loc=means, scale=np.sqrt(sigma_sqs))
-    draws_for_each_arm.append((draws, context_features))
+    draws_for_each_arm.append(draws)
 
-  return draws_for_each_arm, context_features
+  return draws_for_each_arm, np.array(context_features).reshape((T, mc_reps))
 
 
 def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
@@ -209,14 +216,13 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
   :return:
   """
   # Pre-generate data from estimated model
-  draws_from_estimated_model, context_features = pre_generate_mab_data(estimated_model, context_dbn_sampler,
-                                                                       feature_function, T-t, mc_reps)
+  pre_generated_data = pre_generate_mab_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
-  estimated_baseline_regret = true_mab_regret(baseline_policy, estimated_model, estimated_model, context_features,
-                                              num_pulls, t, T, draws_from_estimated_model)
-  estimated_proposed_regret = true_mab_regret(proposed_policy, estimated_model, estimated_model, context_features,
-                                              num_pulls, t, T, draws_from_estimated_model)
+  estimated_baseline_regret = true_cb_regret(baseline_policy, estimated_model, estimated_model,
+                                              num_pulls, t, T, pre_generated_data)
+  estimated_proposed_regret = true_cb_regret(proposed_policy, estimated_model, estimated_model,
+                                              num_pulls, t, T, pre_generated_data)
 
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
@@ -227,17 +233,17 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
     sampling_dbns = []
     for true_model in true_model_list:
       # Pre-generate data from true_model
-      draws_from_true_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
+      pre_generated_data = pre_generate_mab_data(estimated_model, T-t, mc_reps)
 
       # Check if true_model is in H0
-      true_baseline_regret = true_mab_regret(baseline_policy, true_model, estimated_model, context_features, num_pulls,
-                                             t, T, draws_from_true_model)
-      true_proposed_regret = true_mab_regret(proposed_policy, true_model, estimated_model, context_features, num_pulls,
-                                             t, T, draws_from_true_model)
+      true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
+                                             t, T, pre_generated_data)
+      true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
+                                             t, T, pre_generated_data)
       # If in H0, get sampling dbn
       if true_baseline_regret < true_proposed_regret:
         sampling_dbn = cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
-                                               t, T, sampling_dbn_sampler, true_mab_regret, pre_generate_mab_data,
+                                               t, T, sampling_dbn_sampler, true_cb_regret, pre_generate_cb_data,
                                                context_dbn_sampler, feature_function, reps_to_compute_regret=mc_reps)
         sampling_dbns.append(sampling_dbn)
 
@@ -269,30 +275,32 @@ if __name__ == "__main__":
     return x
 
   def context_dbn_sampler(n):
-    return np.random.multivariate_normal(mean=[0.0, 0.0], size=n)
+    X = np.random.multivariate_normal(mean=[0.0, 0.0], cov=np.eye(2), size=n)
+    if n == 1:
+      return X[0]
+    else:
+      return X
 
   # Do hypothesis test
   true_model_params = [(np.random.normal(size=2), np.random.normal(size=2)),
                        (np.random.normal(size=2), np.random.normal(size=2))]
   Xs = [feature_function(context_dbn_sampler(1)), feature_function(context_dbn_sampler(1))]
   XprimeX_invs = [la.sherman_woodbury(np.eye(2), x, x) for x in Xs]
-  ys = [np.random.normal(loc=np.dot(p[0], x), scale=np.dot(p[1], x)) for x, b, t_ in zip(Xs, true_model_params)]
-  estimated_model = [XprimeX_invs, Xs, ys]
+  ys = [np.random.normal(loc=np.dot(p[0], x), scale=np.dot(p[1], x)**2) for x, p in zip(Xs, true_model_params)]
+  beta_hats = [np.dot(xpx_inv, np.dot(x.T, y)) for xpx_inv, x, y in zip(XprimeX_invs, Xs, ys)]
+  theta_hats = [p[1] for p in true_model_params]
+  estimated_model = [beta_hats, theta_hats, XprimeX_invs, Xs, ys]
   number_of_pulls = [1, 1]
 
   def baseline_policy(estimated_means, standard_errors, number_of_pulls_, t):
     return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
                   tuning_function_parameter=None, T=T, t=t, env=None)
 
-
   def proposed_policy(estimated_means, standard_errors, number_of_pulls_, t):
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
-
-  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1, 2)) for p in estimated_model]]
-  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1)) for p in estimated_model]]
-  true_model_list = [[(np.random.normal(0.0, 1.0), np.random.gamma(1)) for p in estimated_model]]
+  true_model_list = [[(np.random.normal(loc=p[0]), np.random.normal(loc=p[1])) for p in true_model_params]]
   ans = conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
                        cb_sampling_dbn, alpha_schedule[t], true_cb_regret,
                        pre_generate_cb_data, context_dbn_sampler, feature_function, mc_reps=100)
