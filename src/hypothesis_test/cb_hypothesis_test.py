@@ -19,7 +19,7 @@ import copy
 from numba import njit, jit
 
 
-def true_cb_regret(policy, true_model, estimated_model, feature_function, num_pulls, t, T, pre_generated_data):
+def true_cb_regret(policy, true_model, estimated_model, context_features, num_pulls, t, T, pre_generated_data):
   """
 
   :param policy:
@@ -39,14 +39,14 @@ def true_cb_regret(policy, true_model, estimated_model, feature_function, num_pu
     regret = 0.0
     num_pulls_rep = copy.copy(num_pulls)
     estimated_model_rollout = copy.deepcopy(estimated_model) # ToDo: estimated model should include XprimeX_inv
-    XprimeX_invs, Xs, ys = estimated_model_rollout
+    XprimeX_invs, Xs, ys, beta_hats = estimated_model_rollout
 
     for tprime in range(t, T):
       # Take action
       # ToDo: change pre_generated_data to include context
       context_features_tprime = context_features[tprime, rollout]
-      # ToDo: pass means at context to policy instead of params
-      a = policy([param[0] for param in estimated_model_rollout], None, num_pulls_rep, tprime)
+      means = [np.dot(beta_hat, context_features_tprime) for beta_hat in estimated_model_rollout[3]]
+      a = policy(means, None, num_pulls_rep, tprime)
       reward = pre_generated_data[a][tprime - t, rollout]
 
       # Update model estimate
@@ -62,12 +62,11 @@ def true_cb_regret(policy, true_model, estimated_model, feature_function, num_pu
 
       # Update parameter lists
       # Using eps-greedy, so don't need to update cov estimate
-      estimated_model_rollout[a][0] = new_beta
-      num_pulls_rep[a] = n
+      estimated_model_rollout[a][3] = new_beta
 
-      # Get optimal arm
-      means_at_each_arm = [np.dot(context_features, true_model[a_][0]) for a_ in range(len(true_model))]
-      regret += (np.max(means_at_each_arm) - np.dot(context_features, true_model[a][0]))
+      # Compute regret
+      means_at_each_arm = [np.dot(context_features_tprime, true_model[a_][0]) for a_ in range(len(true_model))]
+      regret += (np.max(means_at_each_arm) - np.dot(context_features_tprime, true_model[a][0]))
 
     regrets.append(regret)
   return np.mean(regrets)
@@ -101,9 +100,9 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
   return sampled_model
 
 
-def mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
-                            t, T, sampling_dbn, true_mab_regret, pre_generate_mab_data, sampling_dbn_draws=50,
-                            reps_to_compute_regret=100):
+def cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
+                            t, T, sampling_dbn, true_mab_regret, pre_generate_mab_data, context_dbn_sampler,
+                           feature_function, sampling_dbn_draws=50, reps_to_compute_regret=100):
   """
 
   :param baseline_policy:
@@ -163,7 +162,7 @@ def pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T, m
   return draws_for_each_arm, context_features
 
 
-def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
+def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
                                      sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
                                      true_model_params, outer_loop_mc_reps=100, inner_loop_mc_reps=100):
   # Get true regrets to see if H0 is true
@@ -194,7 +193,8 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
 
 
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
-                   t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data, mc_reps=1000):
+                   t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data, context_dbn_sampler,
+                   feature_function, mc_reps=1000):
   """
 
   :param baseline_policy:
@@ -209,13 +209,14 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
   :return:
   """
   # Pre-generate data from estimated model
-  draws_from_estimated_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
+  draws_from_estimated_model, context_features = pre_generate_mab_data(estimated_model, context_dbn_sampler,
+                                                                       feature_function, T-t, mc_reps)
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
-  estimated_baseline_regret = true_mab_regret(baseline_policy, estimated_model, estimated_model, num_pulls, t, T,
-                                              draws_from_estimated_model)
-  estimated_proposed_regret = true_mab_regret(proposed_policy, estimated_model, estimated_model, num_pulls, t, T,
-                                              draws_from_estimated_model)
+  estimated_baseline_regret = true_mab_regret(baseline_policy, estimated_model, estimated_model, context_features,
+                                              num_pulls, t, T, draws_from_estimated_model)
+  estimated_proposed_regret = true_mab_regret(proposed_policy, estimated_model, estimated_model, context_features,
+                                              num_pulls, t, T, draws_from_estimated_model)
 
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
@@ -229,15 +230,15 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
       draws_from_true_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
 
       # Check if true_model is in H0
-      true_baseline_regret = true_mab_regret(baseline_policy, true_model, estimated_model, num_pulls, t, T,
-                                             draws_from_true_model)
-      true_proposed_regret = true_mab_regret(proposed_policy, true_model, estimated_model, num_pulls, t, T,
-                                             draws_from_true_model)
+      true_baseline_regret = true_mab_regret(baseline_policy, true_model, estimated_model, context_features, num_pulls,
+                                             t, T, draws_from_true_model)
+      true_proposed_regret = true_mab_regret(proposed_policy, true_model, estimated_model, context_features, num_pulls,
+                                             t, T, draws_from_true_model)
       # If in H0, get sampling dbn
       if true_baseline_regret < true_proposed_regret:
-        sampling_dbn = mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
+        sampling_dbn = cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
                                                t, T, sampling_dbn_sampler, true_mab_regret, pre_generate_mab_data,
-                                               reps_to_compute_regret=mc_reps)
+                                               context_dbn_sampler, feature_function, reps_to_compute_regret=mc_reps)
         sampling_dbns.append(sampling_dbn)
 
     if sampling_dbns:  # If sampling dbns non-empty, compute cutoff
@@ -248,3 +249,42 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
         return False
     else:  # If sampling_dbns empty, use cutoff=0
       return True
+
+
+if __name__ == "__main__":
+  # Settings
+  T = 20
+  t = 1
+  num_candidate_models = 10
+  baseline_schedule = [0.05 for _ in range(T)]
+  tuning_schedule = [0.2 for _ in range(T)]
+  alpha_schedule = [0.025 for _ in range(T)]
+  baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
+  tuning_function = lambda T, t, zeta: tuning_schedule[t]
+  # tuning_function = tuned_bandit.expit_epsilon_decay
+  policy = tuned_bandit.mab_epsilon_greedy_policy
+  tuning_function_parameter = ([0.05, 45, 2.5])
+
+  # Do hypothesis test
+  true_model_params = [(0.0, 1.0), (1.0, 1.0)]
+  pulls_from_each_arm = [np.random.normal(loc=p[0], scale=p[1], size=2) for p in true_model_params]
+  estimated_model = [[np.mean(pulls), np.std(pulls)] for pulls in pulls_from_each_arm]
+  number_of_pulls = [2, 2]
+
+
+  def baseline_policy(estimated_means, standard_errors, number_of_pulls_, t):
+    return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
+                  tuning_function_parameter=None, T=T, t=t, env=None)
+
+
+  def proposed_policy(estimated_means, standard_errors, number_of_pulls_, t):
+    return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
+                  tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
+
+
+  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1, 2)) for p in estimated_model]]
+  # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1)) for p in estimated_model]]
+  true_model_list = [[(np.random.normal(0.0, 1.0), np.random.gamma(1)) for p in estimated_model]]
+  ans = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
+                       cb_sampling_dbn, alpha_schedule[t], true_cb_regret,
+                       pre_generate_cb_data, mc_reps=100)
