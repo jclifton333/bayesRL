@@ -48,18 +48,18 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
       context_features_tprime = context_features[tprime, rollout]
       means = [np.dot(beta_hat, context_features_tprime) for beta_hat in estimated_model_rollout[0]]
       a = policy(means, None, num_pulls_rep, tprime)
-      reward = pre_generated_data[a][tprime - t, rollout]
+      reward = reward_draws[a][tprime - t, rollout]
 
       # Update model estimate
       n = num_pulls_rep[a] + 1
 
       # Incremental update to model estimate
-      estimated_model_rollout[3][a] = np.vstack((estimated_model_rollout[1][a], context_features_tprime))
-      estimated_model_rollout[4][a] = np.hstack((estimated_model_rollout[2][a],reward))
-      estimated_model_rollout[2][a] = la.sherman_woodbury(estimated_model_rollout[0][a], context_features_tprime,
+      estimated_model_rollout[3][a] = np.vstack((estimated_model_rollout[3][a], context_features_tprime))
+      estimated_model_rollout[4][a] = np.hstack((estimated_model_rollout[4][a],reward))
+      estimated_model_rollout[2][a] = la.sherman_woodbury(estimated_model_rollout[2][a], context_features_tprime,
                                                           context_features_tprime)
-      new_beta = np.dot(estimated_model_rollout[0][a], np.dot(estimated_model_rollout[1][a].T,
-                                                              estimated_model_rollout[2][a]))
+      new_beta = np.dot(estimated_model_rollout[2][a], np.dot(estimated_model_rollout[3][a].T,
+                                                              estimated_model_rollout[4][a]))
 
       # Update parameter lists
       # Using eps-greedy, so don't need to update cov estimate
@@ -166,7 +166,7 @@ def pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T, m
     draws = np.random.normal(loc=means, scale=np.sqrt(sigma_sqs))
     draws_for_each_arm.append(draws)
 
-  return draws_for_each_arm, np.array(context_features).reshape((T, mc_reps))
+  return draws_for_each_arm, np.array(context_features).reshape((T, mc_reps, context_dim))
 
 
 def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
@@ -200,7 +200,7 @@ def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model
 
 
 def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
-                  t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data, context_dbn_sampler,
+                  t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_cb_data, context_dbn_sampler,
                   feature_function, mc_reps=1000):
   """
 
@@ -216,7 +216,7 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
   :return:
   """
   # Pre-generate data from estimated model
-  pre_generated_data = pre_generate_mab_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
+  pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = true_cb_regret(baseline_policy, estimated_model, estimated_model,
