@@ -192,9 +192,9 @@ def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model
   return {'type1': type1, 'type2': type2}
 
 
-def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
-                   t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data, context_dbn_sampler,
-                   feature_function, mc_reps=1000):
+def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
+                  t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data, context_dbn_sampler,
+                  feature_function, mc_reps=1000):
   """
 
   :param baseline_policy:
@@ -265,12 +265,20 @@ if __name__ == "__main__":
   policy = tuned_bandit.mab_epsilon_greedy_policy
   tuning_function_parameter = ([0.05, 45, 2.5])
 
-  # Do hypothesis test
-  true_model_params = [(0.0, 1.0), (1.0, 1.0)]
-  pulls_from_each_arm = [np.random.normal(loc=p[0], scale=p[1], size=2) for p in true_model_params]
-  estimated_model = [[np.mean(pulls), np.std(pulls)] for pulls in pulls_from_each_arm]
-  number_of_pulls = [2, 2]
+  def feature_function(x):
+    return x
 
+  def context_dbn_sampler(n):
+    return np.random.multivariate_normal(mean=[0.0, 0.0], size=n)
+
+  # Do hypothesis test
+  true_model_params = [(np.random.normal(size=2), np.random.normal(size=2)),
+                       (np.random.normal(size=2), np.random.normal(size=2))]
+  Xs = [feature_function(context_dbn_sampler(1)), feature_function(context_dbn_sampler(1))]
+  XprimeX_invs = [la.sherman_woodbury(np.eye(2), x, x) for x in Xs]
+  ys = [np.random.normal(loc=np.dot(p[0], x), scale=np.dot(p[1], x)) for x, b, t_ in zip(Xs, true_model_params)]
+  estimated_model = [XprimeX_invs, Xs, ys]
+  number_of_pulls = [1, 1]
 
   def baseline_policy(estimated_means, standard_errors, number_of_pulls_, t):
     return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
@@ -285,6 +293,6 @@ if __name__ == "__main__":
   # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1, 2)) for p in estimated_model]]
   # true_model_list = [[(np.random.normal(p[0], p[1]/np.sqrt(2)), np.random.gamma(1)) for p in estimated_model]]
   true_model_list = [[(np.random.normal(0.0, 1.0), np.random.gamma(1)) for p in estimated_model]]
-  ans = conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
+  ans = conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, number_of_pulls, t, T,
                        cb_sampling_dbn, alpha_schedule[t], true_cb_regret,
-                       pre_generate_cb_data, mc_reps=100)
+                       pre_generate_cb_data, context_dbn_sampler, feature_function, mc_reps=100)
