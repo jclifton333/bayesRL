@@ -1,6 +1,6 @@
 """
 Models of the form
-[[beta_i, sigma_sq_i]_i=1^k], where for each arm i and context x, R_i | x ~ N( phi(x).beta_i, phi(x).theta_i ),
+[[beta_i, variance_params_i]_i=1^k], where for each arm i and context x, R_i | x ~ N( phi(x).beta_i, phi(x).theta_i ),
 where phi is a feature function.
 """
 import sys
@@ -11,7 +11,9 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 from src.policies import tuned_bandit_policies as tuned_bandit
+from src.policies import linear_algebra as la
 from functools import partial
+from sklearn.metrics.pairwise import pairwise_kernels
 import numpy as np
 import copy
 from numba import njit, jit
@@ -26,50 +28,41 @@ def true_cb_regret(policy, true_model, estimated_model, feature_function, num_pu
   :param num_pulls:
   :param t:
   :param T:
-  :param pre_generated_data: list whose elements are (T-t) x num_mc_reps arrays of draws for each timepoint,
-  corresponding to each arm.
+  :param pre_generated_data: list of length (num actions) whose elements are tuples
+    ( reward draws, context draws ), each of size (T-t) x num_mc_reps
   :return:
   """
   regrets = []
   mc_reps = pre_generated_data[0].shape[1]
-  sum_squared_diffs = [params[1] * np.max((pulls - 1, 1))
-                       for params, pulls in zip(estimated_model, num_pulls)]  # Need these
-  # for stable online update of variance estimate
-
+  context_features_dim = pre_generated_data[1][0].shape[0]
   for rollout in range(mc_reps):
     regret = 0.0
     num_pulls_rep = copy.copy(num_pulls)
-    estimated_model_rollout = copy.deepcopy(estimated_model)
-    sum_squared_diffs_rollout = copy.deepcopy(sum_squared_diffs)
+    estimated_model_rollout = copy.deepcopy(estimated_model) # ToDo: estimated model should include XprimeX_inv
+    XprimeX_invs, Xs, ys = estimated_model_rollout
 
     for tprime in range(t, T):
       # Take action
       # ToDo: change pre_generated_data to include context
-      context = None
-      context_features = feature_function(context)
+      context_features_tprime = context_features[tprime, rollout]
+      # ToDo: pass means at context to policy instead of params
       a = policy([param[0] for param in estimated_model_rollout], None, num_pulls_rep, tprime)
       reward = pre_generated_data[a][tprime - t, rollout]
 
       # Update model estimate
       n = num_pulls_rep[a] + 1
 
-      # Incremental update to mean
-      previous_beta = estimated_model_rollout[a][0]
-      error = reward - np.dot(previous_beta, context_features)
-      new_beta = incremental_least_squares(XprimeX_inv, context_features, reward)
-      mean_at_new_beta = np.dot(new_beta, context_features)
-
-      # ToDo: this covariance estimator makes no sense
-      # Incremental update to ssd, var
-      previous_sum_squared_diffs = sum_squared_diffs_rollout[a]
-      new_sum_squared_diffs = previous_sum_squared_diffs + error * (reward - mean_at_new_beta)
-      new_var = new_sum_squared_diffs / np.max((1.0, n - 1))
-      new_theta = incremental_least_squares(XprimeX_inv, context_features, new_var)
+      # Incremental update to model estimate
+      estimated_model_rollout[1][a] = np.vstack((estimated_model_rollout[1][a], context_features_tprime))
+      estimated_model_rollout[2][a] = np.hstack((estimated_model_rollout[2][a],reward))
+      estimated_model_rollout[0][a] = la.sherman_woodbury(estimated_model_rollout[0][a], context_features_tprime,
+                                                          context_features_tprime)
+      new_beta = np.dot(estimated_model_rollout[0][a], np.dot(estimated_model_rollout[1][a].T,
+                                                              estimated_model_rollout[2][a]))
 
       # Update parameter lists
+      # Using eps-greedy, so don't need to update cov estimate
       estimated_model_rollout[a][0] = new_beta
-      estimated_model_rollout[a][1] = new_var
-      sum_squared_diffs_rollout[a] = new_sum_squared_diffs
       num_pulls_rep[a] = n
 
       # Get optimal arm
@@ -91,18 +84,20 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
   sampled_model = []
   p = len(true_model_params[0][0])
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
-    beta, theta = true_model_params
+    beta, var_params, _ = true_model_params
     contexts = context_dbn_sampler(arm_pulls)  # Draw contexts
-    means = np.dot(contexts, beta)  # Get true means and variances at contexts
-    sigma_sqs = np.dot(contexts, theta)
+    context_features = [feature_function(c) for c in contexts]
+    means = np.dot(context_features, beta)  # Get true means and variances at contexts
+    variances = np.dot(context_features, var_params)
+    covariance_matrix = np.diag(variances)
 
     # Sample beta_hat and theta_hat from sampling_dbn
     df = np.max((1.0, arm_pulls - p))
-    cov = np.dot(contexts.prime, np.dot(np.diag(sigma_sqs), contexts))  # ToDo: Check this formula
-    beta_hat = np.random.multinomial(beta, cov / df)
-    theta_hat = None # ToDo: figure out covariance estimator
+    cov = np.dot(contexts.prime, np.dot(covariance_matrix, contexts))  # ToDo: Check this formula
+    beta_hat = np.random.multivariate_normal(beta, cov / df)
+    var_params_hat = None # ToDo: figure out covariance estimator
 
-    sampled_model.append([beta_hat, theta_hat])
+    sampled_model.append([beta_hat, var_params_hat])
   return sampled_model
 
 
@@ -152,13 +147,20 @@ def pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T, m
   :return:
   """
   draws_for_each_arm = []
+  # Draw contexts
+  contexts = context_dbn_sampler(T*mc_reps)
+  context_features = [feature_function(c) for c in contexts]
+  context_dim = len(context_features[0])
+
+  # Draw rewards at each arm
   for arm_params in true_model:
-    beta, theta = arm_params[0], arm_params[1]  # Should be sigma, not sigma_sq
-    contexts = context_dbn_sampler(T*mc_reps)
-    means, sigma_sqs = np.dot(contexts, beta).reshape((T, mc_reps)), np.dot(contexts, theta).reshape((T, mc_reps))
+    beta, variance_params = arm_params[0], arm_params[1]  # Should be sigma, not sigma_sq
+    means, sigma_sqs = np.dot(context_features, beta).reshape((T, mc_reps)), \
+                       np.dot(context_features, variance_params).reshape((T, mc_reps))
     draws = np.random.normal(loc=means, scale=np.sqrt(sigma_sqs))
-    draws_for_each_arm.append(draws, contexts)
-  return draws_for_each_arm
+    draws_for_each_arm.append((draws, context_features))
+
+  return draws_for_each_arm, context_features
 
 
 def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
