@@ -43,7 +43,7 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
     estimated_model_rollout = copy.deepcopy(estimated_model)  # ToDo: estimated model should include XprimeX_inv
     beta_hats, _, XprimeX_invs, Xs, ys = estimated_model_rollout
 
-    for tprime in range(t, T):
+    for tprime in range(T-t):
       # Take action
       context_features_tprime = context_features[tprime, rollout]
       means = [np.dot(beta_hat, context_features_tprime) for beta_hat in estimated_model_rollout[0]]
@@ -63,11 +63,11 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
 
       # Update parameter lists
       # Using eps-greedy, so don't need to update cov estimate
-      estimated_model_rollout[a][3] = new_beta
+      estimated_model_rollout[0][a] = new_beta
 
       # Compute regret
-      means_at_each_arm = [np.dot(context_features_tprime, true_model[a_][0]) for a_ in range(len(true_model))]
-      regret += (np.max(means_at_each_arm) - np.dot(context_features_tprime, true_model[a][0]))
+      means_at_each_arm = [np.dot(context_features_tprime, b) for b in true_model[0]]
+      regret += (np.max(means_at_each_arm) - np.dot(context_features_tprime, new_beta))
 
     regrets.append(regret)
   return np.mean(regrets)
