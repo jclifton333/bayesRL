@@ -93,13 +93,16 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
 
     # Sample beta_hat from sampling_dbn
     ys = np.random.normal(loc=means, scale=np.abs(variances))  # ToDo: fix the negative variance thing!
-    XprimeX = np.dot(context_features.T, context_features)
-    XprimeX_inv = np.linalg.inv(np.diag(p) + XprimeX)
+    if context_features.shape[0] == 1:
+      XprimeX_inv = la.sherman_woodbury(np.eye(p), context_features, context_features)
+    else:
+      XprimeX = np.dot(context_features.T, context_features)
+      XprimeX_inv = np.linalg.inv(np.eye(p) + XprimeX)
     beta_hat = np.dot(XprimeX_inv, np.dot(context_features.T, ys))
 
     # Sample theta_hat from sampling_dbn by regressing squared errors on contexts
     # ToDo: allows negative variance, makes no sense!
-    errors = ys - mean_regression.predict(context_features)
+    errors = ys - np.dot(context_features, beta_hat)
     variance_regression = LinearRegression()
     variance_regression.fit(contexts, errors**2)
     var_params_hat = variance_regression.coef_
