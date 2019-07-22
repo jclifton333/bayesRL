@@ -84,6 +84,11 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
   """
   sampled_model = []
   p = len(true_model_params[0][0])
+  beta_hats = []
+  var_params_ = []
+  XprimeX_invs = []
+  Xs= []
+  ys = []
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
     beta, var_params = arm_params[0], arm_params[1]
     contexts = context_dbn_sampler(arm_pulls)  # Draw contexts
@@ -92,23 +97,28 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
     variances = np.dot(context_features, var_params)
 
     # Sample beta_hat from sampling_dbn
-    ys = np.random.normal(loc=means, scale=np.abs(variances))  # ToDo: fix the negative variance thing!
+    y = np.random.normal(loc=means, scale=np.abs(variances))  # ToDo: fix the negative variance thing!
     if context_features.shape[0] == 1:
-      XprimeX_inv = la.sherman_woodbury(np.eye(p), context_features, context_features)
+      XprimeX_inv = la.sherman_woodbury(np.eye(p), context_features[0], context_features[0])
     else:
       XprimeX = np.dot(context_features.T, context_features)
       XprimeX_inv = np.linalg.inv(np.eye(p) + XprimeX)
-    beta_hat = np.dot(XprimeX_inv, np.dot(context_features.T, ys))
+    beta_hat = np.dot(XprimeX_inv, np.dot(context_features.T, y))
 
     # Sample theta_hat from sampling_dbn by regressing squared errors on contexts
     # ToDo: allows negative variance, makes no sense!
-    errors = ys - np.dot(context_features, beta_hat)
+    errors = y - np.dot(context_features, beta_hat)
     variance_regression = LinearRegression()
     variance_regression.fit(contexts, errors**2)
     var_params_hat = variance_regression.coef_
 
-    sampled_model.append([beta_hat, var_params_hat, XprimeX_inv, context_features, ys])
-  return sampled_model
+    # Add parameters for this arm
+    beta_hats.append(beta_hat)
+    var_params_.append(var_params_hat)
+    XprimeX_invs.append(XprimeX_inv)
+    Xs.append(context_features)
+    ys.append(y)
+  return [beta_hats, var_params_, XprimeX_invs, Xs, ys]
 
 
 def cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
@@ -189,8 +199,8 @@ def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model
   # Rejection rate
   rejections = []
   for sample in range(outer_loop_mc_reps):
+    # ToDo: add estimated_model[2:] to estimated_model_ instead?
     estimated_model_ = sampling_dbn_sampler(true_model_params, context_dbn_sampler, feature_function, num_pulls)
-    estimated_model_ += estimated_model[2:]  # Add current estimates
     reject = conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model_, num_pulls,
                            t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data,
                            context_dbn_sampler, feature_function, mc_reps=inner_loop_mc_reps)
@@ -227,7 +237,7 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = true_cb_regret(baseline_policy, estimated_model, estimated_model,
-                                              num_pulls, t, T, pre_generated_data)
+                                             num_pulls, t, T, pre_generated_data)
   estimated_proposed_regret = true_cb_regret(proposed_policy, estimated_model, estimated_model,
                                               num_pulls, t, T, pre_generated_data)
 
@@ -308,7 +318,9 @@ if __name__ == "__main__":
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
-  true_model_list = [[(np.random.normal(loc=p[0]), np.random.normal(loc=p[1])) for p in true_model_params]]
+  true_model_list = [[np.random.normal(loc=p[0]) for p in true_model_params],
+                     [np.random.normal(loc=p[1]) for p in true_model_params], XprimeX_invs, Xs, ys]
+
   for i in range(1):
     operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
                                                           estimated_model, number_of_pulls,
