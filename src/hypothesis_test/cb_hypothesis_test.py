@@ -141,7 +141,8 @@ def cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimat
   for rep in range(sampling_dbn_draws):
      # Sample model and pre-generate data
     sampled_model = sampling_dbn(true_model, context_dbn_sampler, feature_function, num_pulls)
-    draws_from_sampled_model = pre_generate_mab_data(sampled_model, T-t, reps_to_compute_regret)
+    draws_from_sampled_model = pre_generate_mab_data(sampled_model, context_dbn_sampler, feature_function,
+                                                     T-t, reps_to_compute_regret)
 
     baseline_regret = true_mab_regret(baseline_policy, sampled_model, estimated_model, num_pulls, t, T,
                                       draws_from_sampled_model)
@@ -300,11 +301,12 @@ if __name__ == "__main__":
     #   return X
 
   # Do hypothesis test
-  true_model_params = [(np.random.normal(size=2), np.random.normal(size=2)),
-                       (np.random.normal(size=2), np.random.normal(size=2))]
+  true_model_params = [[np.random.normal(size=2), np.random.normal(size=2)],
+                       [np.random.normal(size=2), np.random.normal(size=2)]]
   Xs = [feature_function(context_dbn_sampler(1)), feature_function(context_dbn_sampler(1))]
   XprimeX_invs = [la.sherman_woodbury(np.eye(2), x[0], x[0]) for x in Xs]
-  ys = [np.random.normal(loc=np.dot(p[0], x[0]), scale=np.dot(p[1], x[0])**2) for x, p in zip(Xs, true_model_params)]
+  ys = [np.random.normal(loc=np.dot(b, x[0]), scale=np.dot(v, x[0])**2) for x, b, v in zip(Xs, true_model_params[0],
+                                                                                           true_model_params[1])]
   beta_hats = [np.dot(xpx_inv, np.dot(x.T, y))[:, 0] for xpx_inv, x, y in zip(XprimeX_invs, Xs, ys)]
   theta_hats = [p[1] for p in true_model_params]
   estimated_model = [beta_hats, theta_hats, XprimeX_invs, Xs, ys]
@@ -318,8 +320,7 @@ if __name__ == "__main__":
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
-  true_model_list = [[np.random.normal(loc=p[0]) for p in true_model_params],
-                     [np.random.normal(loc=p[1]) for p in true_model_params], XprimeX_invs, Xs, ys]
+  true_model_list = [[true_model_params[0], true_model_params[1], XprimeX_invs, Xs, ys]]
 
   for i in range(10):
     operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
