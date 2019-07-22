@@ -250,7 +250,7 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
     sampling_dbns = []
     for true_model in true_model_list:
       # Pre-generate data from true_model
-      pre_generated_data = pre_generate_cb_data(estimated_model, T-t, mc_reps)
+      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
 
       # Check if true_model is in H0
       true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
@@ -321,7 +321,7 @@ if __name__ == "__main__":
   true_model_list = [[np.random.normal(loc=p[0]) for p in true_model_params],
                      [np.random.normal(loc=p[1]) for p in true_model_params], XprimeX_invs, Xs, ys]
 
-  for i in range(1):
+  for i in range(10):
     operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
                                                           estimated_model, number_of_pulls,
                                                           t, T, cb_sampling_dbn, alpha_schedule[t],
@@ -329,3 +329,4 @@ if __name__ == "__main__":
                                                           pre_generate_cb_data, true_model_params, context_dbn_sampler,
                                                           feature_function,
                                                           inner_loop_mc_reps=10, outer_loop_mc_reps=10)
+    print(operating_char_dict)
