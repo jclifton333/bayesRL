@@ -76,8 +76,10 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   powers = []
   for t in range(T):
     # Stuff needed for hypothesis test / operating chars
-    estimated_model = [[xbar, np.sqrt(sigma_sq_hat)] for xbar, sigma_sq_hat
-                       in zip(env.estimated_means, env.estimated_vars)]
+    # ToDo: assuming env.theta_hat_list
+    estimated_model = [[beta_hat, theta_hat, XprimeX_inv, X, y] for beta_hat, theta_hat, XprimeX_inv, X, y
+                       in zip(env.beta_hat_list, env.theta_hat_list, env.Xprime_X_inv_list,
+                              env.X_list, env.y_list)]
 
     def baseline_policy(means, standard_errors, num_pulls, tprime):
       return policy(means, standard_errors, num_pulls, baseline_tuning_function, None, T, tprime, None)
@@ -88,55 +90,54 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
     true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
     for draw in range(NUM_CANDIDATE_HYPOTHESES):
       sampled_model = env.sample_from_posterior()
-      param_list_for_sampled_model = [[sampled_model[a]['mu_draw'], np.sqrt(sampled_model[a]['var_draw'])]
+      # ToDo: not sure if this makes sense
+      param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['theta_draw'])]
+                                      + estimated_model[a][2:]
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
 
     # Get operating characteristics
     if not ht_rejected:
-      operating_char_dict = ht.mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
+      operating_char_dict = ht.cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
                                                                 estimated_model, env.number_of_pulls,
                                                                 t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
                                                                 ht.true_normal_mab_regret,
                                                                 ht.pre_generate_normal_mab_data, true_model_params,
-                                                                inner_loop_mc_reps=500, outer_loop_mc_reps=500)
+                                                                context_dbn_sampler, feature_function,
+                                                                inner_loop_mc_reps=100, outer_loop_mc_reps=100)
 
     if tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
-      if posterior_sample:
-        reward_means = []
-        reward_vars = []
-        for rep in range(monte_carlo_reps):
-          if bootstrap_posterior:
-            draws = env.sample_from_bootstrap()
-          else:
-            draws = env.sample_from_posterior()
-          means_for_each_action = []
-          vars_for_each_action = []
-          for a in range(env.number_of_actions):
-            mean_a = draws[a]['mu_draw']
-            var_a = draws[a]['var_draw']
-            means_for_each_action.append(mean_a)
-            vars_for_each_action.append(var_a)
-          reward_means.append(means_for_each_action)
-          reward_vars.append(vars_for_each_action)
-      else:
-        reward_means = None
-        reward_vars = None
+      gen_model_parameters = []
+      reward_means = []
+      reward_vars = []
+      for rep in range(monte_carlo_reps):
+        draws = env.sample_from_posterior()
+        betas_for_each_action = []
+        thetas_for_each_action = []
+        for a in range(env.number_of_actions):
+          beta_a = draws[a]['beta_draw']
+          theta_a = draws[a]['theta_draw']
+          betas_for_each_action.append(beta_a)
+          thetas_for_each_action.append(theta_a)
+          param_dict = {'reward_betas': betas_for_each_action, 'reward_thetas': thetas_for_each_action,
+                        'context_mean': draws['context_mu_draw'], 'context_var': draws['context_var_draw']}
+#                          'context_max': draws['context_max']}
+          gen_model_parameters.append(param_dict)
 
-      sim_env = NormalMAB(list_of_reward_mus=env.estimated_means, list_of_reward_vars=env.estimated_vars)
-      pre_simulated_data = sim_env.generate_mc_samples(monte_carlo_reps, T, reward_means=reward_means,
-                                                       reward_vars=reward_vars)
-      tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
-                                               tuning_function_parameter, T, env, monte_carlo_reps,
+      sim_env = NormalCB(list_of_reward_betas=list_of_reward_betas, context_mean=context_mean, context_var=context_var,
+                         list_of_reward_vars=list_of_reward_vars)
+      pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T, n_patients=n_patients,
+                                                       gen_model_params=gen_model_parameters)
+      tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
+                                               tuning_function, tuning_function_parameter, T,
+                                               sim_env, mc_replicates,
                                                {'pre_simulated_data': pre_simulated_data},
-                                               bounds, explore_, positive_zeta=positive_zeta, test=test)
-      tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
-
-
-      ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
-                                      env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
-                                      alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
-                                      mc_reps=mc_reps_for_ht)
+                                               bounds, explore_, positive_zeta=positive_zeta)
+      # Hypothesis testing
+      ht_rejected = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+                                      env.number_of_pulls, t, T, ht.cb_sampling_dbn,
+                                      alpha_schedule[t], ht.true_cb_regret, ht.pre_generate_cb_data,
+                                      context_dbn_sampler, feature_function, mc_reps=mc_reps_for_ht)
       if ht_rejected and no_rejections_yet:
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
