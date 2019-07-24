@@ -281,7 +281,7 @@ if __name__ == "__main__":
   t = 1
   num_candidate_models = 10
   baseline_schedule = [0.05 for _ in range(T)]
-  tuning_schedule = [0.2 for _ in range(T)]
+  tuning_schedule = [0.1 for _ in range(T)]
   alpha_schedule = [0.025 for _ in range(T)]
   baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
   tuning_function = lambda T, t, zeta: tuning_schedule[t]
@@ -329,5 +329,5 @@ if __name__ == "__main__":
                                                           true_cb_regret,
                                                           pre_generate_cb_data, true_model_params, context_dbn_sampler,
                                                           feature_function,
-                                                          inner_loop_mc_reps=10, outer_loop_mc_reps=10)
+                                                          inner_loop_mc_reps=100, outer_loop_mc_reps=100)
     print(operating_char_dict)
