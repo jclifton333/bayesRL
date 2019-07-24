@@ -340,7 +340,15 @@ class BernoulliMAB(MAB):
 
 
 class LinearCB(Bandit):
-  def __init__(self, num_initial_pulls, context_mean, list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]], list_of_reward_vars=[1, 1]):
+  """
+  ToDo: transform + covariate-dependent-variance needs to be implemented!
+  Contextual bandit where rewards are normal-linear in a transformation of the original features. Variance
+  is in general covariate-dependent:
+    log V(r | x, a) = feature_function(x) . \theta_a
+  """
+  def __init__(self, num_initial_pulls, feature_function, context_mean,
+               list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]],
+               list_of_reward_theats=[[0., 0.], [0., 0.]], list_of_reward_vars=[1, 1]):
     Bandit.__init__(self)
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
@@ -350,6 +358,7 @@ class LinearCB(Bandit):
     self.number_of_actions = len(list_of_reward_vars)
     self.context_dimension = len(list_of_reward_betas[0]) 
     self.curr_context = None
+    self.feature_function = feature_function
     self.list_of_reward_betas = list_of_reward_betas
     self.list_of_reward_vars = list_of_reward_vars
     self.X = np.zeros((0, self.context_dimension))
@@ -410,26 +419,6 @@ class LinearCB(Bandit):
     # self.posterior_params_dict[a]['a_post'] = new_a
     # self.posterior_params_dict[a]['b_post'] = new_b
     self.posterior_params_dict[a]['beta_post'] = new_beta
-
-  # def sample_from_bootstrap(self, variance_shrinkage=1.0):
-  #   draws_dict = {}
-
-  #   # Bootstrap beta hats and variance estimates
-  #   for a in range(self.number_of_actions):
-  #     weights = np.random.exponential(size=self.X_list[a].shape[0])
-  #     # Posterior parameters for this arm
-  #     a_post = self.posterior_params_dict[a]['a_post']
-  #     b_post = self.posterior_params_dict[a]['b_post']
-  #     Lambda_inv_post = self.posterior_params_dict[a]['Lambda_inv_post']
-  #     beta_post = self.posterior_params_dict[a]['beta_post']
-
-  #     sigma_sq_draw = np.random.gamma(a_post, b_post)
-
-  #     beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post,
-  #                                                             variance_shrinkage * sigma_sq_draw * Lambda_inv_post)
-  #     draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_draw}
-
-  #   return draws_dict
 
   def sample_from_posterior(self, variance_shrinkage=1.0):
     """
@@ -649,7 +638,8 @@ class LinearCB(Bandit):
 
 
 class NormalCB(LinearCB):
-  def __init__(self, num_initial_pulls, list_of_reward_betas=[[1, 1], [2, -2]], list_of_reward_vars=[1, 1],
+  def __init__(self, num_initial_pulls, feature_function=None, list_of_reward_betas=[[1, 1], [2, -2]],
+               list_of_reward_thetas=[[0., 0.], [0., 0.]], list_of_reward_vars=[1, 1],
                context_mean=[1, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
     self.context_var = context_var
 
@@ -661,14 +651,19 @@ class NormalCB(LinearCB):
                                           'a_post_context': self.a0_context, 'b_post_context': self.b0_context,
                                           'lambda_post_context': self.lambda0_context}
 
-    LinearCB.__init__(self, num_initial_pulls, context_mean, list_of_reward_betas, list_of_reward_vars)
+    LinearCB.__init__(self, num_initial_pulls, feature_function, context_mean, list_of_reward_betas,
+                      list_of_reward_thetas, list_of_reward_vars)
 
   def draw_context(self, context_mean=None, context_var=None):
     if context_mean is None:
       context_mean = self.context_mean
     if context_var is None:
-      context_var = self.context_var  
-    return np.append([1.0], np.random.multivariate_normal(context_mean, context_var))
+      context_var = self.context_var
+    context = np.append([1.0], np.random.multivariate_normal(context_mean, context_var))
+    if self.feature_function is None:
+      return context
+    else:
+      return self.feature_function(context)
 
   def update_posterior(self, a, x, y):
     super(NormalCB, self).update_posterior(a, x, y)
@@ -704,7 +699,6 @@ class NormalCB(LinearCB):
     draws_dict['context_mu_draw'] = mu_given_tau_draw
     draws_dict['context_var_draw'] = 1.0 / tau_draw
     return draws_dict
-
 
   def sample_from_sampling_dist(self, variance_shrinkage=1.0):
     draws_dict = super(NormalCB, self).sample_from_posterior(variance_shrinkage=variance_shrinkage)
