@@ -106,7 +106,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
                                                                 t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
                                                                 ht.true_normal_mab_regret,
                                                                 ht.pre_generate_normal_mab_data, true_model_params,
-                                                                inner_loop_mc_reps=500, outer_loop_mc_reps=500)
+                                                                inner_loop_mc_reps=100, outer_loop_mc_reps=200)
 
     if tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
       if posterior_sample:
@@ -242,5 +242,5 @@ if __name__ == "__main__":
   #   list_of_reward_mus = list_of_reward_mus, test = test)
   # episode_partial(0)
 
-  run('eps-greedy-ht', std=1.0)
-  run('eps-greedy-ht')
+  run('eps-greedy-ht', std=1.0, T=20)
+  run('eps-greedy-ht', T=20)
