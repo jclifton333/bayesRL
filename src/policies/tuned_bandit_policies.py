@@ -139,8 +139,8 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
 def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter, T, t, previous_q, epsilon=0.05,
                      gamma=0.9):
   # Get features and response
-  X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  R = np.hstack([R_i[:-1] for R_i in env.R])
+  X, Xp1 = env.get_state_transitions_as_x_y_pair(new_state_only=False)
+  R = np.hstack(env.R[:-1])
 
   # Generate fake data if % fake data > 0
   n = len(env.X)
@@ -151,20 +151,27 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
     estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
     fake_data_indices = np.random.choice(n, n_fake, replace=True)
     X_for_fake_data = env.X[fake_data_indices]
-    R_for_fake_data = env.R[fake_data_indices]
-    Sp1_fake = np.array([estimator.draw_from_ppd(x) for x in X_for_fake_data])
+    R_for_fake_data = np.array([])
+    Xp1_fake = np.array([])
+    for x in X_for_fake_data:
+      s, r = estimator.draw_from_ppd(x)
+      glucose_patient, food_patient, activity_patient = s[0], s[1], s[2]
+      xp1 = np.array([[1.0, glucose_patient, food_patient, activity_patient, x[-1, 1],
+                             x[-1, 2], x[1, 3], x[-1, -1], 0]])
+      R_for_fake_data = np.append(R_for_fake_data, r)
+      Xp1_fake = np.append(Xp1_fake, xp1)
 
     # Add to real data that will be used for FQI
     X = np.vstack((X, X_for_fake_data))
     R = np.vstack((R, R_for_fake_data))
-    Sp1 = np.vstack((Sp1, Sp1_fake))
+    Sp1 = np.vstack((Xp1, Xp1_fake))
 
   # Get fitted Q target
   if previous_q is not None:
     Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1))
-                             for a in range(env.number_of_actions)]) for sp1 in Sp1])
+                             for a in range(env.NUM_ACTION)]) for sp1 in Sp1])
   else:  # If no previous q is provided, fit the myopic q function
-    Qmax = np.zeros(Sp1.shape[0])
+    Qmax = np.zeros(Xp1.shape[0])
 
   # FQI
   m = RandomForestRegressor()

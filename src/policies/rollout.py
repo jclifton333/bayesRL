@@ -400,12 +400,15 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
   return np.mean(regrets)
 
 
-def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep, estimator):
+def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep, estimator,
+                             decay_function):
   cumulative_rewards = []
+  previous_q = None
   for rep in range(n_rep):
-    # if estimator.__class__.__name__ == 'LinearGlucoseModel':
-    #   estimator.bootstrap_and_fit_conditional_densities()
-    estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
+    if estimator.__class__.__name__ == 'LinearGlucoseModel':
+      estimator.bootstrap_and_fit_conditional_densities()
+    else:
+      estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
     rewards = 0.0
     X_rep = [X_[2, :].reshape(1, -1) for X_ in env.X]
     R_rep = [R_[0] for R_ in env.R]
@@ -416,7 +419,8 @@ def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tu
     # sim_env = Glucose(n_patient)
     for t in range(time_horizon):
       if t > 0:
-        action = policy(env, tuning_function, tuning_function_parameter, time_horizon, t, X=X_rep, R=R_rep)
+        action, previous_q = policy(env, estimator, tuning_function, tuning_function_parameter, time_horizon, t,
+                                    previous_q, decay_function(t))
       else:
         action = np.random.binomial(1, 0.3, size=env.nPatients)
 
@@ -445,9 +449,9 @@ def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tu
 
 
 def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
-  n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
+  n_rep, estimator, decay_function = kwargs['n_rep'], kwargs['estimator'], kwargs['decay_function']
   values = collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep,
-                                    estimator)
+                                    estimator, decay_function)
   return np.mean(values)
 
 

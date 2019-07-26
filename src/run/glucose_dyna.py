@@ -64,7 +64,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
       X, Sp1 = env.get_state_transitions_as_x_y_pair()
       y = Sp1[:, 0]
       estimator.fit(X, y)
-      kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator}
+      kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator, 'decay_function': decay_function}
 
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
