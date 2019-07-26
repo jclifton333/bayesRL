@@ -400,3 +400,54 @@ def bernoulli_mab_rollout_with_fixed_simulations(tuning_function_parameter, poli
   return np.mean(regrets)
 
 
+def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep, estimator):
+  cumulative_rewards = []
+  for rep in range(n_rep):
+    # if estimator.__class__.__name__ == 'LinearGlucoseModel':
+    #   estimator.bootstrap_and_fit_conditional_densities()
+    estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
+    rewards = 0.0
+    X_rep = [X_[2, :].reshape(1, -1) for X_ in env.X]
+    R_rep = [R_[0] for R_ in env.R]
+    if env.X[0].shape[0] > 3:
+      current_x = [np.array([X_i[3, :]]) for X_i in env.X]
+    else:
+      current_x = [np.array([X_i[2, :]]) for X_i in env.X]
+    # sim_env = Glucose(n_patient)
+    for t in range(time_horizon):
+      if t > 0:
+        action = policy(env, tuning_function, tuning_function_parameter, time_horizon, t, X=X_rep, R=R_rep)
+      else:
+        action = np.random.binomial(1, 0.3, size=env.nPatients)
+
+      # Get next state
+      # glucose, food, activity = np.zeros(0), np.zeros(0), np.zeros(0)
+      new_current_x = []
+      rewards_t = 0.0
+      for patient in range(env.nPatients):
+        # Draw next state from ppd
+        s, r = estimator.draw_from_ppd(current_x[patient])
+        glucose_patient, food_patient, activity_patient = s[0], s[1], s[2]
+        x_patient = np.array([[1.0, glucose_patient, food_patient, activity_patient, X_rep[patient][-1, 1],
+                              X_rep[patient][-1, 2], X_rep[patient][-1, 3], X_rep[patient][-1, -1], action[patient]]])
+        X_rep[patient] = np.vstack((X_rep[patient], x_patient))
+        new_current_x.append(x_patient)
+        rewards_t_patient = (glucose_patient < 70) * (-0.005 * glucose_patient ** 2 + 0.95 * glucose_patient - 45) + \
+         (glucose_patient >= 70) * (-0.00017 * glucose_patient ** 2 + 0.02167 * glucose_patient - 0.5)
+        rewards_t += rewards_t_patient
+        R_rep[patient] = np.append(R_rep[patient], rewards_t_patient)
+
+      current_x = new_current_x
+      # _, r = sim_env.step(action)
+      rewards += (rewards_t - rewards) / (t + 1.0)
+    cumulative_rewards.append(rewards)
+  return cumulative_rewards
+
+
+def glucose_npb_rollout(tuning_function_parameter, policy, time_horizon, tuning_function, env, **kwargs):
+  n_rep, estimator = kwargs['n_rep'], kwargs['estimator']
+  values = collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tuning_function, env, n_rep,
+                                    estimator)
+  return np.mean(values)
+
+

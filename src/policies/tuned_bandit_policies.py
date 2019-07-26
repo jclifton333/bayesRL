@@ -135,6 +135,17 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
   return np.argmax(sampling_dbn_draws)
 
 
+def glucose_fitted_q(sim_env, tuning_function, tuning_function_parameter, T, t, previous_q):
+  # Generate fake data if % fake data > 0
+  percent_fake = tuning_function(t, T, tuning_function_parameter)
+  n_fake = int(np.floor(len(sim_env.X) * percent_fake))
+  if n_fake > 0:
+    # ToDo: generate fake data
+    pass
+
+
+
+
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):
   """
   Probability one truncated normal (between l0 and u0) exceeds another (between l1 and u1).
