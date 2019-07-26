@@ -10,6 +10,7 @@ sys.path.append(project_dir)
 
 import scipy.integrate as integrate
 from scipy.stats import norm
+from sklearn.ensemble import RandomForestRegressor
 from scipy.stats import beta
 from scipy.linalg import block_diag
 from scipy.special import expit
@@ -135,7 +136,8 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
   return np.argmax(sampling_dbn_draws)
 
 
-def glucose_fitted_q(sim_env, tuning_function, tuning_function_parameter, T, t, previous_q):
+def glucose_fitted_q(env, sim_env, tuning_function, tuning_function_parameter, T, t, previous_q, epsilon=0.05,
+                     gamma=0.9):
   # Generate fake data if % fake data > 0
   percent_fake = tuning_function(t, T, tuning_function_parameter)
   n_fake = int(np.floor(len(sim_env.X) * percent_fake))
@@ -143,7 +145,35 @@ def glucose_fitted_q(sim_env, tuning_function, tuning_function_parameter, T, t, 
     # ToDo: generate fake data
     pass
 
+  # Get features and response
+  if X is None:
+    X, R = env.X, env.R
+    X = [X_i[2:, :] for X_i in X]
+    R = [R_i[:-1] for R_i in env.R]
+  X_flat = np.vstack(X)
+  R_flat = np.hstack(R)
+  Xnext_flat = None
 
+  # Get fitted Q target
+  Qmax = np.array([np.max([previous_q(x_next, a) for a in range(env.number_of_actions)]) for x_next in Xnext_flat])
+
+  # FQI
+  m = RandomForestRegressor()
+  m.fit(X_flat, R_flat + gamma * Qmax)
+
+  action = np.zeros(0)
+  # for X_i in X:
+  for i in range(env.nPatients):
+    # x_i = X_i[-1, :]
+    x_i = np.concatenate(([1], env.current_state[i], env.last_state[i], [env.last_action[i]], [0]))
+    if np.random.random() < epsilon:
+      action_i = int(np.random.choice(2))
+    else:
+      # number_of_ties = np.sum(m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)) == m.predict(env.get_state_at_action(1, x_i).reshape(1, -1)))
+      # print('number of ties: {}'.format(number_of_ties))
+      action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)),
+                            m.predict(env.get_state_at_action(1, x_i).reshape(1, -1))])
+    action = np.append(action, action_i)
 
 
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):
