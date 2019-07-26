@@ -136,30 +136,39 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
   return np.argmax(sampling_dbn_draws)
 
 
-def glucose_fitted_q(env, sim_env, tuning_function, tuning_function_parameter, T, t, previous_q, epsilon=0.05,
+def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter, T, t, previous_q, epsilon=0.05,
                      gamma=0.9):
-  # Generate fake data if % fake data > 0
-  percent_fake = tuning_function(t, T, tuning_function_parameter)
-  n_fake = int(np.floor(len(sim_env.X) * percent_fake))
-  if n_fake > 0:
-    # ToDo: generate fake data
-    pass
-
   # Get features and response
-  if X is None:
-    X, R = env.X, env.R
-    X = [X_i[2:, :] for X_i in X]
-    R = [R_i[:-1] for R_i in env.R]
-  X_flat = np.vstack(X)
-  R_flat = np.hstack(R)
-  Xnext_flat = None
+  X, Sp1 = env.get_state_transitions_as_x_y_pair()
+  R = np.hstack([R_i[:-1] for R_i in env.R])
+
+  # Generate fake data if % fake data > 0
+  n = len(env.X)
+  percent_fake = tuning_function(t, T, tuning_function_parameter)
+  n_fake = int(np.floor(n * percent_fake))
+  if n_fake > 0:
+    # Simulate fake data at randomly chosen previous obs
+    estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
+    fake_data_indices = np.random.choice(n, n_fake, replace=True)
+    X_for_fake_data = env.X[fake_data_indices]
+    R_for_fake_data = env.R[fake_data_indices]
+    Sp1_fake = np.array([estimator.draw_from_ppd(x) for x in X_for_fake_data])
+
+    # Add to real data that will be used for FQI
+    X = np.vstack((X, X_for_fake_data))
+    R = np.vstack((R, R_for_fake_data))
+    Sp1 = np.vstack((Sp1, Sp1_fake))
 
   # Get fitted Q target
-  Qmax = np.array([np.max([previous_q(x_next, a) for a in range(env.number_of_actions)]) for x_next in Xnext_flat])
+  if previous_q is not None:
+    Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1))
+                             for a in range(env.number_of_actions)]) for sp1 in Sp1])
+  else:  # If no previous q is provided, fit the myopic q function
+    Qmax = np.zeros(Sp1.shape[0])
 
   # FQI
   m = RandomForestRegressor()
-  m.fit(X_flat, R_flat + gamma * Qmax)
+  m.fit(X, R + gamma * Qmax)
 
   action = np.zeros(0)
   # for X_i in X:
@@ -174,6 +183,8 @@ def glucose_fitted_q(env, sim_env, tuning_function, tuning_function_parameter, T
       action_i = np.argmax([m.predict(env.get_state_at_action(0, x_i).reshape(1, -1)),
                             m.predict(env.get_state_at_action(1, x_i).reshape(1, -1))])
     action = np.append(action, action_i)
+
+  return action, m.predict
 
 
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):
