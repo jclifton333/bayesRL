@@ -169,8 +169,18 @@ if __name__ == '__main__':
   # run('ar2', 25)
   # run('ar1', 25)
   np.random.seed(43908)
-  run('kde', 25)
-  run('ar1', 50)
+  # run('kde', 50)
+
+  np.random.seed(98)
+  run('kde', 25) 
+  run('kde', 50)
+
+  np.random.seed(99)
+  run('kde', 25) 
+  run('kde', 50)
+
+  np.random.seed(100)
+  run('kde', 25) 
   run('kde', 50)
 
   # def decay_function(t):
@@ -187,5 +197,5 @@ if __name__ == '__main__':
   #   return 0.8**t
   # run('eps_decay_fixed', 25, decay_function=decay_function)
   # run('eps_decay_fixed', 50, decay_function=decay_function)
-  compare_parametric_and_nonparametric_bootstrap_predictive_dbns(T=10)
+  # compare_parametric_and_nonparametric_bootstrap_predictive_dbns(T=10)
 
