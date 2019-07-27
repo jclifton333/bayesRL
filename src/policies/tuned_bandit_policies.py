@@ -169,7 +169,7 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
 
   # Get fitted Q target
   if previous_q is not None:
-    Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1))
+    Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1).reshape(1, -1))
                              for a in range(env.NUM_ACTION)]) for sp1 in Xp1])
   else:  # If no previous q is provided, fit the myopic q function
     Qmax = np.zeros(Xp1.shape[0])
