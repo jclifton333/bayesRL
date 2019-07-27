@@ -39,7 +39,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   else:
     NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
     mc_reps_for_ht = 500
-  np.random.seed(label)
+  # np.random.seed(label)
 
   # Settings
   # posterior_sample = False
@@ -102,13 +102,13 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
       true_model_list.append(param_list_for_sampled_model)
 
     # Get operating characteristics
-    if not ht_rejected:
-      operating_char_dict = ht.mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
-                                                                estimated_model, env.number_of_pulls,
-                                                                t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
-                                                                ht.true_normal_mab_regret,
-                                                                ht.pre_generate_normal_mab_data, true_model_params,
-                                                                inner_loop_mc_reps=100, outer_loop_mc_reps=200)
+    # if not ht_rejected:
+    #   operating_char_dict = ht.mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
+    #                                                             estimated_model, env.number_of_pulls,
+    #                                                             t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
+    #                                                             ht.true_normal_mab_regret,
+    #                                                             ht.pre_generate_normal_mab_data, true_model_params,
+    #                                                             inner_loop_mc_reps=100, outer_loop_mc_reps=200)
 
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
     if time_to_tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
@@ -158,8 +158,8 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
       action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
                       None, T, t, env)
 
-    t1_errors.append(operating_char_dict['type1'])
-    powers.append(operating_char_dict['type2'])
+    # t1_errors.append(operating_char_dict['type1'])
+    # powers.append(operating_char_dict['type2'])
 
     res = env.step(action)
     u = res['Utility']
@@ -216,7 +216,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
                'std_regret': float(np.std(cumulative_regret)),
                'regret list': [float(r) for r in cumulative_regret], 'baseline_schedule': BASELINE_SCHEDULE,
                'alpha_schedule': ALPHA_SCHEDULE, 'when_hypothesis_rejected': when_hypothesis_rejected,
-               'type1': type1_errors, 'powers': powers}
+               'type1': type1_errors, 'powers': powers, 'std': std}
 
     base_name = \
       'normalmab-{}-numAct-{}'.format(policy_name, len(list_of_reward_mus))
@@ -226,7 +226,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
     with open(filename, 'w') as outfile:
       yaml.dump(results, outfile)
 
-  return
+  return results
 
 
 if __name__ == "__main__":
@@ -244,6 +244,16 @@ if __name__ == "__main__":
   #   alpha_schedule = ALPHA_SCHEDULE, std = std, T = T, monte_carlo_reps = monte_carlo_reps,
   #   list_of_reward_mus = list_of_reward_mus, test = test)
   # episode_partial(0)
+  results01 = []
+  results1 = []
+  seeds = [4, 5, 6, 7]
+  for seed in seeds:
+    np.random.seed(seed)
+    results01_seed = run('eps-greedy-ht', T=50)
+    results01 += results01_seed['regret list']
+    results1_seed = run('eps-greedy-ht', std=1.0, T=50)
+    results1 += results1_seed['regret list']
+  print('01 results: {}'.format((np.mean(results01), np.std(results01)/np.sqrt(len(results01)))))
+  print('1 results: {}'.format((np.mean(results1), np.std(results1)/np.sqrt(len(results1)))))
 
-  run('eps-greedy-ht', std=1.0, T=50)
-  run('eps-greedy-ht', T=50)
+
