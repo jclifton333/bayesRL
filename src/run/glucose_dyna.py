@@ -19,7 +19,7 @@ from functools import partial
 
 def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   TUNE_INTERVAL = 5
-  decay_function = lambda t: 1 / t
+  decay_function = lambda t: 1 / (t + 1)
 
   # if policy_name in ['np', 'p', 'averaged']:
   if policy_name in ['kde', 'ar2', 'ar1']:
