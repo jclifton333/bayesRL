@@ -32,6 +32,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   :return:
   """
   TUNE_INTERVAL = 10
+  np.random.seed(label)
 
   if test:
     NUM_CANDIDATE_HYPOTHESES = 5
@@ -175,7 +176,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
           'power': powers}
 
 
-def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100, test=False):
+def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100, test=False):
   """
 
   :return:
@@ -201,7 +202,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
   # for i in range(10):
   #   episode_partial(i)
 
-  for batch in range(num_batches):
+  for batch in range(label*num_batches, (label+1)*num_batches):
     results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
     results += results_for_batch
 
@@ -246,7 +247,7 @@ if __name__ == "__main__":
   # episode_partial(0)
   results01 = []
   results1 = []
-  seeds = [4, 5, 6, 7]
+  seeds = [0, 1, 2, 3]
   for seed in seeds:
     np.random.seed(seed)
     results01_seed = run('eps-greedy-ht', T=50)
