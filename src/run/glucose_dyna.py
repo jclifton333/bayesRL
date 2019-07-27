@@ -95,7 +95,7 @@ def run(policy_name, T, decay_function=None):
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name=policy_name, T=T, decay_function=decay_function)
+  episode_partial = partial(episode, policy_name=policy_name, T=T)
   results = pool.map(episode_partial, range(replicates))
 
   base_name = 'glucose-{}'.format(policy_name)
