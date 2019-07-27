@@ -18,6 +18,7 @@ from functools import partial
 
 
 def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
+  TUNE_INTERVAL = 5
   decay_function = lambda t: 1 / t
 
   # if policy_name in ['np', 'p', 'averaged']:
@@ -60,7 +61,8 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   for t in range(T):
     print(t)
     # Get estimated dyna proportion
-    if tune:
+    time_to_tune = (tune and t % TUNE_INTERVAL == 0 and t > 0)
+    if time_to_tune:
       X, Sp1 = env.get_state_transitions_as_x_y_pair()
       y = Sp1[:, 0]
       estimator.fit(X, y)
@@ -112,5 +114,6 @@ def run(policy_name, T, decay_function=None):
 
 if __name__ == '__main__':
   run('ar2', 25)
+  run('ar1', 25)
 
 
