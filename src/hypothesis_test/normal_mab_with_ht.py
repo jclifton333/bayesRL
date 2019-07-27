@@ -249,10 +249,9 @@ if __name__ == "__main__":
   results1 = []
   seeds = [0, 1, 2, 3]
   for seed in seeds:
-    np.random.seed(seed)
-    results01_seed = run('eps-greedy-ht', T=50)
+    results01_seed = run(seed, 'eps-greedy-ht', T=50)
     results01 += results01_seed['regret list']
-    results1_seed = run('eps-greedy-ht', std=1.0, T=50)
+    results1_seed = run(seed, 'eps-greedy-ht', std=1.0, T=50)
     results1 += results1_seed['regret list']
   print('01 results: {}'.format((np.mean(results01), np.std(results01)/np.sqrt(len(results01)))))
   print('1 results: {}'.format((np.mean(results1), np.std(results1)/np.sqrt(len(results1)))))
