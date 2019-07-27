@@ -17,61 +17,10 @@ import yaml
 from functools import partial
 
 
-def compare_parametric_and_nonparametric_bootstrap_predictive_dbns(n_patients=15, T=5):
-  """
+def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
+  TUNE_INTERVAL = 5
+  decay_function = lambda t: 1 / (t + 1)
 
-  :param n_patient: number of patients to generate data for
-  :param T: number of timesteps to collect data on each patient
-  :return:
-  """
-  np.random.seed(3)
-  env = Glucose(nPatients=n_patients)
-  env.reset()
-
-  # Collect data with random policy
-  for t in range(T):
-    action = np.random.binomial(1, 0.3, n_patients)
-    env.step(action)
-
-  # Fit linear and np transition models
-  X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  linear_model = transition.LinearGlucoseModel()
-  np_model = transition.KdeGlucoseModel()
-  linear_model.fit(X, Sp1[:, 0])
-  np_model.fit(X, Sp1[:, 0])
-
-  # Visualize bpds for linear regression and np cond. density estimator
-  linear_model.plot_regression_line()
-  np_model.plot_regression_line()
-
-  return
-
-
-def npb_diagnostics():
-  np.random.seed(3)
-  n_patients = 1
-  T = 5
-  env = Glucose(nPatients=n_patients)
-  cumulative_reward = 0.0
-  env.reset()
-
-  # Collect data with random policy
-  for t in range(T):
-    # Get posterior
-    # X, Sp1 = env.get_state_transitions_as_x_y_pair()
-    # X = shared(X)
-    # y = Sp1[:, 0]
-    # model_, trace_ = dd.dependent_density_regression(X, y)
-    action = np.random.binomial(1, 0.3, n_patients)
-    env.step(action)
-
-  model = KdeGlucoseModel()
-  X, Sp1 = env.get_state_transitions_as_x_y_pair()
-  model.fit(X, Sp1[:, 0])
-  return
-
-
-def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_reps=10):
   # if policy_name in ['np', 'p', 'averaged']:
   if policy_name in ['kde', 'ar2', 'ar1']:
     tune = True
@@ -88,9 +37,10 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
 
   np.random.seed(label)
   n_patients = 15
+  previous_q = None  # Starts off as None, updated in policy function
 
   tuning_function = policies.expit_epsilon_decay
-  policy = policies.glucose_one_step_policy
+  policy = policies.glucose_fitted_q
   if T < 30:
     explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 300.3, 18.34, 387.0],
                 'zeta1': [30.0, 0.0, 1.0, 0.0, 51.6, 52.58, 72.4],
@@ -110,23 +60,22 @@ def episode(label, policy_name, T, decay_function=None, save=False, monte_carlo_
 
   for t in range(T):
     print(t)
-    if tune:
+    # Get estimated dyna proportion
+    time_to_tune = (tune and t % TUNE_INTERVAL == 0 and t > 0)
+    if time_to_tune:
       X, Sp1 = env.get_state_transitions_as_x_y_pair()
       y = Sp1[:, 0]
       estimator.fit(X, y)
-      kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator}
+      kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator, 'decay_function': decay_function}
 
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
 
-      eps = tuning_function(T, t, tuning_function_parameter)
-    if policy_name == 'eps_decay_fixed':
-      eps = decay_function(t)
-
-    action = policy(env, tuning_function, tuning_function_parameter, T, t, fixed_eps=eps)
+    eps = decay_function(t)
+    action, previous_q = policy(env, estimator, tuning_function, tuning_function_parameter, T, t, previous_q,
+                                epsilon=eps)
     _, r = env.step(action)
     cumulative_reward += r
-    epsilon_list.append(float(eps))
 
     # Save results
     # if save:
@@ -146,7 +95,7 @@ def run(policy_name, T, decay_function=None):
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name=policy_name, T=T, decay_function=decay_function)
+  episode_partial = partial(episode, policy_name=policy_name, T=T)
   results = pool.map(episode_partial, range(replicates))
 
   base_name = 'glucose-{}'.format(policy_name)
@@ -164,38 +113,7 @@ def run(policy_name, T, decay_function=None):
 
 
 if __name__ == '__main__':
-  # episode(0, 'ar2', 10)
+  run('ar2', 25)
+  run('ar1', 25)
 
-  # run('ar2', 25)
-  # run('ar1', 25)
-  np.random.seed(43908)
-  # run('kde', 50)
-
-  np.random.seed(98)
-  run('kde', 25) 
-  run('kde', 50)
-
-  np.random.seed(99)
-  run('kde', 25) 
-  run('kde', 50)
-
-  np.random.seed(100)
-  run('kde', 25) 
-  run('kde', 50)
-
-  # def decay_function(t):
-  #   return 1 / (t + 1)
-  # run('eps_decay_fixed', 25, decay_function=decay_function)
-  # run('eps_decay_fixed', 50, decay_function=decay_function)
-
-  # def decay_function(t):
-  #   return 0.5 / (t + 1)
-  # run('eps_decay_fixed', 25, decay_function=decay_function)
-  # run('eps_decay_fixed', 50, decay_function=decay_function)
-
-  # def decay_function(t):
-  #   return 0.8**t
-  # run('eps_decay_fixed', 25, decay_function=decay_function)
-  # run('eps_decay_fixed', 50, decay_function=decay_function)
-  # compare_parametric_and_nonparametric_bootstrap_predictive_dbns(T=10)
 

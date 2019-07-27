@@ -193,15 +193,19 @@ class Glucose(object):
     S_as_array = np.vstack(self.S)
     return X_as_array, SX_as_array, S_as_array
 
-  def get_state_transitions_as_x_y_pair(self):
+  def get_state_transitions_as_x_y_pair(self, new_state_only=True):
     """
     For estimating transition density.
     :return:
     """
     #    X = np.vstack(self.X[1:])
     #    Sp1 = np.vstack(self.S[1:])
-    X = np.vstack([self.X[j][1:] for j in range(self.nPatients)])
-    Sp1 = np.vstack([self.S[j][1:] for j in range(self.nPatients)])
+    if new_state_only:
+      X = np.vstack([self.X[j][1:] for j in range(self.nPatients)])
+      Sp1 = np.vstack([self.S[j][1:] for j in range(self.nPatients)])
+    else:
+      X = np.vstack([self.X[j][1:-1] for j in range(self.nPatients)])
+      Sp1 = np.vstack([self.X[j][2:] for j in range(self.nPatients)])
     return X, Sp1
 
   def step(self, actions):
