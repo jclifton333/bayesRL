@@ -405,10 +405,10 @@ def collect_glucose_rollouts(tuning_function_parameter, policy, time_horizon, tu
   cumulative_rewards = []
   previous_q = None
   for rep in range(n_rep):
-    if estimator.__class__.__name__ == 'LinearGlucoseModel':
-      estimator.bootstrap_and_fit_conditional_densities()
-    else:
+    if estimator.__class__.__name__ == 'KdeGlucoseModel':
       estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
+    else:
+      estimator.bootstrap_and_fit_conditional_densities()
     rewards = 0.0
     X_rep = [X_[2, :].reshape(1, -1) for X_ in env.X]
     R_rep = [R_[0] for R_ in env.R]
