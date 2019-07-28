@@ -17,7 +17,7 @@ import yaml
 from functools import partial
 
 
-def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
+def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
   TUNE_INTERVAL = 5
   decay_function = lambda t: 1 / (t + 1)
 
@@ -69,7 +69,8 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
       kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator, 'decay_function': decay_function}
 
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
-                                               tuning_function_parameter, T, env, None, kwargs, bounds, explore_)
+                                               tuning_function_parameter, T, env, None, kwargs, bounds, explore_,
+                                               test=test)
 
     eps = decay_function(t)
     action, previous_q = policy(env, estimator, tuning_function, tuning_function_parameter, T, t, previous_q,
@@ -90,12 +91,12 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10):
   return {'cumulative_reward': float(cumulative_reward), 'epsilon_list': epsilon_list}
 
 
-def run(policy_name, T, decay_function=None):
+def run(policy_name, T, decay_function=None, test=False):
   replicates = 24
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
-  episode_partial = partial(episode, policy_name=policy_name, T=T)
+  episode_partial = partial(episode, policy_name=policy_name, T=T, test=test)
   results = pool.map(episode_partial, range(replicates))
 
   base_name = 'glucose-{}'.format(policy_name)
@@ -106,13 +107,15 @@ def run(policy_name, T, decay_function=None):
   epsilons = [d['epsilon_list'] for d in results]
   results_to_save = {'mean': float(np.mean(rewards)),
                      'se': float(np.std(rewards) / np.sqrt(len(rewards))), 'epsilon_list': epsilons}
-  with open(filename, 'w') as outfile:
-    yaml.dump(results_to_save, outfile)
+  if not test:
+    with open(filename, 'w') as outfile:
+      yaml.dump(results_to_save, outfile)
 
   return
 
 
 if __name__ == '__main__':
+  # episode(0, 'ar2', 10, test=True)
   run('ar2', 25)
   run('ar1', 25)
 
