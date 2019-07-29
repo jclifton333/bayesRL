@@ -138,6 +138,8 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
 
 def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter, T, t, previous_q, epsilon=0.05,
                      gamma=0.9):
+  previous_q = None
+
   # Get features and response
   X, Xp1 = env.get_state_transitions_as_x_y_pair(new_state_only=False)
   R = np.array(env.R)
@@ -172,11 +174,12 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
     Xp1 = np.vstack((Xp1, Xp1_fake))
 
   # Get fitted Q target
-  if previous_q is not None:
-    Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1).reshape(1, -1))
-                             for a in range(env.NUM_ACTION)]) for sp1 in Xp1])
-  else:  # If no previous q is provided, fit the myopic q function
-    Qmax = np.zeros(Xp1.shape[0])
+  if previous_q is None:  # If no previous q is provided, fit the myopic q function
+    m0 = RandomForestRegressor
+    m0.fit(X, R)
+    previous_q = lambda x_: m0.predict(x.reshape(1, -1))
+  Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1).reshape(1, -1))
+                           for a in range(env.NUM_ACTION)]) for sp1 in Xp1])
 
   # FQI
   m = RandomForestRegressor()
