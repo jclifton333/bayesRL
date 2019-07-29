@@ -204,8 +204,8 @@ class Glucose(object):
       X = np.vstack([self.X[j][1:] for j in range(self.nPatients)])
       Sp1 = np.vstack([self.S[j][1:] for j in range(self.nPatients)])
     else:
-      X = np.vstack([self.X[j][1:-1] for j in range(self.nPatients)])
-      Sp1 = np.vstack([self.X[j][2:] for j in range(self.nPatients)])
+      X = np.vstack([self.X[j][1:-1, :] for j in range(self.nPatients)])
+      Sp1 = np.vstack([self.X[j][2:, :] for j in range(self.nPatients)])
     return X, Sp1
 
   def step(self, actions):

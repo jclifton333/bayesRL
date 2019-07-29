@@ -157,7 +157,7 @@ class LinearGlucoseModel(GlucoseTransitionModel):
                                      (self.n - self.p))
 
   def bootstrap_and_fit_conditional_densities(self):
-    weights = np.random.exponential(size=self.n)
+    weights = np.random.exponential(size=len(self.X_))
     self.regressor_ = Ridge()
     self.regressor_.fit(self.X_, self.y_, sample_weight=weights)
     self.glucose_sigma_hat = np.sqrt(np.sum((self.regressor_.predict(self.X_) - self.y_)**2) /

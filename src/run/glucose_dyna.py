@@ -46,9 +46,13 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
                 'zeta1': [30.0, 0.0, 1.0, 0.0, 51.6, 52.58, 72.4],
                 'zeta2': [0.1, 1.0, 0.01, 1.0, 0.22, 0.16, 0.14]}
   else:
-    explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 3.97, 33.74],
-                'zeta1': [30.0, 0.0, 1.0, 0.0, 84.88, 66.53],
-                'zeta2': [0.1, 1.0, 0.01, 1.0, 0.09, 0.23]}
+    # explore_ = {'zeta0': [1.0, 0.05, 1.0, 0.1, 3.97, 33.74],
+    #             'zeta1': [30.0, 0.0, 1.0, 0.0, 84.88, 66.53],
+    #             'zeta2': [0.1, 1.0, 0.01, 1.0, 0.09, 0.23]}
+    explore_ = {'zeta0': [1.0],
+                'zeta1': [0.0],
+                'zeta2': [0.0]}
+
   bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, T), 'zeta2': (0.01, 2)}
   tuning_function_parameter = np.array([0.05, 1.0, 0.01])
   env = Glucose(nPatients=n_patients)
@@ -62,10 +66,10 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
     print(t)
     # Get estimated dyna proportion
     time_to_tune = (tune and t % TUNE_INTERVAL == 0 and t > 0)
+    X, Sp1 = env.get_state_transitions_as_x_y_pair()
+    y = Sp1[:, 0]
+    estimator.fit(X, y)
     if time_to_tune:
-      X, Sp1 = env.get_state_transitions_as_x_y_pair()
-      y = Sp1[:, 0]
-      estimator.fit(X, y)
       kwargs = {'n_rep': monte_carlo_reps, 'estimator': estimator, 'decay_function': decay_function}
 
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
