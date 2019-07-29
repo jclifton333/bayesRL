@@ -173,7 +173,7 @@ class LinearGlucoseModel(GlucoseTransitionModel):
     return g
 
   def draw_from_ppd(self, x):
-    g = self.draw_from_conditional_density(x)
+    g = self.draw_from_conditional_density(x.reshape(1, -1))
     if np.random.random() < self.food_nonzero_prob:
       f = np.random.normal(self.food_mean, self.food_std)
     else:
