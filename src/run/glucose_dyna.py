@@ -115,8 +115,8 @@ def run(policy_name, T, decay_function=None, test=False):
 
 
 if __name__ == '__main__':
-  # episode(0, 'ar2', 10, test=True)
-  run('ar2', 25)
-  run('ar1', 25)
+  episode(0, 'ar2', 25, test=True)
+  # run('ar2', 25)
+  # run('ar1', 25)
 
 
