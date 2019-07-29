@@ -144,24 +144,24 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
   R = np.hstack([R[:, j] for j in range(0, R.shape[1]-1)])
 
   # Generate fake data if % fake data > 0
-  n = len(env.X)
+  n = X.shape[0]
   percent_fake = tuning_function(t, T, tuning_function_parameter)
-  # ToDo: ONLY FOR TESTING
-  n_fake = 1
-  # n_fake = int(np.floor(n * percent_fake))
+  n_fake = int(np.floor(n * percent_fake))
   if n_fake > 0:
     # Simulate fake data at randomly chosen previous obs
     # estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
     estimator.bootstrap_and_fit_conditional_densities()
     fake_data_indices = np.random.choice(n, n_fake, replace=True)
-    X_for_fake_data = np.array([env.X[int(ix)] for ix in fake_data_indices])
+    X_for_fake_data = X[fake_data_indices]
     R_for_fake_data = np.array([])
-    Xp1_fake = np.zeros((0, X_for_fake_data.shape[2]))
+    Xp1_fake = np.zeros((0, X_for_fake_data.shape[1]))
+
     for x in X_for_fake_data:
       s, r = estimator.draw_from_ppd(x)
       glucose_patient, food_patient, activity_patient = s[0], s[1], s[2]
-      xp1 = np.array([[1.0, glucose_patient, food_patient, activity_patient, x[-1, 1],
-                             x[-1, 2], x[1, 3], x[-1, -1], 0]])
+      # ToDo: not exactly right, should incorporate previous x!
+      xp1 = np.array([[1.0, glucose_patient, food_patient, activity_patient, x[1],
+                             x[2], x[3], x[-1], 0]])
       R_for_fake_data = np.append(R_for_fake_data, r)
       Xp1_fake = np.vstack((Xp1_fake, xp1))
 
@@ -180,7 +180,6 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
 
   # FQI
   m = RandomForestRegressor()
-  pdb.set_trace()
   m.fit(X, R + gamma * Qmax)
 
   action = np.zeros(0)
@@ -197,7 +196,8 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
                             m.predict(env.get_state_at_action(1, x_i).reshape(1, -1))])
     action = np.append(action, action_i)
 
-  return action, m.predict
+  q_fn = lambda x_: m.predict(x_.reshape(1, -1))
+  return action, q_fn
 
 
 def probability_truncated_normal_exceedance(l0, u0, l1, u1, mean0, sigma0, mean1, sigma1):
