@@ -149,6 +149,7 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
   n_fake = int(np.floor(n * percent_fake))
   if n_fake > 0:
     # Simulate fake data at randomly chosen previous obs
+    # estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
     estimator.bootstrap_and_fit_conditional_densities(reuse_hyperparameters=True)
     fake_data_indices = np.random.choice(n, n_fake, replace=True)
     X_for_fake_data = env.X[fake_data_indices]
