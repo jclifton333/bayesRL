@@ -18,7 +18,7 @@ def bayesopt(rollout_function, policy, tuning_function, zeta_prev, time_horizon,
 
   # If test, only try one point
   if test:
-    init_points = 0
+    init_points = 1
     n_iter = 1
   else:
     init_points = 10

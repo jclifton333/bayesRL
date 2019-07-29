@@ -161,11 +161,13 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
       xp1 = np.array([[1.0, glucose_patient, food_patient, activity_patient, x[-1, 1],
                              x[-1, 2], x[1, 3], x[-1, -1], 0]])
       R_for_fake_data = np.append(R_for_fake_data, r)
-      Xp1_fake = np.append(Xp1_fake, xp1)
+      pdb.set_trace()
+      Xp1_fake = np.vstack((Xp1_fake, xp1))
 
     # Add to real data that will be used for FQI
+    X_for_fake_data = np.vstack(X_for_fake_data)
     X = np.vstack((X, X_for_fake_data))
-    R = np.vstack((R, R_for_fake_data))
+    R = np.hstack((R, R_for_fake_data))
     Sp1 = np.vstack((Xp1, Xp1_fake))
 
   # Get fitted Q target
