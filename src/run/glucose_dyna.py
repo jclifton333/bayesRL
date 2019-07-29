@@ -19,7 +19,7 @@ from functools import partial
 
 def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
   TUNE_INTERVAL = 5
-  decay_function = lambda t: 1 / (t + 1)
+  decay_function = lambda t: 0.05
 
   # if policy_name in ['np', 'p', 'averaged']:
   if policy_name in ['kde', 'ar2', 'ar1']:
@@ -52,7 +52,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
                 'zeta2': [0.1, 1.0, 0.01, 1.0, 0.09, 0.23]}
 
   bounds = {'zeta0': (0.025, 2.0), 'zeta1': (0.0, T), 'zeta2': (0.01, 2)}
-  tuning_function_parameter = np.array([0.05, 1.0, 0.01])
+  tuning_function_parameter = np.array([0.0, 1.0, 0.01])
   env = Glucose(nPatients=n_patients)
   cumulative_reward = 0.0
   env.reset()
