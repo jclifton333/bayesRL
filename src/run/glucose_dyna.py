@@ -32,6 +32,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
       estimator = transition.LinearGlucoseModel(ar1=(policy_name=='ar1'))
   else:
     tune = False
+    estimator = transition.LinearGlucoseModel(ar1=(policy_name=='ar1'))
     if policy_name == 'fixed_eps':
       eps = 0.05
 
