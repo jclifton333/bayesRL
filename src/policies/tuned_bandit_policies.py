@@ -141,9 +141,12 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
   previous_q = None
 
   # Get features and response
-  X, Xp1 = env.get_state_transitions_as_x_y_pair(new_state_only=False)
-  R = np.array(env.R)
-  R = np.hstack([R[:, j] for j in range(0, R.shape[1]-1)])
+  # X, Xp1 = env.get_state_transitions_as_x_y_pair(new_state_only=False)
+  # R = np.array(env.R)
+  # R = np.hstack([R[:, j] for j in range(0, R.shape[1]-1)])
+  X, R = env.X, env.R
+  X = [X_i[2:, :] for X_i in X]
+  R = [R_i[:-1] for R_i in env.R]
 
   # Generate fake data if % fake data > 0
   n = X.shape[0]
@@ -178,12 +181,13 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
     m0 = RandomForestRegressor()
     m0.fit(X, R)
     previous_q = lambda x_: m0.predict(x_.reshape(1, -1))
-  Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1).reshape(1, -1))
-                           for a in range(env.NUM_ACTION)]) for sp1 in Xp1])
+  # Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1).reshape(1, -1))
+  #                          for a in range(env.NUM_ACTION)]) for sp1 in Xp1])
 
   # FQI
   m = RandomForestRegressor()
-  m.fit(X, R + gamma * Qmax)
+  # m.fit(X, R + gamma * Qmax)
+  m.fit(X, R)
 
   action = np.zeros(0)
   # for X_i in X:
