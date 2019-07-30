@@ -137,6 +137,21 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
   return draws_for_each_arm
 
 
+def is_h0_true(baseline_policy, proposed_policy, estimated_model, num_pulls, t, T,
+               true_mab_regret, pre_generate_mab_data,
+               true_model_params, inner_loop_mc_reps=100):
+
+  # Get true regrets to see if H0 is true
+  draws_from_estimated_model = pre_generate_mab_data(true_model_params, T-t, inner_loop_mc_reps)
+  baseline_regret_at_truth = true_mab_regret(baseline_policy, true_model_params, estimated_model, num_pulls, t, T,
+                                             draws_from_estimated_model)
+  proposed_regret_at_truth = true_mab_regret(proposed_policy, true_model_params, estimated_model, num_pulls, t, T,
+                                             draws_from_estimated_model)
+  true_diff = baseline_regret_at_truth - proposed_regret_at_truth
+
+  return true_diff < 0
+
+
 def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
                                      sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
                                      true_model_params, outer_loop_mc_reps=100, inner_loop_mc_reps=100):
