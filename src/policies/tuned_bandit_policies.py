@@ -178,13 +178,12 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
     m0 = RandomForestRegressor()
     m0.fit(X, R)
     previous_q = lambda x_: m0.predict(x_.reshape(1, -1))
-  # Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1).reshape(1, -1))
-  #                          for a in range(env.NUM_ACTION)]) for sp1 in Xp1])
+  Qmax = np.array([np.max([previous_q(env.get_state_at_action(a, sp1).reshape(1, -1))
+                           for a in range(env.NUM_ACTION)]) for sp1 in Xp1])
 
   # FQI
   m = RandomForestRegressor()
-  # m.fit(X, R + gamma * Qmax)
-  m.fit(X, R)
+  m.fit(X, R + gamma * Qmax)
 
   action = np.zeros(0)
   # for X_i in X:
