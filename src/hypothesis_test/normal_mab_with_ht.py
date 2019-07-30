@@ -84,6 +84,9 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   t2_errors = []
   alpha_at_rejection = None
   alphas_at_non_rejections = []
+  true_diffs = []
+  test_statistics = []
+
   for t in range(T):
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
@@ -106,9 +109,9 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       true_model_list.append(param_list_for_sampled_model)
 
     # Get true regret of baseline
-    h0_true = ht.is_h0_true(baseline_policy, proposed_policy, estimated_model, env.number_of_pulls, t, T,
-                            ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data, true_model_params,
-                            inner_loop_mc_reps=mc_reps_for_ht)
+    h0_true, true_diff = ht.is_h0_true(baseline_policy, proposed_policy, estimated_model, env.number_of_pulls, t, T,
+                                       ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data, true_model_params,
+                                       inner_loop_mc_reps=mc_reps_for_ht)
 
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
     if time_to_tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
@@ -142,11 +145,16 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                                bounds, explore_, positive_zeta=positive_zeta, test=test)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
+      # Test regret of baseline vs tuned schedule
+      ht_rejected, test_statistic = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list,
+                                                      estimated_model, env.number_of_pulls, t, T,
+                                                      ht.normal_mab_sampling_dbn,
+                                                      alpha_schedule[t], ht.true_normal_mab_regret,
+                                                      ht.pre_generate_normal_mab_data,
+                                                      mc_reps=mc_reps_for_ht)
+      test_statistics.append(float(test_statistic))
+      true_diffs.append(float(true_diff))
 
-      ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
-                                      env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
-                                      alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
-                                      mc_reps=mc_reps_for_ht)
       if ht_rejected and no_rejections_yet:
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
@@ -171,7 +179,8 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_error,
           'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
-          'alphas_at_non_rejections': alphas_at_non_rejections}
+          'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
+          'test_statistics': test_statistics}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -359,17 +368,14 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
     results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
     results += results_for_batch
 
-# return {'when_hypothesis_rejected': when_hypothesis_rejected,
-#           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_error,
-#           'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
-#           'alphas_at_non_rejections': alphas_at_non_rejections}
-
   t1_errors = np.array([d['type1'] for d in results])
   nominal_rejection_alphas = np.array([d['alpha_at_rejection'] for d in results])
   t2_errors = np.hstack([d['type2'] for d in results])
   nominal_accept_alphas = np.hstack([d['alphas_at_non_rejections'] for d in results])
+  test_statistics = np.hstack([d['test_statistics'] for d in results])
+  true_diffs = np.hstack([d['true_diffs'] for d in results])
 
-  return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas
+  return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas, test_statistics, true_diffs
 
 
 def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100, test=False):
@@ -427,5 +433,5 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 
 if __name__ == "__main__":
-  t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_ = \
+  t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
     operating_chars_run(0, 'eps-decay', std=1, T=50, test=False)

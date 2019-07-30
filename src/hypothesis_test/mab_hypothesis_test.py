@@ -148,8 +148,9 @@ def is_h0_true(baseline_policy, proposed_policy, estimated_model, num_pulls, t, 
   proposed_regret_at_truth = true_mab_regret(proposed_policy, true_model_params, estimated_model, num_pulls, t, T,
                                              draws_from_estimated_model)
   true_diff = baseline_regret_at_truth - proposed_regret_at_truth
+  h0_true = true_diff < 0
 
-  return true_diff < 0
+  return h0_true, true_diff
 
 
 def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls, t, T,
@@ -209,7 +210,7 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
-    return False
+    return False, test_statistic
   else:
     # Get cutoff by searching over possible models
     sampling_dbns = []
@@ -232,11 +233,11 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
     if sampling_dbns:  # If sampling dbns non-empty, compute cutoff
       cutoff = cutoff_for_ht(alpha, sampling_dbns)
       if test_statistic > cutoff:
-        return True
+        return True, test_statistic
       else:
-        return False
+        return False, test_statistic
     else:  # If sampling_dbns empty, use cutoff=0
-      return True
+      return True, test_statistic
 
 
 if __name__ == "__main__":
