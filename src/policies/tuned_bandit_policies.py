@@ -138,7 +138,6 @@ def mab_frequentist_ts_policy(estimated_means, standard_errors, number_of_pulls,
 
 def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter, T, t, previous_q, epsilon=0.05,
                      gamma=0.9):
-  previous_q = None
 
   # Get features and response
   X = np.vstack([X_i[2:-1, :] for X_i in env.X])
