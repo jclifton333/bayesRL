@@ -59,6 +59,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
   env.step(np.random.binomial(1, 0.3, n_patients))
   env.step(np.random.binomial(1, 0.3, n_patients))
   epsilon_list = []
+  proportions = []
 
   for t in range(T):
     print(t)
@@ -73,6 +74,7 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
       tuning_function_parameter = opt.bayesopt(rollout.glucose_npb_rollout, policy, tuning_function,
                                                tuning_function_parameter, T, env, None, kwargs, bounds, explore_,
                                                test=test)
+      proportions.append(float(tuning_function(T, t, tuning_function_parameter)))
 
     eps = decay_function(t)
     action, previous_q = policy(env, estimator, tuning_function, tuning_function_parameter, T, t, previous_q,
@@ -90,11 +92,11 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
     #   with open(filename, 'w') as outfile:
     #     yaml.dump(results, outfile)
 
-  return {'cumulative_reward': float(cumulative_reward), 'epsilon_list': epsilon_list}
+  return {'cumulative_reward': float(cumulative_reward), 'epsilon_list': epsilon_list, 'proportions': proportions}
 
 
 def run(policy_name, T, decay_function=None, test=False):
-  replicates = 24
+  replicates = 48
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
@@ -107,8 +109,10 @@ def run(policy_name, T, decay_function=None, test=False):
   filename = '{}_{}.yml'.format(prefix, suffix)
   rewards = [d['cumulative_reward'] for d in results]
   epsilons = [d['epsilon_list'] for d in results]
+  proportions = [d['proportions'] for d in results]
   results_to_save = {'mean': float(np.mean(rewards)),
-                     'se': float(np.std(rewards) / np.sqrt(len(rewards))), 'epsilon_list': epsilons}
+                     'se': float(np.std(rewards) / np.sqrt(len(rewards))), 'epsilon_list': epsilons,
+                     'proportions': proportions}
   if not test:
     with open(filename, 'w') as outfile:
       yaml.dump(results_to_save, outfile)
@@ -118,7 +122,7 @@ def run(policy_name, T, decay_function=None, test=False):
 
 if __name__ == '__main__':
   # episode(0, 'ar2', 25, test=True)
-  run('none', 25)
+  run('ar2', 25)
   # run('ar1', 25)
 
 
