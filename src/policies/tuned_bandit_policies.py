@@ -141,12 +141,8 @@ def glucose_fitted_q(env, estimator, tuning_function, tuning_function_parameter,
   previous_q = None
 
   # Get features and response
-  # X, Xp1 = env.get_state_transitions_as_x_y_pair(new_state_only=False)
-  # R = np.array(env.R)
-  # R = np.hstack([R[:, j] for j in range(0, R.shape[1]-1)])
-  X, R = env.X, env.R
-  X = np.vstack([X_i[2:-1, :] for X_i in X])
-  Xp1 = np.vstack([X_i[3:, :] for X_i in X])
+  X = np.vstack([X_i[2:-1, :] for X_i in env.X])
+  Xp1 = np.vstack([X_i[3:, :] for X_i in env.X])
   R = np.hstack([R_i[:-2] for R_i in env.R])
 
   # Generate fake data if % fake data > 0
