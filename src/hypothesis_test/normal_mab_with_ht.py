@@ -359,10 +359,17 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
     results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
     results += results_for_batch
 
-  t1_errors = [d['type1'] for d in results]
-  nominal_alphas = [d['alpha_at_rejection'] for d in results]
+# return {'when_hypothesis_rejected': when_hypothesis_rejected,
+#           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_error,
+#           'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
+#           'alphas_at_non_rejections': alphas_at_non_rejections}
 
-  return t1_errors, nominal_alphas
+  t1_errors = np.array([d['type1'] for d in results])
+  nominal_rejection_alphas = np.array([d['alpha_at_rejection'] for d in results])
+  t2_errors = np.hstack([d['type2'] for d in results])
+  nominal_accept_alphas = np.hstack([d['alphas_at_non_rejections'] for d in results])
+
+  return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas
 
 
 def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100, test=False):
@@ -420,4 +427,5 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 
 if __name__ == "__main__":
-  t1_errors_, nominal_alphas_ = operating_chars_run(0, 'eps-decay', std=1, T=50, test=False)
+  t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_ = \
+    operating_chars_run(0, 'eps-decay', std=1, T=50, test=False)
