@@ -221,8 +221,8 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
 
 def pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history):
   # Collect means and variances
-  locs = np.zeros((0, actions))
-  scales = np.zeros((0, actions))
+  locs = np.zeros((0, num_actions))
+  scales = np.zeros((0, num_actions))
   for mc_rep in range(mc_reps):
     bootstrap_ixs = np.random.choice(t, t, replace=True)
     true_mean, true_std = ipw(num_actions, actions[bootstrap_ixs], action_probs[bootstrap_ixs],
