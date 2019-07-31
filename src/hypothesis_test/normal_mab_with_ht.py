@@ -18,27 +18,6 @@ import mab_hypothesis_test as ht
 import numpy as np
 
 
-def ipw(num_actions, actions, action_probs, rewards):
-  """
-  Helper function to compute IPW estimates of the MAB.
-
-  :param actions:
-  :param action_probs:
-  :param rewards:
-  :return:
-  """
-  mean_estimates = []
-  std_estimates = []
-  for a in range(num_actions):
-    a_ixs = np.where(actions == a)
-    inverse_probs_for_a = 1 / action_probs[a_ixs]
-    rewards_for_a = rewards[a_ixs]
-    mean_estimate = np.dot(rewards_for_a, inverse_probs_for_a) / np.sum(inverse_probs_for_a)
-    mean_estimates.append(mean_estimate)
-    std_estimates.append(np.sqrt(np.mean((rewards_for_a - mean_estimate)**2)))
-  return mean_estimates, std_estimates
-
-
 def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1,
                             list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, test=False):
   """
@@ -67,8 +46,6 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   # np.random.seed(label)
 
   # Settings
-  # posterior_sample = False
-  bootstrap_posterior = False
   positive_zeta = False
   baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
   tuning_function = tuned_bandit.expit_epsilon_decay
@@ -118,7 +95,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   test_statistics = []
 
   for t in range(T):
-    estimated_means_list, estimated_stds_list = ipw(env.number_of_actions, actions, action_probs, rewards)
+    estimated_means_list, estimated_stds_list = ht.ipw(env.number_of_actions, actions, action_probs, rewards)
     estimated_model = [[mu, s] for mu, s in zip(estimated_means_list, estimated_stds_list)]
 
     def baseline_policy(means, standard_errors, num_pulls, tprime):
@@ -145,10 +122,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
         reward_means = []
         reward_vars = []
         for rep in range(monte_carlo_reps):
-          if bootstrap_posterior:
-            draws = env.sample_from_bootstrap()
-          else:
-            draws = env.sample_from_posterior()
+          draws = env.sample_from_posterior()
           means_for_each_action = []
           vars_for_each_action = []
           for a in range(env.number_of_actions):
