@@ -150,8 +150,8 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                                       estimated_model, env.number_of_pulls, t, T,
                                                       ht.normal_mab_sampling_dbn,
                                                       alpha_schedule[t], ht.true_normal_mab_regret,
-                                                      ht.pre_generate_normal_mab_data,
-                                                      mc_reps=mc_reps_for_ht)
+                                                      ht.pre_generate_normal_mab_data, env.number_of_actions,
+                                                      actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
       test_statistics.append(float(test_statistic))
       true_diffs.append(float(true_diff))
 

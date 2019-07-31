@@ -33,7 +33,7 @@ def ipw(num_actions, actions, action_probs, rewards):
   return mean_estimates, std_estimates
 
 
-def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opt, actions, action_probs,
+def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opts, true_means, actions, action_probs,
                                 reward_history):
   """
   Estimate normal_mab_regret with sample-split IPW estimates.
@@ -58,6 +58,7 @@ def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opt, action
                                                         reward_history[estimated_ixs])
 
     # Initialize data for rollout
+    mu_opt = mu_opts[rollout]
     regret = 0.0
     num_pulls_rep = [np.sum(actions_taken == a) for a in range(num_actions)]
     # For stable online estimate of variance
@@ -88,7 +89,7 @@ def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opt, action
       sum_squared_diffs_rollout[a] = new_sum_squared_diffs
       num_pulls_rep[a] = n
 
-      regret += (mu_opt - true_model[a][0])
+      regret += (mu_opt - true_means[rollout, a])
     regrets.append(regret)
   return np.mean(regrets)
 
@@ -231,10 +232,12 @@ def pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, a
 
   # Draw from corresponding distributions
   draws_for_each_arm = []
-  for arm in len(num_actions):
+  for arm in range(num_actions):
     draws = np.random.normal(loc=locs[:, arm], scale=scales[:, arm], size=(T, mc_reps))
     draws_for_each_arm.append(draws)
-  return draws_for_each_arm
+
+  mu_opts = locs.max(axis=1)  # For computing regret later
+  return draws_for_each_arm, mu_opts, locs
 
 
 def is_h0_true(baseline_policy, proposed_policy, estimated_model, num_pulls, t, T,
@@ -284,7 +287,8 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
 
 
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
-                   t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data, mc_reps=1000):
+                   t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
+                   num_actions, actions, action_probs, reward_history, mc_reps=1000):
   """
 
   :param baseline_policy:
@@ -298,14 +302,15 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
   :param mc_reps:
   :return:
   """
-  draws_from_estimated_model = \
+  draws_from_estimated_model, mu_opts, true_means = \
     pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
-  estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model,
-                                                          num_actions, actions, action_probs, reward_history)
-  estimated_proposed_regret = true_mab_regret(proposed_policy, t, T, draws_from_estimated_model, actions,
-                                              action_probs, reward_history)
+  estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model, mu_opts,
+                                                          true_means, actions, action_probs,
+                                                          reward_history)
+  estimated_proposed_regret = estimated_normal_mab_regret(proposed_policy, t, T, draws_from_estimated_model, mu_opts,
+                                                          true_means, actions, action_probs, reward_history)
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
