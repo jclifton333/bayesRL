@@ -171,6 +171,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls,
                                    baseline_tuning_function, None, T, t, env)
 
+    env.step(action)
     if ht_rejected:
       alpha_at_rejection = float(alpha_schedule[t])
       t1_error = int(h0_true)
