@@ -18,7 +18,7 @@ from functools import partial
 
 
 def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
-  TUNE_INTERVAL = 5
+  TUNE_INTERVAL = 2
   decay_function = lambda t: 0.05
 
   # if policy_name in ['np', 'p', 'averaged']:
@@ -95,13 +95,13 @@ def episode(label, policy_name, T, save=False, monte_carlo_reps=10, test=False):
   return {'cumulative_reward': float(cumulative_reward), 'epsilon_list': epsilon_list, 'proportions': proportions}
 
 
-def run(policy_name, T, decay_function=None, test=False):
+def run(seed, policy_name, T, decay_function=None, test=False):
   replicates = 48
   num_cpus = replicates
   pool = mp.Pool(processes=num_cpus)
 
   episode_partial = partial(episode, policy_name=policy_name, T=T, test=test)
-  results = pool.map(episode_partial, range(replicates))
+  results = pool.map(episode_partial, range(seed*replicates, (seed+1)*replicates))
 
   base_name = 'glucose-{}'.format(policy_name)
   prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -122,7 +122,8 @@ def run(policy_name, T, decay_function=None, test=False):
 
 if __name__ == '__main__':
   # episode(0, 'ar2', 25, test=True)
-  run('ar2', 25)
+  run(2, 'ar2', 10)
+  run(2, 'baseline', 10)
   # run('ar1', 25)
 
 
