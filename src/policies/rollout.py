@@ -249,8 +249,8 @@ def normal_mab_rollout(tuning_function_parameter, policy, time_horizon, current_
     episode_score = 0
     for time in range(time_horizon):
       for j in range(nPatients):
-        action = policy(estimated_means, standard_errors, tuning_function, tuning_function_parameter,
-                        time_horizon, time)
+        action, _ = policy(estimated_means, standard_errors, tuning_function, tuning_function_parameter,
+                           time_horizon, time)
 
         # Get reward from pulled arm
         expected_reward = working_means[action]
@@ -307,7 +307,7 @@ def mab_rollout_with_fixed_simulations(tuning_function_parameter, policy, time_h
 
     for t in range(time_horizon):
       # Draw context and draw arm based on policy
-      action = policy(estimated_means, standard_errors, None, tuning_function,
+      action, _ = policy(estimated_means, standard_errors, None, tuning_function,
                       tuning_function_parameter, time_horizon, t, env)
 
       # Get reward and regret

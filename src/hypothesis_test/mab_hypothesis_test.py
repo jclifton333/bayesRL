@@ -40,7 +40,7 @@ def true_normal_mab_regret(policy, true_model, estimated_model, num_pulls, t, T,
 
     for tprime in range(t, T):
       # Take action
-      a = policy([param[0] for param in estimated_model_rollout], None, num_pulls_rep, tprime)
+      a, _ = policy([param[0] for param in estimated_model_rollout], None, num_pulls_rep, tprime)
       reward = pre_generated_data[a][tprime - t, rollout]
 
       # Update model estimate

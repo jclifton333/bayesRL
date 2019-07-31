@@ -41,7 +41,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
     NUM_CANDIDATE_HYPOTHESES = 5
     mc_reps_for_ht = 5
   else:
-    NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
+    NUM_CANDIDATE_HYPOTHESES = 100  # Number of candidate null models to consider when conducting ht
     mc_reps_for_ht = 500
   # np.random.seed(label)
 
@@ -86,6 +86,11 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   alphas_at_non_rejections = []
   true_diffs = []
   test_statistics = []
+
+  # For IPW model estimates
+  action_probs = []
+  rewards = []
+  actions = []
 
   for t in range(T):
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
@@ -160,14 +165,12 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
         no_rejections_yet = False
 
     if ht_rejected and tune:
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                      tuning_function_parameter, T, t, env)
+      action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+                                    tuning_function_parameter, T, t, env)
     else:
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
-                      None, T, t, env)
+      action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls,
+                                   baseline_tuning_function, None, T, t, env)
 
-    # t1_errors.append(operating_char_dict['type1'])
-    # powers.append(operating_char_dict['type2'])
     if ht_rejected:
       alpha_at_rejection = float(alpha_schedule[t])
       t1_error = int(h0_true)
@@ -434,4 +437,4 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 if __name__ == "__main__":
   t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps-decay', std=1, T=50, test=False)
+    operating_chars_run(0, 'eps-decay', std=1, T=50, test=True)

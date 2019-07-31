@@ -73,11 +73,17 @@ def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls,
                               tuning_function_parameter, T, t, env):
   epsilon = tuning_function(T, t, tuning_function_parameter)
   greedy_action = np.argmax(estimated_means)
+  k = len(estimated_means)
   if np.random.random() < epsilon:
-    action = np.random.choice(len(estimated_means))
+    action = np.random.choice(k)
   else:
     action = greedy_action
-  return action
+  greedy_action_prob = (1 - epsilon) + (1 / k) * epsilon
+  if action == greedy_action:
+    action_prob = greedy_action_prob
+  else:
+    action_prob = 1 - greedy_action_prob
+  return action, action_prob
 
 
 def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
