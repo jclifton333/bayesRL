@@ -18,6 +18,27 @@ import mab_hypothesis_test as ht
 import numpy as np
 
 
+def ipw(num_actions, actions, action_probs, rewards):
+  """
+  Helper function to compute IPW estimates of the MAB.
+
+  :param actions:
+  :param action_probs:
+  :param rewards:
+  :return:
+  """
+  mean_estimates = []
+  std_estimates = []
+  for a in range(num_actions):
+    a_ixs = np.where(actions == a)
+    inverse_probs_for_a = 1 / action_probs[a_ixs]
+    rewards_for_a = rewards[a_ixs]
+    mean_estimate = np.dot(rewards_for_a, inverse_probs_for_a) / np.sum(inverse_probs_for_a)
+    mean_estimates.append(mean_estimate)
+    std_estimates.append(np.sqrt(np.mean((rewards_for_a - mean_estimate)**2)))
+  return mean_estimates, std_estimates
+
+
 def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1,
                             list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, test=False):
   """
@@ -74,9 +95,18 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   mu_opt = np.max(env.list_of_reward_mus)
   env.reset()
   tuning_parameter_sequence = []
+
+  # For IPW model estimates
+  action_probs = np.array([])
+  rewards = np.array([])
+  actions = np.array([])
+
   # Initial pulls
   for a in range(env.number_of_actions):
-    env.step(a)
+    r = env.step(a)['Utility']
+    action_probs = np.append(action_probs, 1)
+    rewards = np.append(rewards, r)
+    actions = np.append(actions, a)
 
   estimated_means_list = []
   estimated_vars_list = []
@@ -87,18 +117,9 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   true_diffs = []
   test_statistics = []
 
-  # For IPW model estimates
-  action_probs = []
-  rewards = []
-  actions = []
-
   for t in range(T):
-    estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
-    estimated_vars_list.append([float(s) for s in env.estimated_vars])
-
-    # Stuff needed for hypothesis test / operating chars
-    estimated_model = [[xbar, np.sqrt(sigma_sq_hat)] for xbar, sigma_sq_hat
-                       in zip(env.estimated_means, env.estimated_vars)]
+    estimated_means_list, estimated_stds_list = ipw(env.number_of_actions, actions, action_probs, rewards)
+    estimated_model = [[mu, s] for mu, s in zip(estimated_means_list, estimated_stds_list)]
 
     def baseline_policy(means, standard_errors, num_pulls, tprime):
       return policy(means, standard_errors, num_pulls, baseline_tuning_function, None, T, tprime, None)
@@ -171,7 +192,12 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls,
                                    baseline_tuning_function, None, T, t, env)
 
-    env.step(action)
+    # Take step and update obs for computing IPW
+    r = env.step(action)['Utility']
+    action_probs = np.append(action_probs, 1)
+    rewards = np.append(rewards, r)
+    actions = np.append(actions, action)
+
     if ht_rejected:
       alpha_at_rejection = float(alpha_schedule[t])
       t1_error = int(h0_true)
@@ -365,12 +391,12 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
   num_batches = int(replicates / num_cpus)
 
   results = []
-  # for i in range(10):
-  #   episode_partial(i)
-
-  for batch in range(label*num_batches, (label+1)*num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
+  if test:
+    results.append(episode_partial(0))
+  else:
+    for batch in range(label*num_batches, (label+1)*num_batches):
+      results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+      results += results_for_batch
 
   t1_errors = np.array([d['type1'] for d in results])
   nominal_rejection_alphas = np.array([d['alpha_at_rejection'] for d in results])
@@ -398,19 +424,18 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
     replicates = 48
     num_cpus = 48
 
-  pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, std=std, T=T, monte_carlo_reps=monte_carlo_reps,
                             list_of_reward_mus=list_of_reward_mus, test=test)
-  num_batches = int(replicates / num_cpus)
 
-  results = []
-  # for i in range(10):
-  #   episode_partial(i)
-
-  for batch in range(label*num_batches, (label+1)*num_batches):
-    results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
-    results += results_for_batch
+  if test:
+    results = episode_partial(0)
+  else:
+    pool = mp.Pool(processes=num_cpus)
+    num_batches = int(replicates / num_cpus)
+    for batch in range(label*num_batches, (label+1)*num_batches):
+      results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+      results += results_for_batch
 
   # results = pool.map(episode_partial, range(replicates))
   cumulative_regret = [np.float(d['cumulative_regret']) for d in results]
@@ -438,4 +463,4 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 if __name__ == "__main__":
   t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps-decay', std=1, T=50, test=True)
+    operating_chars_run(0, 'eps-decay', std=1, T=50, test=False)
