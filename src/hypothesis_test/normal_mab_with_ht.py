@@ -382,7 +382,7 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
   if test:
     replicates = num_cpus = 1
-    T = 15
+    T = 30
     monte_carlo_reps = 5
   else:
     replicates = 48

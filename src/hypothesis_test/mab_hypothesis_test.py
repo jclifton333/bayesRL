@@ -49,8 +49,6 @@ def ipw(num_actions, actions, action_probs, rewards):
       pooled_sse += np.sum((rewards_for_a - mean_estimate)**2)
   pooled_std = np.sqrt(pooled_sse / (len(rewards) - 1 ))
   std_estimates = [pooled_std]*num_actions
-  if np.any(np.isnan(std_estimates)) or np.any(np.isnan(mean_estimates)):
-    pdb.set_trace()
   return mean_estimates, std_estimates
 
 
