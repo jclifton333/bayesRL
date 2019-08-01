@@ -12,6 +12,22 @@ import copy
 from numba import njit, jit
 
 
+def stratified_bootstrap_indices(num_actions, actions):
+  """
+  Bootstrap within each arm (action). Return corresponding indices
+
+  :param num_actions:
+  :param actions:
+  :return:
+  """
+  bootstrap_ixs = []
+  for a in range(num_actions):
+    action_ixs = np.where(actions == a)[0]
+    num_action_a = len(action_ixs)
+    bootstrap_ixs = bootstrap_ixs + np.random.choice(num_action_a, num_action_a, replace=True).astype(int).tolist()
+  return bootstrap_ixs
+
+
 def ipw(num_actions, actions, action_probs, rewards):
   """
   Helper function to compute IPW estimates of the MAB.
@@ -33,6 +49,8 @@ def ipw(num_actions, actions, action_probs, rewards):
       pooled_sse += np.sum((rewards_for_a - mean_estimate)**2)
   pooled_std = np.sqrt(pooled_sse / (len(rewards) - 1 ))
   std_estimates = [pooled_std]*num_actions
+  if np.any(np.isnan(std_estimates)) or np.any(np.isnan(mean_estimates)):
+    pdb.set_trace()
   return mean_estimates, std_estimates
 
 
@@ -55,7 +73,7 @@ def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opts, true_
 
   for rollout in range(mc_reps):
     # Bootstrap to get estimated model
-    estimated_ixs = np.random.choice(t, t, replace=True)
+    estimated_ixs = stratified_bootstrap_indices(num_actions, actions)
     actions_taken = actions[estimated_ixs]
     estimated_mean_rollout, estimated_std_rollout = ipw(num_actions, actions_taken, action_probs[estimated_ixs],
                                                         reward_history[estimated_ixs])
@@ -227,7 +245,7 @@ def pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, a
   locs = np.zeros((0, num_actions))
   scales = np.zeros((0, num_actions))
   for mc_rep in range(mc_reps):
-    bootstrap_ixs = np.random.choice(t, t, replace=True)
+    bootstrap_ixs = stratified_bootstrap_indices(num_actions, actions)
     true_mean, true_std = ipw(num_actions, actions[bootstrap_ixs], action_probs[bootstrap_ixs],
                               reward_history[bootstrap_ixs])
     locs = np.vstack((locs, true_mean))
