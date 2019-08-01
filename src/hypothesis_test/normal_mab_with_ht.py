@@ -303,7 +303,6 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
                                                bounds, explore_, positive_zeta=positive_zeta, test=test)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
-
       ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
@@ -343,7 +342,7 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
 
   if test:
     replicates = num_cpus = 1
-    T = 5
+    T = 15
     monte_carlo_reps = 5
   else:
     replicates = 48
@@ -383,7 +382,7 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
   if test:
     replicates = num_cpus = 1
-    T = 5
+    T = 15
     monte_carlo_reps = 5
   else:
     replicates = 48

@@ -22,14 +22,17 @@ def ipw(num_actions, actions, action_probs, rewards):
   :return:
   """
   mean_estimates = []
-  std_estimates = []
+  pooled_sse = 0.0  # Assuming all arms have same variance
   for a in range(num_actions):
     a_ixs = np.where(actions == a)
     inverse_probs_for_a = 1 / action_probs[a_ixs]
     rewards_for_a = rewards[a_ixs]
     mean_estimate = np.dot(rewards_for_a, inverse_probs_for_a) / np.sum(inverse_probs_for_a)
     mean_estimates.append(mean_estimate)
-    std_estimates.append(np.sqrt(np.mean((rewards_for_a - mean_estimate)**2)))
+    if len(rewards_for_a) > 0:
+      pooled_sse += np.sum((rewards_for_a - mean_estimate)**2)
+  pooled_std = np.sqrt(pooled_sse / (len(rewards) - 1 ))
+  std_estimates = [pooled_std]*num_actions
   return mean_estimates, std_estimates
 
 
