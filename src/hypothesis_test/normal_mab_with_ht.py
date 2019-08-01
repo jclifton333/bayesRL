@@ -271,15 +271,6 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
 
-    # Get operating characteristics
-    # if not ht_rejected:
-    #   operating_char_dict = ht.mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
-    #                                                             estimated_model, env.number_of_pulls,
-    #                                                             t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
-    #                                                             ht.true_normal_mab_regret,
-    #                                                             ht.pre_generate_normal_mab_data, true_model_params,
-    #                                                             inner_loop_mc_reps=100, outer_loop_mc_reps=200)
-
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
     if time_to_tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
       if posterior_sample:
@@ -437,4 +428,4 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 if __name__ == "__main__":
   t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps-decay', std=1, T=50, test=False)
+    operating_chars_run(0, 'eps-decay', std=1, T=50, test=True)
