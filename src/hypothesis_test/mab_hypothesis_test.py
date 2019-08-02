@@ -24,7 +24,7 @@ def stratified_bootstrap_indices(num_actions, actions):
   for a in range(num_actions):
     action_ixs = np.where(actions == a)[0]
     num_action_a = len(action_ixs)
-    bootstrap_ixs = bootstrap_ixs + np.random.choice(num_action_a, num_action_a, replace=True).astype(int).tolist()
+    bootstrap_ixs = bootstrap_ixs + np.random.choice(action_ixs, num_action_a, replace=True).astype(int).tolist()
   return bootstrap_ixs
 
 
