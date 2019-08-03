@@ -14,18 +14,33 @@ from numba import njit, jit
 
 def stratified_bootstrap_indices(num_actions, actions):
   """
-  Bootstrap within each arm (action). Return corresponding indices
+  Sample split within each arm, bootstrap oversample to original sample size. Return corresponding indices
 
   :param num_actions:
   :param actions:
   :return:
   """
-  bootstrap_ixs = []
+  bootstrap_ixs_1 = []
+  bootstrap_ixs_2 = []
   for a in range(num_actions):
     action_ixs = np.where(actions == a)[0]
     num_action_a = len(action_ixs)
-    bootstrap_ixs = bootstrap_ixs + np.random.choice(action_ixs, num_action_a, replace=True).astype(int).tolist()
-  return bootstrap_ixs
+    if num_action_a > 1:
+      num_ixs_1 = int(num_action_a / 2)
+      # Sample split
+      ixs_1 = np.random.choice(action_ixs, num_ixs_1)
+      ixs_2 = [ix for ix in action_ixs if ix not in ixs_1]
+
+      # Oversample
+      ixs_1 = np.random.choice(ixs_1, num_action_a, replace=True).astype(int).tolist()
+      ixs_2 = np.random.choice(ixs_2, num_action_a, replace=True).astype(int).tolist()
+
+      bootstrap_ixs_1 += ixs_1
+      bootstrap_ixs_2 += ixs_2
+    else:
+      bootstrap_ixs_1 += action_ixs
+      bootstrap_ixs_2 += action_ixs
+  return bootstrap_ixs_1, bootstrap_ixs_2
 
 
 def ipw(num_actions, actions, action_probs, rewards):
@@ -52,8 +67,8 @@ def ipw(num_actions, actions, action_probs, rewards):
   return mean_estimates, std_estimates
 
 
-def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opts, true_means, actions, action_probs,
-                                reward_history):
+def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opts, true_means, estimated_means, actions,
+                                action_probs, reward_history):
   """
   Estimate normal_mab_regret with sample-split IPW estimates.
 
@@ -70,19 +85,13 @@ def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opts, true_
   mc_reps = pre_generated_data[0].shape[1]
 
   for rollout in range(mc_reps):
-    # Bootstrap to get estimated model
-    estimated_ixs = stratified_bootstrap_indices(num_actions, actions)
-    actions_taken = actions[estimated_ixs]
-    estimated_mean_rollout, estimated_std_rollout = ipw(num_actions, actions_taken, action_probs[estimated_ixs],
-                                                        reward_history[estimated_ixs])
+    estimated_mean_rollout = estimated_means[rollout]
 
     # Initialize data for rollout
     mu_opt = mu_opts[rollout]
     regret = 0.0
-    num_pulls_rep = [np.sum(actions_taken == a) for a in range(num_actions)]
+    num_pulls_rep = [np.sum(actions == a) for a in range(num_actions)]
     # For stable online estimate of variance
-    sum_squared_diffs_rollout = [s**2 * np.max((pulls - 1, 1)) for s, pulls in zip(estimated_std_rollout,
-                                                                                   num_pulls_rep)]
 
     for tprime in range(t, T):
       # Take action
@@ -97,15 +106,8 @@ def estimated_normal_mab_regret(policy, t, T, pre_generated_data, mu_opts, true_
       error = reward - previous_mean
       new_mean = previous_mean + (error / n)
 
-      # Incremental update to ssd, var
-      previous_sum_squared_diffs = sum_squared_diffs_rollout[a]
-      new_sum_squared_diffs = previous_sum_squared_diffs + error * (reward - new_mean)
-      new_var = new_sum_squared_diffs / np.max((1.0, n - 1))
-
       # Update parameter lists
       estimated_mean_rollout[a] = new_mean
-      estimated_std_rollout[a] = np.sqrt(new_var)
-      sum_squared_diffs_rollout[a] = new_sum_squared_diffs
       num_pulls_rep[a] = n
 
       regret += (mu_opt - true_means[rollout, a])
@@ -240,23 +242,30 @@ def pre_generate_normal_mab_data(true_model, T, mc_reps):
 
 def pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history):
   # Collect means and variances
-  locs = np.zeros((0, num_actions))
-  scales = np.zeros((0, num_actions))
+  true_locs = np.zeros((0, num_actions))
+  true_scales = np.zeros((0, num_actions))
+  estimated_locs = np.zeros((0, num_actions))
   for mc_rep in range(mc_reps):
-    bootstrap_ixs = stratified_bootstrap_indices(num_actions, actions)
-    true_mean, true_std = ipw(num_actions, actions[bootstrap_ixs], action_probs[bootstrap_ixs],
-                              reward_history[bootstrap_ixs])
-    locs = np.vstack((locs, true_mean))
-    scales = np.vstack((scales, true_std))
+    estimated_ixs, true_ixs = stratified_bootstrap_indices(num_actions, actions)
+    # Get mean that will be used for model
+    true_mean, true_std = ipw(num_actions, actions[true_ixs], action_probs[true_ixs],
+                              reward_history[true_ixs])
+    true_locs = np.vstack((true_locs, true_mean))
+    true_scales = np.vstack((true_scales, true_std))
+
+    # Get mean that will be used for policy estimate
+    estimated_mean, _ = ipw(num_actions, actions[estimated_ixs], action_probs[estimated_ixs],
+                            reward_history[estimated_ixs])
+    estimated_locs = np.vstack((estimated_locs, estimated_mean))
 
   # Draw from corresponding distributions
   draws_for_each_arm = []
   for arm in range(num_actions):
-    draws = np.random.normal(loc=locs[:, arm], scale=scales[:, arm], size=(T, mc_reps))
+    draws = np.random.normal(loc=true_locs[:, arm], scale=true_scales[:, arm], size=(T, mc_reps))
     draws_for_each_arm.append(draws)
 
-  mu_opts = locs.max(axis=1)  # For computing regret later
-  return draws_for_each_arm, mu_opts, locs
+  mu_opts = true_locs.max(axis=1)  # For computing regret later
+  return draws_for_each_arm, mu_opts, true_locs, estimated_locs
 
 
 def is_h0_true(baseline_policy, proposed_policy, estimated_model, num_pulls, t, T,
@@ -321,15 +330,16 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
   :param mc_reps:
   :return:
   """
-  draws_from_estimated_model, mu_opts, true_means = \
+  draws_from_estimated_model, mu_opts, true_means, estimated_means = \
     pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model, mu_opts,
-                                                          true_means, actions, action_probs,
+                                                          true_means, estimated_means, actions, action_probs,
                                                           reward_history)
   estimated_proposed_regret = estimated_normal_mab_regret(proposed_policy, t, T, draws_from_estimated_model, mu_opts,
-                                                          true_means, actions, action_probs, reward_history)
+                                                          true_means, estimated_means, actions, action_probs,
+                                                          reward_history)
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
