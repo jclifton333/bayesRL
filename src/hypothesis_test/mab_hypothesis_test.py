@@ -38,8 +38,8 @@ def stratified_bootstrap_indices(num_actions, actions):
       bootstrap_ixs_1 += ixs_1
       bootstrap_ixs_2 += ixs_2
     else:
-      bootstrap_ixs_1 += action_ixs
-      bootstrap_ixs_2 += action_ixs
+      bootstrap_ixs_1 += action_ixs.tolist()
+      bootstrap_ixs_2 += action_ixs.tolist()
   return bootstrap_ixs_1, bootstrap_ixs_2
 
 

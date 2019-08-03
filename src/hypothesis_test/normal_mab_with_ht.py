@@ -427,4 +427,4 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 if __name__ == "__main__":
   t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps-decay', std=1, T=50, test=False)
+    operating_chars_run(0, 'eps-decay', std=1, T=50, test=True)
