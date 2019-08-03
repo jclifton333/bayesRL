@@ -61,7 +61,7 @@ def ipw(num_actions, actions, action_probs, rewards):
     mean_estimate = np.dot(rewards_for_a, inverse_probs_for_a) / np.sum(inverse_probs_for_a)
     mean_estimates.append(mean_estimate)
     if len(rewards_for_a) > 0:
-      pooled_sse += np.sum((rewards_for_a - mean_estimate)**2)
+      pooled_sse += np.dot((rewards_for_a - mean_estimate)**2, inverse_probs_for_a) / np.sum(inverse_probs_for_a)
   pooled_std = np.sqrt(pooled_sse / (len(rewards) - 1 ))
   std_estimates = [pooled_std]*num_actions
   return mean_estimates, std_estimates
@@ -332,6 +332,8 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
   """
   draws_from_estimated_model, mu_opts, true_means, estimated_means = \
     pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
+  draws_from_estimated_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
+  # estimated_means = [p[0] for p in estimated_model]
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model, mu_opts,
@@ -349,6 +351,7 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
     sampling_dbns = []
     for true_model in true_model_list:
       # Pre-generate data from true_model
+      # ToDo: This needs to be changed bc of ipw`!
       draws_from_true_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
 
       # Check if true_model is in H0
