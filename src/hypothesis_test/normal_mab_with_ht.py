@@ -19,7 +19,8 @@ import numpy as np
 
 
 def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1,
-                            list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, test=False):
+                            list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, bias_only=False,
+                            test=False):
   """
   Run an episode only until H0 is rejected; collect operating chars.
 
@@ -31,6 +32,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   :param list_of_reward_mus:
   :param T:
   :param monte_carlo_reps:
+  :param bias_only: if True, only check bias of regret diff estimate at end of trial.
   :param test:
   :return:
   """
@@ -39,10 +41,10 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
 
   if test:
     NUM_CANDIDATE_HYPOTHESES = 5
-    mc_reps_for_ht = 5
+    mc_reps_for_ht = 500
   else:
     NUM_CANDIDATE_HYPOTHESES = 100  # Number of candidate null models to consider when conducting ht
-    mc_reps_for_ht = 500
+    mc_reps_for_ht = 1000
   # np.random.seed(label)
 
   # Settings
@@ -117,7 +119,8 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                        inner_loop_mc_reps=mc_reps_for_ht)
 
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
-    if time_to_tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
+    # Propose a tuned policy if ht has not already been rejected
+    if (time_to_tune and not ht_rejected and not bias_only) or bias_only:
       if posterior_sample:
         reward_means = []
         reward_vars = []
@@ -152,6 +155,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                                       alpha_schedule[t], ht.true_normal_mab_regret,
                                                       ht.pre_generate_normal_mab_data, env.number_of_actions,
                                                       actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
+      print(test_statistic, true_diff, t)
       test_statistics.append(float(test_statistic))
       true_diffs.append(float(true_diff))
 
@@ -175,7 +179,8 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
     if ht_rejected:
       alpha_at_rejection = float(alpha_schedule[t])
       t1_error = int(h0_true)
-      break
+      if not bias_only:
+        break
     else:
       alphas_at_non_rejections.append(float(alpha_schedule[t]))
       t2_errors.append(int(1-h0_true))
@@ -207,7 +212,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
     NUM_CANDIDATE_HYPOTHESES = 5
     mc_reps_for_ht = 5
   else:
-    NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
+    NUM_CANDIDATE_HYPOTHESES = 100  # Number of candidate null models to consider when conducting ht
     mc_reps_for_ht = 500
   # np.random.seed(label)
 
@@ -240,9 +245,18 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   mu_opt = np.max(env.list_of_reward_mus)
   env.reset()
   tuning_parameter_sequence = []
+
+  # For IPW model estimates
+  action_probs = np.array([])
+  rewards = np.array([])
+  actions = np.array([])
+
   # Initial pulls
   for a in range(env.number_of_actions):
-    env.step(a)
+    r = env.step(a)['Utility']
+    action_probs = np.append(action_probs, 1)
+    rewards = np.append(rewards, r)
+    actions = np.append(actions, a)
 
   estimated_means_list = []
   estimated_vars_list = []
@@ -251,8 +265,8 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
   t1_errors = []
   powers = []
   for t in range(T):
-    estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
-    estimated_vars_list.append([float(s) for s in env.estimated_vars])
+    estimated_means_list, estimated_stds_list = ht.ipw(env.number_of_actions, actions, action_probs, rewards)
+    estimated_model = [[mu, s] for mu, s in zip(estimated_means_list, estimated_stds_list)]
 
     # Stuff needed for hypothesis test / operating chars
     estimated_model = [[xbar, np.sqrt(sigma_sq_hat)] for xbar, sigma_sq_hat
@@ -303,28 +317,29 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
                                                bounds, explore_, positive_zeta=positive_zeta, test=test)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
-      ht_rejected = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
-                                      env.number_of_pulls, t, T, ht.normal_mab_sampling_dbn,
-                                      alpha_schedule[t], ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data,
-                                      mc_reps=mc_reps_for_ht)
+      # Conduct hypothesis test
+      ht_rejected, test_statistic = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list,
+                                                      estimated_model, env.number_of_pulls, t, T,
+                                                      ht.normal_mab_sampling_dbn,
+                                                      alpha_schedule[t], ht.true_normal_mab_regret,
+                                                      ht.pre_generate_normal_mab_data, env.number_of_actions,
+                                                      actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
       if ht_rejected and no_rejections_yet:
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
 
     if ht_rejected and tune:
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                      tuning_function_parameter, T, t, env)
+      action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+                                    tuning_function_parameter, T, t, env)
     else:
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
-                      None, T, t, env)
+      action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls,
+                                   baseline_tuning_function, None, T, t, env)
 
-    # t1_errors.append(operating_char_dict['type1'])
-    # powers.append(operating_char_dict['type2'])
-
-    res = env.step(action)
-    u = res['Utility']
-    actions_list.append(int(action))
-    rewards_list.append(float(u))
+    # Take step and update obs for computing IPW
+    r = env.step(action)['Utility']
+    action_probs = np.append(action_probs, action_prob)
+    rewards = np.append(rewards, r)
+    actions = np.append(actions, action)
 
     # Compute regret
     regret = mu_opt - env.list_of_reward_mus[action]
@@ -336,13 +351,13 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
 
 
 def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10,
-                        monte_carlo_reps=100, test=False):
+                        monte_carlo_reps=100, bias_only=False, test=False):
   BASELINE_SCHEDULE = [0.1 for _ in range(T)]
   ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
 
   if test:
     replicates = num_cpus = 1
-    T = 15
+    T = 40
     monte_carlo_reps = 5
   else:
     replicates = 48
@@ -351,7 +366,7 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
   pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(operating_chars_episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, std=std, T=T, monte_carlo_reps=monte_carlo_reps,
-                            list_of_reward_mus=list_of_reward_mus, test=test)
+                            list_of_reward_mus=list_of_reward_mus, bias_only=bias_only, test=test)
   num_batches = int(replicates / num_cpus)
 
   results = []
@@ -393,10 +408,11 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
                             list_of_reward_mus=list_of_reward_mus, test=test)
 
   if test:
-    results = episode_partial(0)
+    results = [episode_partial(0)]
   else:
     pool = mp.Pool(processes=num_cpus)
     num_batches = int(replicates / num_cpus)
+    results = []
     for batch in range(label*num_batches, (label+1)*num_batches):
       results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
       results += results_for_batch
@@ -407,7 +423,7 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
   type1_errors = [d['type1'] for d in results]
   powers = [d['power'] for d in results]
   # Save results
-  if save:
+  if save and not test:
     results = {'T': float(T), 'mean_regret': float(np.mean(cumulative_regret)),
                'std_regret': float(np.std(cumulative_regret)),
                'regret list': [float(r) for r in cumulative_regret], 'baseline_schedule': BASELINE_SCHEDULE,
@@ -426,5 +442,5 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 
 if __name__ == "__main__":
-  t1_errors_, nominal_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps-decay', std=1, T=30, test=False)
+  run(0, 'eps_decay', T=50, test=False)
+  run(0, 'eps_decay', T=50, std=1.0, test=False)

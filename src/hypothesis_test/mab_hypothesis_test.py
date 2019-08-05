@@ -280,7 +280,6 @@ def is_h0_true(baseline_policy, proposed_policy, estimated_model, num_pulls, t, 
                                              draws_from_estimated_model)
   true_diff = baseline_regret_at_truth - proposed_regret_at_truth
   h0_true = true_diff < 0
-
   return h0_true, true_diff
 
 
@@ -334,6 +333,7 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
     pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
   draws_from_estimated_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
   # estimated_means = [p[0] for p in estimated_model]
+  print(true_means.mean(axis=0))
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model, mu_opts,
@@ -351,7 +351,6 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
     sampling_dbns = []
     for true_model in true_model_list:
       # Pre-generate data from true_model
-      # ToDo: This needs to be changed bc of ipw`!
       draws_from_true_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
 
       # Check if true_model is in H0
