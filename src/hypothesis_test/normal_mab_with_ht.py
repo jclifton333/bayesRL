@@ -442,5 +442,7 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
 
 if __name__ == "__main__":
-  run(0, 'eps_decay', T=50, test=False)
-  run(0, 'eps_decay', T=50, std=1.0, test=False)
+  list_of_reward_mus_10 = [0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42]
+  list_of_reward_mus_5 = [0.73, 0.56, 0.33, 0.04, 0.66]
+  run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
+  run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
