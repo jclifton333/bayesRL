@@ -400,7 +400,7 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
     T = 40
     monte_carlo_reps = 5
   else:
-    replicates = 48
+    replicates = 48*8
     num_cpus = 48
 
   episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
