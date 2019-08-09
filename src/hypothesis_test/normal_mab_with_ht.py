@@ -43,7 +43,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
     NUM_CANDIDATE_HYPOTHESES = 5
     mc_reps_for_ht = 500
   else:
-    NUM_CANDIDATE_HYPOTHESES = 100  # Number of candidate null models to consider when conducting ht
+    NUM_CANDIDATE_HYPOTHESES = 200  # Number of candidate null models to consider when conducting ht
     mc_reps_for_ht = 1000
   # np.random.seed(label)
 
@@ -350,7 +350,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
           'power': powers}
 
 
-def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10,
+def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10,
                         monte_carlo_reps=100, bias_only=False, test=False):
   BASELINE_SCHEDULE = [0.1 for _ in range(T)]
   ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
@@ -359,7 +359,6 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
     replicates = num_cpus = 1
     monte_carlo_reps = 5
   else:
-    replicates = 48
     num_cpus = 48
 
   pool = mp.Pool(processes=num_cpus)
@@ -369,7 +368,7 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
   num_batches = int(replicates / num_cpus)
 
   results = []
-  if test:
+  if test or replicates == 1:
     results.append(episode_partial(0))
   else:
     for batch in range(label*num_batches, (label+1)*num_batches):
@@ -386,7 +385,8 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
   return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas, test_statistics, true_diffs
 
 
-def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100, test=False):
+def run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100,
+        test=False):
   """
 
   :return:
@@ -398,7 +398,7 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
     replicates = num_cpus = 1
     monte_carlo_reps = 5
   else:
-    replicates = 48*8
+    replicates = replicates
     num_cpus = 48
 
   episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
@@ -445,4 +445,4 @@ if __name__ == "__main__":
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
   t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps_decay', T=30, list_of_reward_mus=list_of_reward_mus_5)
+    operating_chars_run(0, 'eps_decay', replicates=1, T=30, list_of_reward_mus=list_of_reward_mus_5)

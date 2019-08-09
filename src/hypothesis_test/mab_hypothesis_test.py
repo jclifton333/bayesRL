@@ -350,8 +350,8 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
                                              draws_from_true_model)
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
     # Reject if alpha^th percentile < 0
-    alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*(1-alpha))
-    return (alpha_th_percentile < 0), test_statistic
+    alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
+    return (alpha_th_percentile > 0), test_statistic
 
 
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
@@ -370,6 +370,7 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
   :param mc_reps:
   :return:
   """
+  # ToDo: Make sure hyp. test direction is correct!
   draws_from_estimated_model, mu_opts, true_means, estimated_means = \
     pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
   draws_from_estimated_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
