@@ -324,8 +324,8 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
     pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
   draws_from_estimated_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
   # estimated_means = [p[0] for p in estimated_model]
-  print(true_means.mean(axis=0))
 
+  print(true_means.mean(axis=0))
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model, mu_opts,
                                                           true_means, estimated_means, actions, action_probs,
@@ -375,7 +375,6 @@ def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_
     pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
   draws_from_estimated_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
   # estimated_means = [p[0] for p in estimated_model]
-  print(true_means.mean(axis=0))
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model, mu_opts,

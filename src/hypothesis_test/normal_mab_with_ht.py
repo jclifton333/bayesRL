@@ -176,12 +176,12 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
     rewards = np.append(rewards, r)
     actions = np.append(actions, action)
 
-    if h0_true:
+    if h0_true and time_to_tune:
       t1_errors.append(int(ht_rejected))
     else:
       t2_errors.append(int(1-ht_rejected))
 
-    if ht_rejected:
+    if ht_rejected and time_to_tune:
       alpha_at_rejection = float(alpha_schedule[t])
       if not bias_only:
         break
