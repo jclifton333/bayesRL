@@ -313,6 +313,47 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
   return {'type1': type1, 'type2': type2}
 
 
+def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
+                               t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
+                               num_actions, actions, action_probs, reward_history, mc_reps=1000):
+  """
+  Draw from estimated sampling dbn of (Baseline regret - Proposed regret)
+  and reject if alpha^th percentile is above 0.
+  """
+  draws_from_estimated_model, mu_opts, true_means, estimated_means = \
+    pre_generate_normal_mab_data_from_ipw(T, mc_reps, t, num_actions, actions, action_probs, reward_history)
+  draws_from_estimated_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
+  # estimated_means = [p[0] for p in estimated_model]
+  print(true_means.mean(axis=0))
+
+  # Check that estimated proposed regret is smaller than baseline; if not, do not reject
+  estimated_baseline_regret = estimated_normal_mab_regret(baseline_policy, t, T, draws_from_estimated_model, mu_opts,
+                                                          true_means, estimated_means, actions, action_probs,
+                                                          reward_history)
+  estimated_proposed_regret = estimated_normal_mab_regret(proposed_policy, t, T, draws_from_estimated_model, mu_opts,
+                                                          true_means, estimated_means, actions, action_probs,
+                                                          reward_history)
+  test_statistic = estimated_baseline_regret - estimated_proposed_regret
+
+  if test_statistic < 0:
+    return False, test_statistic
+  else:
+    diff_sampling_dbn = []
+    for true_model in true_model_list:  # ToDo: Assuming true_model_list are draws from approx sampling dbn!
+      # Pre-generate data from true_model
+      draws_from_true_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
+
+      # Check if true_model is in H0
+      true_baseline_regret = true_mab_regret(baseline_policy, true_model, estimated_model, num_pulls, t, T,
+                                             draws_from_true_model)
+      true_proposed_regret = true_mab_regret(proposed_policy, true_model, estimated_model, num_pulls, t, T,
+                                             draws_from_true_model)
+      diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
+    # Reject if alpha^th percentile < 0
+    alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*(1-alpha))
+    return (alpha_th_percentile < 0), test_statistic
+
+
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                    t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
                    num_actions, actions, action_probs, reward_history, mc_reps=1000):

@@ -149,12 +149,12 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
       # Test regret of baseline vs tuned schedule
-      ht_rejected, test_statistic = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list,
-                                                      estimated_model, env.number_of_pulls, t, T,
-                                                      ht.normal_mab_sampling_dbn,
-                                                      alpha_schedule[t], ht.true_normal_mab_regret,
-                                                      ht.pre_generate_normal_mab_data, env.number_of_actions,
-                                                      actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
+      ht_rejected, test_statistic = ht.conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list,
+                                                                  estimated_model, env.number_of_pulls, t, T,
+                                                                  ht.normal_mab_sampling_dbn,
+                                                                  alpha_schedule[t], ht.true_normal_mab_regret,
+                                                                  ht.pre_generate_normal_mab_data, env.number_of_actions,
+                                                                  actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
       print(test_statistic, true_diff, t)
       test_statistics.append(float(test_statistic))
       true_diffs.append(float(true_diff))
@@ -357,7 +357,6 @@ def operating_chars_run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6
 
   if test:
     replicates = num_cpus = 1
-    T = 40
     monte_carlo_reps = 5
   else:
     replicates = 48
@@ -397,7 +396,6 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 
   if test:
     replicates = num_cpus = 1
-    T = 40
     monte_carlo_reps = 5
   else:
     replicates = 48*8
@@ -444,5 +442,7 @@ def run(label, policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=
 if __name__ == "__main__":
   list_of_reward_mus_10 = [0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42]
   list_of_reward_mus_5 = [0.73, 0.56, 0.33, 0.04, 0.66]
-  run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
-  run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
+  # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
+  # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
+  t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
+    operating_chars_run(0, 'eps_decay', T=30, list_of_reward_mus=list_of_reward_mus_5)
