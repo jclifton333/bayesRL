@@ -89,7 +89,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
 
   estimated_means_list = []
   estimated_vars_list = []
-  t1_error = None
+  t1_errors = []
   t2_errors = []
   alpha_at_rejection = None
   alphas_at_non_rejections = []
@@ -176,17 +176,20 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
     rewards = np.append(rewards, r)
     actions = np.append(actions, action)
 
+    if h0_true:
+      t1_errors.append(int(ht_rejected))
+    else:
+      t2_errors.append(int(1-ht_rejected))
+
     if ht_rejected:
       alpha_at_rejection = float(alpha_schedule[t])
-      t1_error = int(h0_true)
       if not bias_only:
         break
     else:
       alphas_at_non_rejections.append(float(alpha_schedule[t]))
-      t2_errors.append(int(1-h0_true))
 
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
-          'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_error,
+          'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
           'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
           'test_statistics': test_statistics}
@@ -375,8 +378,8 @@ def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_rewa
       results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
       results += results_for_batch
 
-  t1_errors = np.array([d['type1'] for d in results])
-  nominal_rejection_alphas = np.array([d['alpha_at_rejection'] for d in results])
+  t1_errors = np.hstack([d['type1'] for d in results])
+  nominal_rejection_alphas = np.hstack([d['alpha_at_rejection'] for d in results])
   t2_errors = np.hstack([d['type2'] for d in results])
   nominal_accept_alphas = np.hstack([d['alphas_at_non_rejections'] for d in results])
   test_statistics = np.hstack([d['test_statistics'] for d in results])
@@ -445,4 +448,4 @@ if __name__ == "__main__":
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
   t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps_decay', replicates=1, T=30, list_of_reward_mus=list_of_reward_mus_5)
+    operating_chars_run(0, 'eps_decay', T=50)
