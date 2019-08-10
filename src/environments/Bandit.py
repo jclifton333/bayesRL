@@ -145,6 +145,8 @@ class NormalMAB(MAB):
 
     # Hyperparameters for conjugate normal model of mean and variance
     self.lambda0 = 1.0 / 10.0  # lambda is inverse variance
+    # self.alpha0 = 10e-3
+    # self.beta0 = 10e-3
     self.alpha0 = 10e-3
     self.beta0 = 10e-3
     self.posterior_params_dict = {a: {'lambda_post': self.lambda0, 'alpha_post': self.alpha0, 'beta_post': self.beta0,

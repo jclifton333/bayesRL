@@ -395,7 +395,7 @@ def run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6]
   :return:
   """
   BASELINE_SCHEDULE = [0.1 for _ in range(T)]
-  ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
+  ALPHA_SCHEDULE = [float(1 / (T - t)) for t in range(T)]
 
   if test:
     replicates = num_cpus = 1
