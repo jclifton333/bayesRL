@@ -36,7 +36,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   :param test:
   :return:
   """
-  TUNE_INTERVAL = 10
+  TUNE_INTERVAL = 5
   np.random.seed(label)
 
   if test:
@@ -95,6 +95,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   alphas_at_non_rejections = []
   true_diffs = []
   test_statistics = []
+  rejection_time = None
 
   for t in range(T):
     estimated_means_list, estimated_stds_list = ht.ipw(env.number_of_actions, actions, action_probs, rewards)
@@ -184,6 +185,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
     if ht_rejected and time_to_tune:
       alpha_at_rejection = float(alpha_schedule[t])
       if not bias_only:
+        rejection_time = float(t)
         break
     elif not ht_rejected and time_to_tune:
       alphas_at_non_rejections.append(float(alpha_schedule[t]))
@@ -192,7 +194,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
           'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
-          'test_statistics': test_statistics}
+          'test_statistics': test_statistics, 'rejection_time': rejection_time}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -356,7 +358,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
 def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10,
                         monte_carlo_reps=100, bias_only=False, test=False):
   BASELINE_SCHEDULE = [0.1 for _ in range(T)]
-  ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
+  ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
 
   if test:
     replicates = num_cpus = 1
@@ -379,13 +381,14 @@ def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_rewa
       results += results_for_batch
 
   t1_errors = np.hstack([d['type1'] for d in results])
+  rejection_times = np.array([d['rejection_time'] for d in results])
   nominal_rejection_alphas = np.hstack([d['alpha_at_rejection'] for d in results])
   t2_errors = np.hstack([d['type2'] for d in results])
   nominal_accept_alphas = np.hstack([d['alphas_at_non_rejections'] for d in results])
   test_statistics = np.hstack([d['test_statistics'] for d in results])
   true_diffs = np.hstack([d['true_diffs'] for d in results])
 
-  return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas, test_statistics, true_diffs
+  return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas, test_statistics, true_diffs, rejection_times
 
 
 def run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100,
@@ -447,5 +450,5 @@ if __name__ == "__main__":
   list_of_reward_mus_5 = [0.73, 0.56, 0.33, 0.04, 0.66]
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
-  t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_ = \
-    operating_chars_run(0, 'eps_decay', T=50)
+  t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
+    rejection_times_ = operating_chars_run(0, 'eps_decay', T=50, replicates=48*8)
