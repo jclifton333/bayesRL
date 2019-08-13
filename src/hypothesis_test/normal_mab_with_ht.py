@@ -150,7 +150,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
       # Test regret of baseline vs tuned schedule
-      ht_rejected, test_statistic = ht.conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list,
+      ht_rejected, test_statistic = ht.conduct_mab_ht(baseline_policy, proposed_policy, true_model_list,
                                                                   estimated_model, env.number_of_pulls, t, T,
                                                                   ht.normal_mab_sampling_dbn,
                                                                   alpha_schedule[t], ht.true_normal_mab_regret,
@@ -357,7 +357,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
 
 def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10,
                         monte_carlo_reps=100, bias_only=False, test=False):
-  BASELINE_SCHEDULE = [0.1 for _ in range(T)]
+  BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
 
   if test:
@@ -405,7 +405,7 @@ def run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6]
     monte_carlo_reps = 5
   else:
     replicates = replicates
-    num_cpus = 48
+    num_cpus = 36
 
   episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, std=std, T=T, monte_carlo_reps=monte_carlo_reps,
@@ -451,4 +451,4 @@ if __name__ == "__main__":
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
   t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
-    rejection_times_ = operating_chars_run(0, 'eps_decay', T=50, replicates=48*8)
+    rejection_times_ = operating_chars_run(0, 'eps_decay', T=50, replicates=36*8)
