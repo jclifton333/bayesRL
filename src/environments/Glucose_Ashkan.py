@@ -29,7 +29,7 @@ class Glucose(object):
     self.A = [[]] * nPatients  # List of actions at each time step
 #    self.X = [[]] * nPatients  # List of features (previous and current states) at each time step
     self.S = [[]] * nPatients
-    self.t = -1
+    self.t = 0
     #    self.horizon = horizon
     self.current_state = [None] * nPatients
 #    self.last_state = [None] * nPatients
@@ -111,6 +111,7 @@ class Glucose(object):
   # Return tuple of < NAT, D, A1c, BP, Weight>,C_t at beginning of trajectory
   def reset(self):
     # Reset obs history
+    self.t = 0
     self.R = [[]] * self.nPatients
     self.A = [[]] * self.nPatients
     self.S = [[]] * self.nPatients
@@ -170,6 +171,17 @@ class Glucose(object):
       #      pdb.set_trace()
       mean_rewards_nPatients += (reward - mean_rewards_nPatients) / (i + 1)
     return np.vstack(s_list), mean_rewards_nPatients  # , done
+
+  def get_state_transitions_as_x_y_pair(self):
+    '''
+    For estimating transition density.
+    return:
+    X: feature matrix composed by previous states vectors and actions taken at those states for nPatients
+    Y: response matrix composed by current states vectors for nPatients
+    '''
+    X = np.vstack([np.hstack((self.S[j][0:-1], env.A[j].reshape(self.t,1))) for j in range(self.nPatients)])
+    Y = np.vstack([self.S[j][1:] for j in range(self.nPatients)])
+    return X, Y
 
   #Helper function to calculate value of e^x/(1+e^x)
   def exp_helper(self,x):
