@@ -11,6 +11,9 @@ from statistics import mean
 import math
 
 
+# import src.policies.linear_algebra as la
+
+
 class Glucose(object):
   def __init__(self, nPatients=1, s_initials=None):
     # Generative model parameters
@@ -26,7 +29,6 @@ class Glucose(object):
     self.A = [[]] * nPatients  # List of actions at each time step
 #    self.X = [[]] * nPatients  # List of features (previous and current states) at each time step
     self.S = [[]] * nPatients
-#    self.Xprime_X_inv = None
     self.t = -1
     #    self.horizon = horizon
     self.current_state = [None] * nPatients
@@ -34,7 +36,7 @@ class Glucose(object):
 #    self.last_action = [None] * nPatients
     self.nPatients = nPatients
 
-    self.s_initials = s_initials
+    self.s_initials = s_initials  # initial states of nPatients
 #    self.sx_initials = sx_initials
 
   @staticmethod
@@ -81,9 +83,9 @@ class Glucose(object):
   def get_d_t(self, action, prev_NAT):
     p=0
     if action==0:
-    return np.array([0])
+      return np.array([0])
     else:
-      p = self.d_t_prob[prev_NAT]
+      p = self.d_t_prob[int(prev_NAT)]
     d_t=np.random.binomial(1,p,1)
     return d_t
 
@@ -155,12 +157,15 @@ class Glucose(object):
     s_list = []
     mean_rewards_nPatients = 0
     for i in range(self.nPatients):
-      s = self.get_next_state(self.current_state[i], action[i])
+      print(self.current_state[i])
+      s = self.get_next_state(self.current_state[i], actions[i])
       reward = reward_function(self.current_state[i], s)
       self.S[i] = np.vstack((self.S[i], s)) # need to check again
       self.R[i] = np.append(self.R[i], reward)
       self.A[i] = np.append(self.A[i], actions[i])
       s_list.append(s)
+      print(self.current_state, s)
+      self.current_state[i] = s
 
       #      pdb.set_trace()
       mean_rewards_nPatients += (reward - mean_rewards_nPatients) / (i + 1)
