@@ -172,7 +172,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                    baseline_tuning_function, None, T, t, env)
 
     # Take step and update obs for computing IPW
-    r = env.step(action)['Utility']
+    r = env.step(action, ipw_means=estimated_means_list)['Utility']
     action_probs = np.append(action_probs, action_prob)
     rewards = np.append(rewards, r)
     actions = np.append(actions, action)

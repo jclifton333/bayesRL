@@ -182,14 +182,21 @@ class NormalMAB(MAB):
 
     return draws_dict
 
-  def conjugate_bayes_mean_and_variance(self, a):
+  def conjugate_bayes_mean_and_variance(self, a, ipw_means=None):
     """
     Get bayes estimators of mean and variance from current list of rewards at each arm, and update.
+
+    :param ipw_means: Array of mean estimates of length num_actions, or None. If provided, use these to calculate
+    empirical mean and variance (and therefore posterior), rather than xbar.
     :return:
     """
-    rewards_at_arm = self.draws_from_each_arm[a]
-    xbar = np.mean(rewards_at_arm)
-    s_sq = np.var(rewards_at_arm)
+    rewards_at_arm = np.array(self.draws_from_each_arm[a])  # ToDo: can be optimized by not calling array() every time.
+    if ipw_means is None:
+      xbar = np.mean(rewards_at_arm)
+      s_sq = np.var(rewards_at_arm)
+    else:
+      xbar = ipw_means[a]
+      s_sq = np.mean((rewards_at_arm - xbar)**2)
     n = self.number_of_pulls[a]
     post_mean = (n * xbar) / (self.lambda0 + n)
     post_alpha = self.alpha0 + n/2.0
@@ -210,9 +217,10 @@ class NormalMAB(MAB):
     # utility is distributed as Normal(mu, var)
     return np.random.normal(self.list_of_reward_mus[a], np.sqrt(self.list_of_reward_vars[a]))
 
-  def step(self, a):
+  def step(self, a, ipw_means=None):
     u = super(NormalMAB, self).step(a)
-    self.conjugate_bayes_mean_and_variance(a)  # Update means and variances with new posterior expectations
+     # Update means and variances with new posterior expectations
+    self.conjugate_bayes_mean_and_variance(a, ipw_means=ipw_means)
     self.standard_errors[a] = np.sqrt(self.estimated_vars[a] / self.number_of_pulls[a])
     return {'Utility': u}
 
