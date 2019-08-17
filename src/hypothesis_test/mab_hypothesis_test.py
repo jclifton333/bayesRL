@@ -220,7 +220,7 @@ def mab_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estima
 
 
 def cutoff_for_ht(alpha, sampling_dbns):
-  cutoffs = [np.percentile(sampling_dbn, (1 - alpha)*100) for sampling_dbn in sampling_dbns]
+  cutoffs = [np.percentile(sampling_dbn, (1-alpha)*100) for sampling_dbn in sampling_dbns]
   return np.max(cutoffs)
 
 
