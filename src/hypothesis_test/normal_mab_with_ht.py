@@ -37,6 +37,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   :return:
   """
   TUNE_INTERVAL = 5
+  DONT_TUNE_UNTIL = 20
   np.random.seed(label)
 
   if test:
@@ -119,7 +120,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                        ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data, true_model_params,
                                        inner_loop_mc_reps=mc_reps_for_ht)
 
-    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
+    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0 and t >= DONT_TUNE_UNTIL)
     # Propose a tuned policy if ht has not already been rejected
     if (time_to_tune and not ht_rejected and not bias_only) or bias_only:
       if posterior_sample:
