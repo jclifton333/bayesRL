@@ -29,13 +29,13 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
 
   # Evaluate densities on grid
   integrate_grid = np.linspace(-10, 10, 100)
-  smoothed_empirical_densities = kd.score_samples(integrate_grid.reshape(-1, 1))
+  smoothed_empirical_densities = np.exp(kd.score_samples(integrate_grid.reshape(-1, 1)))
   prior_densities = t.pdf(integrate_grid, df)
   posterior_density = smoothed_empirical_densities * prior_densities
 
   # Get probability less than 0
   total_mass = np.sum(posterior_density)
-  mass_less_than_0 = np.sum(posterior_density[np.where(posterior_density <= 0)])
+  mass_less_than_0 = np.sum(posterior_density[np.where(integrate_grid <= 0)])
 
   return mass_less_than_0 / total_mass
 
@@ -379,7 +379,7 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
     # Reject if alpha^th percentile < 0
     # alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
-    posterior_h0_prob = approximate_posterior_h0_prob(diff_sampling_dbn, df=t)
+    posterior_h0_prob = approximate_posterior_h0_prob(diff_sampling_dbn)
     return (posterior_h0_prob < alpha), test_statistic
 
 

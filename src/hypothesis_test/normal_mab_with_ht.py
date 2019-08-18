@@ -452,4 +452,4 @@ if __name__ == "__main__":
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
   t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
-    rejection_times_ = operating_chars_run(0, 'eps_decay', T=50, replicates=36*2)
+    rejection_times_ = operating_chars_run(0, 'eps_decay', T=50, replicates=1)
