@@ -10,7 +10,7 @@ from functools import partial
 import numpy as np
 import copy
 from sklearn.neighbors import KernelDensity
-from scipy.stats import t
+from scipy.stats import t, norm
 from scipy.integrate import quad
 from numba import njit, jit
 
@@ -30,7 +30,8 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   # Evaluate densities on grid
   integrate_grid = np.linspace(-10, 10, 100)
   smoothed_empirical_densities = np.exp(kd.score_samples(integrate_grid.reshape(-1, 1)))
-  prior_densities = t.pdf(integrate_grid, df)
+  # prior_densities = t.pdf(integrate_grid, df)
+  prior_densities = norm.pdf(integrate_grid)
   posterior_density = smoothed_empirical_densities * prior_densities
 
   # Get probability less than 0
