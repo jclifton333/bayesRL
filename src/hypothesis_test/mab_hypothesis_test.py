@@ -381,7 +381,7 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
     # Reject if alpha^th percentile < 0
     # alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
     posterior_h0_prob = approximate_posterior_h0_prob(diff_sampling_dbn)
-    return (posterior_h0_prob < alpha), test_statistic
+    return (posterior_h0_prob < alpha), test_statistic, posterior_h0_prob
 
 
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,

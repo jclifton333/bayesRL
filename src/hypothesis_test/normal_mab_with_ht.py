@@ -97,6 +97,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   true_diffs = []
   test_statistics = []
   rejection_time = None
+  posterior_h0_probs = []
 
   for t in range(T):
     estimated_means_list, estimated_stds_list = ht.ipw(env.number_of_actions, actions, action_probs, rewards)
@@ -151,12 +152,15 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
       # Test regret of baseline vs tuned schedule
-      ht_rejected, test_statistic = ht.conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list,
-                                                                  estimated_model, env.number_of_pulls, t, T,
-                                                                  ht.normal_mab_sampling_dbn,
-                                                                  alpha_schedule[t], ht.true_normal_mab_regret,
-                                                                  ht.pre_generate_normal_mab_data, env.number_of_actions,
-                                                                  actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
+      ht_rejected, test_statistic, posterior_h0_prob = \
+        ht.conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list,
+                                      estimated_model, env.number_of_pulls, t, T,
+                                      ht.normal_mab_sampling_dbn,
+                                      alpha_schedule[t], ht.true_normal_mab_regret,
+                                      ht.pre_generate_normal_mab_data, env.number_of_actions,
+                                      actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
+      posterior_h0_probs.append(float(posterior_h0_prob))
+
       print(test_statistic, true_diff, t)
       test_statistics.append(float(test_statistic))
       true_diffs.append(float(true_diff))
@@ -195,7 +199,8 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
           'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
-          'test_statistics': test_statistics, 'rejection_time': rejection_time}
+          'test_statistics': test_statistics, 'rejection_time': rejection_time,
+          'posterior_h0_probs': posterior_h0_probs}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -388,8 +393,10 @@ def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_rewa
   nominal_accept_alphas = np.hstack([d['alphas_at_non_rejections'] for d in results])
   test_statistics = np.hstack([d['test_statistics'] for d in results])
   true_diffs = np.hstack([d['true_diffs'] for d in results])
+  posterior_h0_probs = [d['posterior_h0_probs'] for d in results]
 
-  return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas, test_statistics, true_diffs, rejection_times
+  return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas, test_statistics, true_diffs, \
+         rejection_times, posterior_h0_probs
 
 
 def run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, monte_carlo_reps=100,
@@ -452,4 +459,4 @@ if __name__ == "__main__":
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
   t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
-    rejection_times_ = operating_chars_run(0, 'eps_decay', T=50, replicates=36*2)
+    rejection_times_, posterior_h0_probs_ = operating_chars_run(0, 'eps_decay', T=50, replicates=36*2)
