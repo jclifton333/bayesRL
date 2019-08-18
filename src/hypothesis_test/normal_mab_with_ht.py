@@ -152,14 +152,14 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
       # Test regret of baseline vs tuned schedule
-      ht_rejected, test_statistic, posterior_h0_prob = \
+      ht_rejected, test_statistic, posterior_density = \
         ht.conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list,
                                       estimated_model, env.number_of_pulls, t, T,
                                       ht.normal_mab_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret,
                                       ht.pre_generate_normal_mab_data, env.number_of_actions,
                                       actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
-      posterior_h0_probs.append(float(posterior_h0_prob))
+      posterior_h0_probs.append(posterior_density)
 
       print(test_statistic, true_diff, t)
       test_statistics.append(float(test_statistic))

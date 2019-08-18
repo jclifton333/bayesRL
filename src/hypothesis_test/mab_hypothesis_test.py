@@ -38,7 +38,7 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   total_mass = np.sum(posterior_density)
   mass_less_than_0 = np.sum(posterior_density[np.where(integrate_grid <= 0)])
 
-  return mass_less_than_0 / total_mass
+  return mass_less_than_0 / total_mass, [float(d) for d in posterior_density]
 
 
 def stratified_bootstrap_indices(num_actions, actions):
@@ -365,7 +365,7 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
-    return False, test_statistic, 0.5
+    return False, test_statistic, None
   else:
     diff_sampling_dbn = []
     for true_model in true_model_list:  # ToDo: Assuming true_model_list are draws from approx sampling dbn!
@@ -380,8 +380,8 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
     # Reject if alpha^th percentile < 0
     # alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
-    posterior_h0_prob = approximate_posterior_h0_prob(diff_sampling_dbn)
-    return (posterior_h0_prob < alpha), test_statistic, posterior_h0_prob
+    posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn)
+    return (posterior_h0_prob < alpha), test_statistic, posterior_density
 
 
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
