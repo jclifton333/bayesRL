@@ -365,7 +365,7 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
-    return False, test_statistic
+    return False, test_statistic, 0.5
   else:
     diff_sampling_dbn = []
     for true_model in true_model_list:  # ToDo: Assuming true_model_list are draws from approx sampling dbn!
