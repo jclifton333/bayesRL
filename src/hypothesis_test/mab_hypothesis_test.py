@@ -24,7 +24,7 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   :return:
   """
   # Get smoothed empirical dbn so we can integrate
-  kd = KernelDensity()
+  kd = KernelDensity(bandwidth=0.2)
   kd.fit(np.array(empirical_dbn).reshape(-1, 1))
 
   # Evaluate densities on grid
