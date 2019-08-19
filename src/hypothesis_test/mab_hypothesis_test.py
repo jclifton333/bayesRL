@@ -24,14 +24,14 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   :return:
   """
   # Get smoothed empirical dbn so we can integrate
-  kd = KernelDensity(bandwidth=0.2)
+  kd = KernelDensity(bandwidth=0.1)
   kd.fit(np.array(empirical_dbn).reshape(-1, 1))
 
   # Evaluate densities on grid
   integrate_grid = np.linspace(-10, 10, 100)
   smoothed_empirical_densities = np.exp(kd.score_samples(integrate_grid.reshape(-1, 1)))
   # prior_densities = t.pdf(integrate_grid, df)
-  prior_densities = norm.pdf(integrate_grid)
+  prior_densities = norm.pdf(integrate_grid, scale=np.sqrt(10))
   posterior_density = smoothed_empirical_densities * prior_densities
 
   # Get probability less than 0
