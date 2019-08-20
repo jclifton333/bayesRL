@@ -23,20 +23,18 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   :param empirical_dbn:
   :return:
   """
-  # Get smoothed empirical dbn so we can integrate
-  kd = KernelDensity(bandwidth=0.1)
-  kd.fit(np.array(empirical_dbn).reshape(-1, 1))
+  # Generate data from prior
+  prior_draws = np.random.normal(size=100)
 
-  # Evaluate densities on grid
-  integrate_grid = np.linspace(-10, 10, 100)
-  smoothed_empirical_densities = np.exp(kd.score_samples(integrate_grid.reshape(-1, 1)))
-  # prior_densities = t.pdf(integrate_grid, df)
-  prior_densities = norm.pdf(integrate_grid, scale=np.sqrt(10))
-  posterior_density = smoothed_empirical_densities * prior_densities
+  # Get histograms and combine
+  empirical_histogram = np.histogram(empirical_dbn, density=True)
+  bins_ = empirical_histogram[1]
+  prior_histogram = np.histogram(prior_draws, bins=bins_, density=True)
 
   # Get probability less than 0
+  posterior_density = empirical_histogram[0] * prior_histogram[0]
   total_mass = np.sum(posterior_density)
-  mass_less_than_0 = np.sum(posterior_density[np.where(integrate_grid <= 0)])
+  mass_less_than_0 = np.sum(posterior_density[np.where(bins_ <= 0)])
 
   return mass_less_than_0 / total_mass, [float(d) for d in posterior_density]
 
@@ -379,9 +377,9 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
                                              draws_from_true_model)
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
     # Reject if alpha^th percentile < 0
-    # alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
-    posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn)
-    return (posterior_h0_prob < alpha), test_statistic, posterior_density
+    alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
+    # posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn)
+    return (alpha_th_percentile < 0), test_statistic, None
 
 
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
