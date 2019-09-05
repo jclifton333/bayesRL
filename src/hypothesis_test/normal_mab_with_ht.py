@@ -93,6 +93,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   t1_errors = []
   t2_errors = []
   alpha_at_rejection = None
+  alpha_at_h0 = []
   alphas_at_non_rejections = []
   true_diffs = []
   test_statistics = []
@@ -184,6 +185,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
 
     if h0_true and time_to_tune:
       t1_errors.append(int(ht_rejected))
+      alpha_at_h0.append(float(alpha_schedule[t]))
     elif not h0_true and time_to_tune:
       t2_errors.append(int(1-ht_rejected))
 
@@ -198,6 +200,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
+          'alpha_at_h0': alpha_at_h0,
           'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
           'test_statistics': test_statistics, 'rejection_time': rejection_time,
           'posterior_h0_probs': posterior_h0_probs}
