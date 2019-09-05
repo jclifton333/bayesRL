@@ -20,9 +20,13 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   Compute the approximate posterior probability that X < 0, treating empirical_dbn as likelihood and using
   heavy-tailed.
 
+  Using robust Bayes: see Berger & Berliner 1986 (https://projecteuclid.org/download/pdf_1/euclid.aos/1176349933)
+
   :param empirical_dbn:
   :return:
   """
+  EPSILON = 0.1  # Contamination parameter
+
   # Generate data from prior
   prior_draws = np.random.normal(size=100)
 
@@ -31,12 +35,21 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   bins_ = empirical_histogram[1]
   prior_histogram = np.histogram(prior_draws, bins=bins_, density=True)
 
-  # Get probability less than 0
+  # Get posterior odds ratio
   posterior_density = empirical_histogram[0] * prior_histogram[0]
   total_mass = np.sum(posterior_density)
   mass_less_than_0 = np.sum(posterior_density[np.where(bins_ <= 0)])
+  odds_ratio = mass_less_than_0 / total_mass
 
-  return mass_less_than_0 / total_mass, [float(d) for d in posterior_density]
+  # Get correction factor
+  best_null_value = np.max(posterior_density[np.where(bins_ <= 0)])
+  correction = 1 + (EPSILON * best_null_value) / ((1-EPSILON)*(1-mass_less_than_0)*total_mass)
+  corrected_odds_ratio = odds_ratio * correction
+
+  # Probability
+  null_prob = corrected_odds_ratio / (1 + corrected_odds_ratio)
+
+  return null_prob, [float(d) for d in posterior_density]
 
 
 def stratified_bootstrap_indices(num_actions, actions):
