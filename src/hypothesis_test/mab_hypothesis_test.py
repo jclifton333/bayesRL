@@ -37,18 +37,20 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
 
   # Get posterior odds ratio
   posterior_density = empirical_histogram[0] * prior_histogram[0]
-  total_mass = np.sum(posterior_density)
-  mass_less_than_0 = np.sum(posterior_density[np.where(bins_ <= 0)])
-  odds_ratio = mass_less_than_0 / total_mass
+  if len(np.where(bins_)[0]) > 0:
+    total_mass = np.sum(posterior_density)
+    mass_less_than_0 = np.sum(posterior_density[np.where(bins_ <= 0)])
+    odds_ratio = mass_less_than_0 / total_mass
 
-  # Get correction factor
-  best_null_value = np.max(posterior_density[np.where(bins_ <= 0)])
-  correction = 1 + (EPSILON * best_null_value) / ((1-EPSILON)*(1-mass_less_than_0)*total_mass)
-  corrected_odds_ratio = odds_ratio * correction
+    # Get correction factor
+    best_null_value = np.max(posterior_density[np.where(bins_ <= 0)])
+    correction = 1 + (EPSILON * best_null_value) / ((1-EPSILON)*(1-mass_less_than_0)*total_mass)
+    corrected_odds_ratio = odds_ratio * correction
 
-  # Probability
-  null_prob = corrected_odds_ratio / (1 + corrected_odds_ratio)
-  pdb.set_trace()
+    # Probability
+    null_prob = corrected_odds_ratio / (1 + corrected_odds_ratio)
+  else:
+    null_prob = 0.0
 
   return null_prob, [float(d) for d in posterior_density]
 
