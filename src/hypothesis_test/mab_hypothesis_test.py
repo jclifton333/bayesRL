@@ -35,7 +35,7 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
 
   # Get posterior odds ratio
   posterior_density = empirical_histogram[0] * prior_histogram[0]
-  if len((np.where(bins_) <= 0)[0]) > 0:
+  if len(np.where(bins_ <= 0)[0]) > 0:
     total_mass = np.sum(posterior_density)
     mass_less_than_0 = np.sum(posterior_density[np.where(bins_ <= 0)])
     odds_ratio = mass_less_than_0 / total_mass
