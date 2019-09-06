@@ -373,7 +373,7 @@ def operating_chars_run(label, policy_name, contamination=0.2, replicates=48, st
     replicates = num_cpus = 1
     monte_carlo_reps = 5
   else:
-    num_cpus = 48
+    num_cpus = 36
 
   episode_partial = partial(operating_chars_episode, contamination=contamination,
                             policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
@@ -390,18 +390,20 @@ def operating_chars_run(label, policy_name, contamination=0.2, replicates=48, st
       results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
       results += results_for_batch
 
-  t1_errors = np.hstack([d['type1'] for d in results])
+  # t1_errors = np.hstack([d['type1'] for d in results])
+  t1_errors = [e for d in results for e in d['type1']]
   rejection_times = np.array([d['rejection_time'] for d in results])
   nominal_rejection_alphas = np.hstack([d['alpha_at_rejection'] for d in results])
   t2_errors = np.hstack([d['type2'] for d in results])
   nominal_accept_alphas = np.hstack([d['alphas_at_non_rejections'] for d in results])
-  alphas_at_h0 = np.hstack(d['alpha_at_h0'] for d in results)
+  # alphas_at_h0 = np.hstack(d['alpha_at_h0'] for d in results)
+  alphas_at_h0 = [a for d in results for a in d['alpha_at_h0']]
   test_statistics = np.hstack([d['test_statistics'] for d in results])
   true_diffs = np.hstack([d['true_diffs'] for d in results])
   posterior_h0_probs = [d['posterior_h0_probs'] for d in results]
 
-  if save and not test:
-    results = {'contamination': contamination, 't1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0}
+  if save:
+    results = {'contamination': float(contamination), 't1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0}
     base_name = \
       'eps-decay-contam={}'.format(contamination)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
@@ -473,7 +475,8 @@ if __name__ == "__main__":
   list_of_reward_mus_5 = [0.73, 0.56, 0.33, 0.04, 0.66]
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
-  for contam in np.linspace(0, 5, 6):
+  for contam in np.linspace(0, 0.5, 6):
     t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
       rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', contamination=contam,
-                                                                                 T=50, replicates=36*8)
+                                                                                 T=50, replicates=36*8, test=False,
+                                                                                 save=True)
