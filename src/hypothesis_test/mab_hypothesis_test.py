@@ -48,6 +48,7 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
 
   # Probability
   null_prob = corrected_odds_ratio / (1 + corrected_odds_ratio)
+  pdb.set_trace()
 
   return null_prob, [float(d) for d in posterior_density]
 
@@ -390,9 +391,10 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
                                              draws_from_true_model)
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
     # Reject if alpha^th percentile < 0
-    alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
-    # posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn)
-    return (alpha_th_percentile < 0), test_statistic, None
+    # alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
+    posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn)
+    # return (alpha_th_percentile < 0), test_statistic, None
+    return posterior_h0_prob < alpha, test_statistic, None
 
 
 def conduct_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,

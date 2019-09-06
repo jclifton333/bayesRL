@@ -125,6 +125,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0 and t >= DONT_TUNE_UNTIL)
     # Propose a tuned policy if ht has not already been rejected
     if (time_to_tune and not ht_rejected and not bias_only) or bias_only:
+      pdb.set_trace()
       if posterior_sample:
         reward_means = []
         reward_vars = []
@@ -149,7 +150,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
       tuning_function_parameter = opt.bayesopt(rollout.mab_rollout_with_fixed_simulations, policy, tuning_function,
                                                tuning_function_parameter, T, env, monte_carlo_reps,
                                                {'pre_simulated_data': pre_simulated_data},
-                                               bounds, explore_, positive_zeta=positive_zeta, test=test)
+                                               bounds, explore_, positive_zeta=positive_zeta, test=True)
       tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
 
       # Test regret of baseline vs tuned schedule
@@ -161,6 +162,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                       ht.pre_generate_normal_mab_data, env.number_of_actions,
                                       actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
       posterior_h0_probs.append(posterior_density)
+      pdb.set_trace()
 
       print(test_statistic, true_diff, t)
       test_statistics.append(float(test_statistic))
@@ -375,7 +377,6 @@ def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_rewa
   else:
     num_cpus = 48
 
-  pool = mp.Pool(processes=num_cpus)
   episode_partial = partial(operating_chars_episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, std=std, T=T, monte_carlo_reps=monte_carlo_reps,
                             list_of_reward_mus=list_of_reward_mus, bias_only=bias_only, test=test)
@@ -385,6 +386,7 @@ def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_rewa
   if test or replicates == 1:
     results.append(episode_partial(0))
   else:
+    pool = mp.Pool(processes=num_cpus)
     for batch in range(label*num_batches, (label+1)*num_batches):
       results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
       results += results_for_batch
@@ -463,4 +465,4 @@ if __name__ == "__main__":
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
   t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
-    rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', T=50, replicates=36*2)
+    rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', T=50, replicates=1)
