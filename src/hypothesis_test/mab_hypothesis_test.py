@@ -15,7 +15,7 @@ from scipy.integrate import quad
 from numba import njit, jit
 
 
-def approximate_posterior_h0_prob(empirical_dbn, df=3):
+def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   """
   Compute the approximate posterior probability that X < 0, treating empirical_dbn as likelihood and using
   heavy-tailed.
@@ -25,8 +25,6 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
   :param empirical_dbn:
   :return:
   """
-  EPSILON = 0.1  # Contamination parameter
-
   # Generate data from prior
   prior_draws = np.random.normal(size=100)
 
@@ -44,7 +42,7 @@ def approximate_posterior_h0_prob(empirical_dbn, df=3):
 
     # Get correction factor
     best_null_value = np.max(posterior_density[np.where(bins_ <= 0)])
-    correction = 1 + (EPSILON * best_null_value) / ((1-EPSILON)*(1-mass_less_than_0)*total_mass)
+    correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-mass_less_than_0)*total_mass)
     corrected_odds_ratio = odds_ratio * correction
 
     # Probability
@@ -358,7 +356,7 @@ def mab_ht_operating_characteristics(baseline_policy, proposed_policy, true_mode
 
 def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                                t, T, sampling_dbn_sampler, alpha, true_mab_regret, pre_generate_mab_data,
-                               num_actions, actions, action_probs, reward_history, mc_reps=1000):
+                               num_actions, actions, action_probs, reward_history, contamination, mc_reps=1000):
   """
   Draw from estimated sampling dbn of (Baseline regret - Proposed regret)
   and reject if alpha^th percentile is above 0.
@@ -394,7 +392,7 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
     # Reject if alpha^th percentile < 0
     # alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
-    posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn)
+    posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
     # return (alpha_th_percentile < 0), test_statistic, None
     return posterior_h0_prob < alpha, test_statistic, None
 

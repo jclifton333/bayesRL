@@ -18,7 +18,7 @@ import mab_hypothesis_test as ht
 import numpy as np
 
 
-def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1,
+def operating_chars_episode(label, policy_name, contamination, baseline_schedule, alpha_schedule, std=0.1,
                             list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, bias_only=False,
                             test=False):
   """
@@ -159,7 +159,7 @@ def operating_chars_episode(label, policy_name, baseline_schedule, alpha_schedul
                                       ht.normal_mab_sampling_dbn,
                                       alpha_schedule[t], ht.true_normal_mab_regret,
                                       ht.pre_generate_normal_mab_data, env.number_of_actions,
-                                      actions, action_probs, rewards, mc_reps=mc_reps_for_ht)
+                                      actions, action_probs, rewards, contamination, mc_reps=mc_reps_for_ht)
       posterior_h0_probs.append(posterior_density)
 
       print(test_statistic, true_diff, t)
@@ -364,7 +364,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
           'power': powers}
 
 
-def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10,
+def operating_chars_run(label, policy_name, contamination=0.2, replicates=48, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10,
                         monte_carlo_reps=100, bias_only=False, test=False):
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
@@ -375,7 +375,8 @@ def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_rewa
   else:
     num_cpus = 48
 
-  episode_partial = partial(operating_chars_episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
+  episode_partial = partial(operating_chars_episode, contamination=contamination,
+                            policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, std=std, T=T, monte_carlo_reps=monte_carlo_reps,
                             list_of_reward_mus=list_of_reward_mus, bias_only=bias_only, test=test)
   num_batches = int(replicates / num_cpus)
@@ -398,6 +399,16 @@ def operating_chars_run(label, policy_name, replicates=48, std=0.1, list_of_rewa
   test_statistics = np.hstack([d['test_statistics'] for d in results])
   true_diffs = np.hstack([d['true_diffs'] for d in results])
   posterior_h0_probs = [d['posterior_h0_probs'] for d in results]
+
+  if save and not test:
+    results = {'contamination': contamination, 't1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0}
+    base_name = \
+      'eps-decay-contam={}'.format(contamination)
+    prefix = os.path.join(project_dir, 'src', 'run', base_name)
+    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = '{}_{}.yml'.format(prefix, suffix)
+    with open(filename, 'w') as outfile:
+      yaml.dump(results, outfile)
 
   return t1_errors, nominal_rejection_alphas, t2_errors, nominal_accept_alphas, test_statistics, true_diffs, \
          rejection_times, posterior_h0_probs, alphas_at_h0
@@ -462,5 +473,7 @@ if __name__ == "__main__":
   list_of_reward_mus_5 = [0.73, 0.56, 0.33, 0.04, 0.66]
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
-  t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
-    rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', T=50, replicates=36*2)
+  for contam in np.linspace(0, 5, 6):
+    t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
+      rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', contamination=contam,
+                                                                                 T=50, replicates=36*8)
