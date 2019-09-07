@@ -26,7 +26,7 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   :return:
   """
   # Generate data from prior
-  prior_draws = np.random.normal(size=100)
+  prior_draws = np.random.normal(size=len(empirical_dbn))
 
   # Get histograms and combine
   empirical_histogram = np.histogram(empirical_dbn, density=True)
