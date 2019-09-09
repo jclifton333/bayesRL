@@ -25,26 +25,26 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   :param empirical_dbn:
   :return:
   """
+  BINS = np.linspace(-5, 5, 15)
   # Generate data from prior
   prior_draws = np.random.normal(size=len(empirical_dbn))
 
   # Get histograms and combine
-  empirical_histogram = np.histogram(empirical_dbn, density=False)
-  bins_ = empirical_histogram[1]
-  prior_histogram = np.histogram(prior_draws, bins=bins_, density=False)
+  empirical_histogram = np.histogram(empirical_dbn, bins=BINS, density=False)
+  prior_histogram = np.histogram(prior_draws, bins=BINS, density=False)
 
   # Get posterior odds ratio
   empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])
   prior_prob = prior_histogram[0] / np.sum(prior_histogram[0])
   posterior_density = empirical_prob * prior_prob
-  if len(np.where(bins_ <= 0)[0]) > 0:
+  if len(np.where(BINS <= 0)[0]) > 0:
     total_mass = np.sum(posterior_density)
-    mass_less_than_0 = np.sum(posterior_density[np.where(bins_ <= 0)])
+    mass_less_than_0 = np.sum(posterior_density[np.where(BINS <= 0)])
     probability_less_than_0 = mass_less_than_0 / total_mass
     odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
 
     # Get correction factor
-    best_null_value = np.max(empirical_prob[np.where(bins_ <= 0)])
+    best_null_value = np.max(empirical_prob[np.where(BINS <= 0)])
     correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
     corrected_odds_ratio = odds_ratio * correction
 

@@ -36,8 +36,7 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
   :param test:
   :return:
   """
-  TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 0
+  TIME_TO_TEST = 5
   np.random.seed(label)
 
   if test:
@@ -122,7 +121,7 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
                                        ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data, true_model_params,
                                        inner_loop_mc_reps=mc_reps_for_ht)
 
-    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0 and t >= DONT_TUNE_UNTIL)
+    time_to_tune = (tune and t > 0 and t == TIME_TO_TEST)
     # Propose a tuned policy if ht has not already been rejected
     if (time_to_tune and not ht_rejected and not bias_only) or bias_only:
       if posterior_sample:
@@ -197,13 +196,13 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
     elif not ht_rejected and time_to_tune:
       alphas_at_non_rejections.append(float(alpha_schedule[t]))
 
-  return {'when_hypothesis_rejected': when_hypothesis_rejected,
-          'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
-          'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
-          'alpha_at_h0': alpha_at_h0,
-          'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
-          'test_statistics': test_statistics, 'rejection_time': rejection_time,
-          'posterior_h0_probs': posterior_h0_probs}
+    return {'when_hypothesis_rejected': when_hypothesis_rejected,
+            'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
+            'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
+            'alpha_at_h0': alpha_at_h0,
+            'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
+            'test_statistics': test_statistics, 'rejection_time': rejection_time,
+            'posterior_h0_probs': posterior_h0_probs}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
