@@ -29,7 +29,7 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   quantiles = np.quantile(empirical_dbn, [0.01, 0.99])
   bins = np.hstack(([min_], np.linspace(quantiles[0], quantiles[1], 15), [max_]))
   if 0 not in bins:
-    bins = np.concatenate((bins[np.where(bins < 0)], 0, bins[np.where(bins > 0)]))  # Insert 0
+    bins = np.concatenate((bins[np.where(bins < 0)], [0.0], bins[np.where(bins > 0)]))  # Insert 0
 
   # Generate data from prior
   prior_draws = np.random.normal(scale=10, size=len(empirical_dbn))
