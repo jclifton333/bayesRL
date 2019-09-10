@@ -171,10 +171,10 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
 
     if ht_rejected and tune:
       action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                                    tuning_function_parameter, T, t, env)
+       			           tuning_function_parameter, T, t, env)
     else:
       action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls,
-                                   baseline_tuning_function, None, T, t, env)
+ 			           baseline_tuning_function, None, T, t, env)
 
     # Take step and update obs for computing IPW
     r = env.step(action, ipw_means=estimated_means_list)['Utility']
@@ -182,27 +182,28 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
     rewards = np.append(rewards, r)
     actions = np.append(actions, action)
 
-    if h0_true and time_to_tune:
-      t1_errors.append(int(ht_rejected))
-      alpha_at_h0.append(float(alpha_schedule[t]))
-    elif not h0_true and time_to_tune:
-      t2_errors.append(int(1-ht_rejected))
+    if time_to_tune:
+      if h0_true:
+        t1_errors.append(int(ht_rejected))
+        alpha_at_h0.append(float(alpha_schedule[t]))
+      else:
+        t2_errors.append(int(1-ht_rejected))
 
-    if ht_rejected and time_to_tune:
-      alpha_at_rejection = float(alpha_schedule[t])
-      if not bias_only:
-        rejection_time = float(t)
-        break
-    elif not ht_rejected and time_to_tune:
-      alphas_at_non_rejections.append(float(alpha_schedule[t]))
+      if ht_rejected:
+        alpha_at_rejection = float(alpha_schedule[t])
+        if not bias_only:
+          rejection_time = float(t)
+          break
+      else:
+        alphas_at_non_rejections.append(float(alpha_schedule[t]))
 
-    return {'when_hypothesis_rejected': when_hypothesis_rejected,
-            'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
-            'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
-            'alpha_at_h0': alpha_at_h0,
-            'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
-            'test_statistics': test_statistics, 'rejection_time': rejection_time,
-            'posterior_h0_probs': posterior_h0_probs}
+      return {'when_hypothesis_rejected': when_hypothesis_rejected,
+              'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
+              'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
+              'alpha_at_h0': alpha_at_h0,
+              'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
+              'test_statistics': test_statistics, 'rejection_time': rejection_time,
+              'posterior_h0_probs': posterior_h0_probs}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -477,5 +478,5 @@ if __name__ == "__main__":
   for contam in [0.0, 0.1, 0.2, 0.3]:
     t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
       rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', contamination=contam,
-                                                                                 T=20, replicates=36*8, test=False,
+                                                                                 T=50, replicates=36*8, test=False,
                                                                                  save=True)
