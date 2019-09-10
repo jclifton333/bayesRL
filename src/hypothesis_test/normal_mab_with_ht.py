@@ -116,11 +116,6 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
 
-    # Get true regret of baseline
-    h0_true, true_diff = ht.is_h0_true(baseline_policy, proposed_policy, estimated_model, env.number_of_pulls, t, T,
-                                       ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data, true_model_params,
-                                       inner_loop_mc_reps=mc_reps_for_ht)
-
     time_to_tune = (tune and t > 0 and t == TIME_TO_TEST)
     # Propose a tuned policy if ht has not already been rejected
     if (time_to_tune and not ht_rejected and not bias_only) or bias_only:
@@ -161,8 +156,11 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
                                       actions, action_probs, rewards, contamination, mc_reps=mc_reps_for_ht)
       posterior_h0_probs.append(posterior_density)
 
-      print(test_statistic, true_diff, t)
-      test_statistics.append(float(test_statistic))
+      # Get true regret of baseline
+      h0_true, true_diff = ht.is_h0_true(baseline_policy, proposed_policy, estimated_model, env.number_of_pulls, t, T,
+                                         ht.true_normal_mab_regret, ht.pre_generate_normal_mab_data, true_model_params,
+                                         inner_loop_mc_reps=mc_reps_for_ht)
+
       true_diffs.append(float(true_diff))
 
       if ht_rejected and no_rejections_yet:
@@ -171,10 +169,10 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
 
     if ht_rejected and tune:
       action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-       			           tuning_function_parameter, T, t, env)
+       			                       tuning_function_parameter, T, t, env)
     else:
       action, action_prob = policy(env.estimated_means, env.standard_errors, env.number_of_pulls,
- 			           baseline_tuning_function, None, T, t, env)
+ 			                             baseline_tuning_function, None, T, t, env)
 
     # Take step and update obs for computing IPW
     r = env.step(action, ipw_means=estimated_means_list)['Utility']
