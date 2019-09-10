@@ -401,7 +401,8 @@ def operating_chars_run(label, policy_name, contamination=0.2, replicates=48, st
   posterior_h0_probs = [d['posterior_h0_probs'] for d in results]
 
   if save:
-    results = {'contamination': float(contamination), 't1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0}
+    results = {'contamination': float(contamination), 't1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0,
+               't2_errors': t2_errors}
     base_name = \
       'eps-decay-contam={}'.format(contamination)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
