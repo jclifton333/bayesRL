@@ -44,11 +44,14 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
     odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
 
     # Get correction factor
-    best_null_value = np.max(empirical_prob[np.where(BINS <= 0)])
-    correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
-    corrected_odds_ratio = odds_ratio * correction
+    if epsilon > 0:
+      best_null_value = np.max(empirical_prob[np.where(BINS <= 0)])
+      correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
+    else:
+      correction = 1
 
     # Probability
+    corrected_odds_ratio = odds_ratio * correction
     null_prob = corrected_odds_ratio / (1 + corrected_odds_ratio)
   else:
     null_prob = 0.0

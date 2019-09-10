@@ -36,7 +36,7 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
   :param test:
   :return:
   """
-  TIME_TO_TEST = 5
+  TIME_TO_TEST = 10
   np.random.seed(label)
 
   if test:
