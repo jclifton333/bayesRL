@@ -392,7 +392,7 @@ def operating_chars_run(label, policy_name, contamination=0.2, replicates=48, st
   t1_errors = [e for d in results for e in d['type1']]
   rejection_times = np.array([d['rejection_time'] for d in results])
   nominal_rejection_alphas = np.hstack([d['alpha_at_rejection'] for d in results])
-  t2_errors = np.hstack([d['type2'] for d in results])
+  t2_errors = [e for d in results for e in d['type2']]
   nominal_accept_alphas = np.hstack([d['alphas_at_non_rejections'] for d in results])
   # alphas_at_h0 = np.hstack(d['alpha_at_h0'] for d in results)
   alphas_at_h0 = [a for d in results for a in d['alpha_at_h0']]
