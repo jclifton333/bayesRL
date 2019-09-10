@@ -25,27 +25,33 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   :param empirical_dbn:
   :return:
   """
-  BINS = np.linspace(-5, 5, 15)
+  min_, max_ = np.min(empirical_dbn), np.max(empirical_dbn)
+  quantiles = np.quantile(empirical_dbn, [0.01, 0.99])
+  bins = np.hstack(([min_], np.linspace(quantiles[0], quantiles[1], 15), [max_]))
+  if 0 not in bins:
+    bins = np.concatenate((bins[np.where(bins < 0)], 0, bins[np.where(bins > 0)]))  # Insert 0
+
   # Generate data from prior
-  prior_draws = np.random.normal(size=len(empirical_dbn))
+  prior_draws = np.random.normal(scale=10, size=len(empirical_dbn))
 
   # Get histograms and combine
-  empirical_histogram = np.histogram(empirical_dbn, bins=BINS, density=False)
-  prior_histogram = np.histogram(prior_draws, bins=BINS, density=False)
+  empirical_histogram = np.histogram(empirical_dbn, bins=bins, density=False)
+  # prior_histogram = np.histogram(prior_draws, bins=bins, density=False)
+  prior_histogram = [np.ones(len(bins)-1)]  # Uniform
 
   # Get posterior odds ratio
   empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])
   prior_prob = prior_histogram[0] / np.sum(prior_histogram[0])
   posterior_density = empirical_prob * prior_prob
-  if len(np.where(BINS <= 0)[0]) > 0:
+  if len(np.where(bins <= 0)[0]) > 0:
     total_mass = np.sum(posterior_density)
-    mass_less_than_0 = np.sum(posterior_density[np.where(BINS <= 0)])
+    mass_less_than_0 = np.sum(posterior_density[np.where(bins <= 0)])
     probability_less_than_0 = mass_less_than_0 / total_mass
     odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
 
     # Get correction factor
     if epsilon > 0:
-      best_null_value = np.max(empirical_prob[np.where(BINS <= 0)])
+      best_null_value = np.max(empirical_prob[np.where(bins <= 0)])
       correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
     else:
       correction = 1
@@ -390,7 +396,6 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
       # Pre-generate data from true_model
       draws_from_true_model = pre_generate_mab_data(estimated_model, T-t, mc_reps)
 
-      # Check if true_model is in H0
       true_baseline_regret = true_mab_regret(baseline_policy, true_model, estimated_model, num_pulls, t, T,
                                              draws_from_true_model)
       true_proposed_regret = true_mab_regret(proposed_policy, true_model, estimated_model, num_pulls, t, T,

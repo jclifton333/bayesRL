@@ -477,5 +477,5 @@ if __name__ == "__main__":
   for contam in [0.0, 0.1, 0.2, 0.3]:
     t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
       rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', contamination=contam,
-                                                                                 T=50, replicates=36*8, test=False,
-                                                                                 save=True)
+                                                                                 T=50, replicates=1, test=False,
+                                                                                 save=False)
