@@ -36,7 +36,7 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
   :param test:
   :return:
   """
-  TIME_TO_TEST = 10
+  TUNE_INTERVAL = 5
   np.random.seed(label)
 
   if test:
@@ -116,7 +116,7 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
 
-    time_to_tune = (tune and t > 0 and t == TIME_TO_TEST)
+    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
     # Propose a tuned policy if ht has not already been rejected
     if (time_to_tune and not ht_rejected and not bias_only) or bias_only:
       if posterior_sample:
@@ -191,17 +191,16 @@ def operating_chars_episode(label, policy_name, contamination, baseline_schedule
         alpha_at_rejection = float(alpha_schedule[t])
         if not bias_only:
           rejection_time = float(t)
-          break
       else:
         alphas_at_non_rejections.append(float(alpha_schedule[t]))
 
-      return {'when_hypothesis_rejected': when_hypothesis_rejected,
-              'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
-              'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
-              'alpha_at_h0': alpha_at_h0,
-              'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
-              'test_statistics': test_statistics, 'rejection_time': rejection_time,
-              'posterior_h0_probs': posterior_h0_probs}
+  return {'when_hypothesis_rejected': when_hypothesis_rejected,
+          'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
+          'type2': t2_errors, 'alpha_at_rejection': alpha_at_rejection,
+          'alpha_at_h0': alpha_at_h0,
+          'alphas_at_non_rejections': alphas_at_non_rejections, 'true_diffs': true_diffs,
+          'test_statistics': test_statistics, 'rejection_time': rejection_time,
+            'posterior_h0_probs': posterior_h0_probs}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -389,7 +388,9 @@ def operating_chars_run(label, policy_name, contamination=0.2, replicates=48, st
       results += results_for_batch
 
   # t1_errors = np.hstack([d['type1'] for d in results])
-  t1_errors = [e for d in results for e in d['type1']]
+  t1_errors = []
+  for d in results:
+    t1_errors += d['type1']
   rejection_times = np.array([d['rejection_time'] for d in results])
   nominal_rejection_alphas = np.hstack([d['alpha_at_rejection'] for d in results])
   t2_errors = [e for d in results for e in d['type2']]
@@ -474,8 +475,8 @@ if __name__ == "__main__":
   list_of_reward_mus_5 = [0.73, 0.56, 0.33, 0.04, 0.66]
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
-  for contam in [0.0, 0.1, 0.2, 0.3]:
+  for contam in [0.0]:
     t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
       rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', contamination=contam,
-                                                                                 T=50, replicates=1, test=False,
-                                                                                 save=False)
+                                                                                 T=50, replicates=8*36, test=False,
+                                                                                 save=True)
