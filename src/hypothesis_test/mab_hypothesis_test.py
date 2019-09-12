@@ -52,7 +52,7 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
     # Get correction factor
     if epsilon > 0:
       # best_null_value = np.max(empirical_prob[np.where(bins <= 0)])
-      best_alt_value = np.max(empirical_prob[np.where(bins > 0)])
+      best_alt_value = np.max(empirical_prob[np.where(bins[:-1] > 0)])
       # correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
       correction = 1 / (1 + (epsilon * best_alt_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass))
     else:
