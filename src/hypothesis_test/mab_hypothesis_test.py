@@ -51,8 +51,10 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
 
     # Get correction factor
     if epsilon > 0:
-      best_null_value = np.max(empirical_prob[np.where(bins <= 0)])
-      correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
+      # best_null_value = np.max(empirical_prob[np.where(bins <= 0)])
+      best_alt_value = np.max(empirical_prob[np.where(bins > 0)])
+      # correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
+      correction = 1 / (1 + (epsilon * best_alt_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass))
     else:
       correction = 1
 
@@ -401,6 +403,7 @@ def conduct_approximate_mab_ht(baseline_policy, proposed_policy, true_model_list
       true_proposed_regret = true_mab_regret(proposed_policy, true_model, estimated_model, num_pulls, t, T,
                                              draws_from_true_model)
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
+
     # Reject if alpha^th percentile < 0
     # alpha_th_percentile = np.percentile(diff_sampling_dbn, 100*alpha)
     posterior_h0_prob, posterior_density = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
