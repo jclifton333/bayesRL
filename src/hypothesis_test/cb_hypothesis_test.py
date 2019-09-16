@@ -57,7 +57,7 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
 
       # Incremental update to model estimate
       estimated_model_rollout[3][a] = np.vstack((estimated_model_rollout[3][a], context_features_tprime))
-      estimated_model_rollout[4][a] = np.hstack((estimated_model_rollout[4][a],reward))
+      estimated_model_rollout[4][a] = np.hstack((estimated_model_rollout[4][a], reward))
       estimated_model_rollout[2][a] = la.sherman_woodbury(estimated_model_rollout[2][a], context_features_tprime,
                                                           context_features_tprime)
       new_beta = np.dot(estimated_model_rollout[2][a], np.dot(estimated_model_rollout[3][a].T,
@@ -75,7 +75,7 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
   return np.mean(regrets)
 
 
-def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, num_pulls):
+def cb_sampling_dbn(true_model_params_, context_dbn_sampler, feature_function, num_pulls):
   """
 
   :param true_model_params:
@@ -86,18 +86,22 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
   sampled_model = []
   p = len(true_model_params[0][0])
   beta_hats = []
-  var_params_ = []
   XprimeX_invs = []
+  scales = []
   Xs= []
   ys = []
-  for arm_params, arm_pulls in zip(true_model_params, num_pulls):
-    beta, scale = arm_params[0], arm_params[1]
+  num_actions = len(num_pulls)
+  for arm in range(num_actions):
+    beta_for_arm = true_model_params_[0][arm]
+    scale_for_arm = true_model_params_[1][arm]
+    arm_pulls = num_pulls[arm]
+
     contexts = context_dbn_sampler(arm_pulls)  # Draw contexts
     context_features = np.array([feature_function(c) for c in contexts])
-    means = np.dot(context_features, beta)  # Get true means and variances at contexts
+    means = np.dot(context_features, beta_for_arm)  # Get true means and variances at contexts
 
     # Sample beta_hat from sampling_dbn
-    y = np.random.normal(loc=means, scale=scale)
+    y = np.random.normal(loc=means, scale=scale_for_arm)
     if context_features.shape[0] == 1:
       XprimeX_inv = la.sherman_woodbury(np.eye(p), context_features[0], context_features[0])
     else:
@@ -107,10 +111,12 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
 
     # Add parameters for this arm
     beta_hats.append(beta_hat)
+    scales.append(scale_for_arm)
     XprimeX_invs.append(XprimeX_inv)
     Xs.append(context_features)
     ys.append(y)
-  return [beta_hats, scale, XprimeX_invs, Xs, ys]
+
+  return [beta_hats, scales, XprimeX_invs, Xs, ys]
 
 
 def cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
@@ -213,7 +219,7 @@ def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model
 
 def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                               t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data, context_dbn_sampler,
-                              feature_function, contamination=0.5, mc_reps=1000):
+                              feature_function, contamination=0.99, mc_reps=1000):
   """
 
   :param baseline_policy:
@@ -242,11 +248,11 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
     return False
   else:
     diff_sampling_dbn = []
-    for true_model in true_model_list: # Assuming true_model_list are draws from approximate sampling dbn
-      # Pre-generate data from true_model
+    for true_model in true_model_list:  # Assuming true_model_list are draws from approximate sampling dbn
+      # Pre-generate data from sampled model
       pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
 
-      # Check if true_model is in H0
+      # Compute regret at sampled model
       true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
                                              t, T, pre_generated_data)
       true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
@@ -254,7 +260,7 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
 
     # Reject is posterior probability of null is small
-    posterior_h0_prob = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
+    posterior_h0_prob, _ = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
     return posterior_h0_prob < alpha
 
 
@@ -366,10 +372,10 @@ if __name__ == "__main__":
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
-  true_model_list = [[true_model_params[0], true_model_params[1], XprimeX_invs, Xs, ys]]
+  sampled_model_list = [beta_hats, theta_hats, XprimeX_invs, Xs, ys]
 
   # Hypothesis test
-  operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
+  operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, sampled_model_list,
                                                         estimated_model, number_of_pulls,
                                                         t, T, cb_sampling_dbn, alpha_schedule[t],
                                                         true_cb_regret,
