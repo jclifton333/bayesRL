@@ -26,7 +26,7 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   :return:
   """
   min_, max_ = np.min(empirical_dbn), np.max(empirical_dbn)
-  quantiles = np.quantile(empirical_dbn, [0.01, 0.99])
+  quantiles = np.percentile(empirical_dbn, [0.01, 0.99])
   bins = np.hstack(([min_], np.linspace(quantiles[0], quantiles[1], 15), [max_]))
   if 0 not in bins:
     bins = np.concatenate((bins[np.where(bins < 0)], [0.0], bins[np.where(bins > 0)]))  # Insert 0
@@ -45,7 +45,10 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   posterior_density = empirical_prob * prior_prob
   if len(np.where(bins <= 0)[0]) > 0:
     total_mass = np.sum(posterior_density)
-    mass_less_than_0 = np.sum(posterior_density[np.where(bins <= 0)])
+    try:
+      mass_less_than_0 = np.sum(posterior_density[np.where(bins <= 0)])
+    except:
+      pdb.set_trace()
     probability_less_than_0 = mass_less_than_0 / total_mass
     odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
 

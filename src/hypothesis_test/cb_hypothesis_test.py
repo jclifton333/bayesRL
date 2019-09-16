@@ -91,14 +91,13 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
   Xs= []
   ys = []
   for arm_params, arm_pulls in zip(true_model_params, num_pulls):
-    beta, var_params = arm_params[0], arm_params[1]
+    beta, scale = arm_params[0], arm_params[1]
     contexts = context_dbn_sampler(arm_pulls)  # Draw contexts
     context_features = np.array([feature_function(c) for c in contexts])
     means = np.dot(context_features, beta)  # Get true means and variances at contexts
-    variances = np.dot(context_features, var_params)
 
     # Sample beta_hat from sampling_dbn
-    y = np.random.normal(loc=means, scale=np.abs(variances))  # ToDo: fix the negative variance thing!
+    y = np.random.normal(loc=means, scale=scale)
     if context_features.shape[0] == 1:
       XprimeX_inv = la.sherman_woodbury(np.eye(p), context_features[0], context_features[0])
     else:
@@ -106,20 +105,12 @@ def cb_sampling_dbn(true_model_params, context_dbn_sampler, feature_function, nu
       XprimeX_inv = np.linalg.inv(np.eye(p) + XprimeX)
     beta_hat = np.dot(XprimeX_inv, np.dot(context_features.T, y))
 
-    # Sample theta_hat from sampling_dbn by regressing squared errors on contexts
-    # ToDo: allows negative variance, makes no sense!
-    errors = y - np.dot(context_features, beta_hat)
-    variance_regression = LinearRegression()
-    variance_regression.fit(contexts, errors**2)
-    var_params_hat = variance_regression.coef_
-
     # Add parameters for this arm
     beta_hats.append(beta_hat)
-    var_params_.append(var_params_hat)
     XprimeX_invs.append(XprimeX_inv)
     Xs.append(context_features)
     ys.append(y)
-  return [beta_hats, var_params_, XprimeX_invs, Xs, ys]
+  return [beta_hats, scale, XprimeX_invs, Xs, ys]
 
 
 def cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
@@ -176,10 +167,9 @@ def pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T, m
 
   # Draw rewards at each arm
   for arm in range(len(true_model[0])):
-    beta, variance_params = true_model[0][arm], true_model[1][arm]  # Should be sigma, not sigma_sq
-    means, sigma_sqs = np.dot(context_features, beta).reshape((T, mc_reps)), \
-                       (np.dot(context_features, variance_params)**2).reshape((T, mc_reps))
-    draws = np.random.normal(loc=means, scale=np.sqrt(sigma_sqs))
+    beta, scale = true_model[0][arm], true_model[1][arm]  # Should be sigma, not sigma_sq
+    means = np.dot(context_features, beta).reshape((T, mc_reps))
+    draws = np.random.normal(loc=means, scale=scale)
     draws_for_each_arm.append(draws)
 
   return draws_for_each_arm, np.array(context_features).reshape((T, mc_reps, context_dim))
@@ -351,15 +341,20 @@ if __name__ == "__main__":
     # else:
     #   return X
 
-  # Do hypothesis test
+  # Generate true model and contexts
+  num_sampling_dbn_draws = 100
   true_model_params = [[np.random.normal(size=2), np.random.normal(size=2)],
-                       [np.random.normal(size=2), np.random.normal(size=2)]]
-  Xs = [feature_function(context_dbn_sampler(1)), feature_function(context_dbn_sampler(1))]
-  XprimeX_invs = [la.sherman_woodbury(np.eye(2), x[0], x[0]) for x in Xs]
-  ys = [np.random.normal(loc=np.dot(b, x[0]), scale=np.dot(v, x[0])**2) for x, b, v in zip(Xs, true_model_params[0],
-                                                                                           true_model_params[1])]
-  beta_hats = [np.dot(xpx_inv, np.dot(x.T, y))[:, 0] for xpx_inv, x, y in zip(XprimeX_invs, Xs, ys)]
-  theta_hats = [p[1] for p in true_model_params]
+                       [np.random.gamma(1), np.random.gamma(1)]]
+  Xs = [feature_function(context_dbn_sampler(num_sampling_dbn_draws)),
+        feature_function(context_dbn_sampler(num_sampling_dbn_draws))]
+  XprimeX_invs = [np.linalg.inv(np.dot(x.T, x)) for x in Xs]
+
+  # Draws from sampling dbn
+  ys = [np.random.normal(loc=np.dot(x, b), scale=v)
+         for x, b, v in zip(Xs, true_model_params[0], true_model_params[1])]
+
+  beta_hats = [np.dot(xpx_inv, np.dot(x.T, y)) for xpx_inv, x, y in zip(XprimeX_invs, Xs, ys)]
+  theta_hats = [p[1] for p in true_model_params]  # Assuming variances are known
   estimated_model = [beta_hats, theta_hats, XprimeX_invs, Xs, ys]
   number_of_pulls = [1, 1]
 
@@ -372,6 +367,8 @@ if __name__ == "__main__":
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
   true_model_list = [[true_model_params[0], true_model_params[1], XprimeX_invs, Xs, ys]]
+
+  # Hypothesis test
   operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
                                                         estimated_model, number_of_pulls,
                                                         t, T, cb_sampling_dbn, alpha_schedule[t],
