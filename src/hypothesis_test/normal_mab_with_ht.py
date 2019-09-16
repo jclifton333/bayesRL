@@ -475,8 +475,9 @@ if __name__ == "__main__":
   list_of_reward_mus_5 = [0.73, 0.56, 0.33, 0.04, 0.66]
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, test=False)
   # run(0, 'eps_decay', T=50, list_of_reward_mus=list_of_reward_mus_5, std=1.0, test=False)
-  for contam in [0.1, 0.5, 0.9]:
-    t1_errors_, nominal_rejection_alphas_, t2_errors_, nominal_accept_alphas_, test_statistics_, true_diffs_, \
-      rejection_times_, posterior_h0_probs_, alphas_at_h0_ = operating_chars_run(0, 'eps_decay', contamination=contam,
-                                                                                 T=50, replicates=8*36, test=False,
-                                                                                 save=True)
+  for contam in [0.99]:
+    operating_chars_run(0, 'eps_decay', contamination=contam, T=50, replicates=8*36, 
+                        test=False, save=True)
+  for contam in [0.0, 0.1, 0.5, 0.9, 0.99]:
+    operating_chars_run(0, 'eps_decay', list_of_reward_mus=list_of_reward_mus_5, contamination=contam, 
+                        T=50, replicates=8*36, test=False, save=True)
