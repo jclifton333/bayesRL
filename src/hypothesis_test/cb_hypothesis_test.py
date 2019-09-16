@@ -13,6 +13,7 @@ sys.path.append(project_dir)
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.policies import linear_algebra as la
 from functools import partial
+from src.hypothesis_test.mab_hypothesis_test import approximate_posterior_h0_prob
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.metrics.pairwise import pairwise_kernels
 import numpy as np
@@ -48,7 +49,7 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
       context_features_tprime = context_features[tprime, rollout]
       # ToDo: can probably be optimized
       means = [np.dot(beta_hat, context_features_tprime) for beta_hat in estimated_model_rollout[0]]
-      a = policy(means, None, num_pulls_rep, tprime)
+      a, _ = policy(means, None, num_pulls_rep, tprime)
       reward = reward_draws[a][tprime - t, rollout]
 
       # Update model estimate
@@ -202,9 +203,12 @@ def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model
   for sample in range(outer_loop_mc_reps):
     # ToDo: add estimated_model[2:] to estimated_model_ instead?
     estimated_model_ = sampling_dbn_sampler(true_model_params, context_dbn_sampler, feature_function, num_pulls)
-    reject = conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model_, num_pulls,
-                           t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data,
-                           context_dbn_sampler, feature_function, mc_reps=inner_loop_mc_reps)
+    # reject = conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model_, num_pulls,
+    #                        t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data,
+    #                        context_dbn_sampler, feature_function, mc_reps=inner_loop_mc_reps)
+    reject = conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model_, num_pulls,
+                                       t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data,
+                                       context_dbn_sampler, feature_function, mc_reps=inner_loop_mc_reps)
     rejections.append(reject)
 
   if true_diff > 0:  # H0 false
@@ -215,6 +219,53 @@ def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model
     type2 = None
 
   return {'type1': type1, 'type2': type2}
+
+
+def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
+                              t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data, context_dbn_sampler,
+                              feature_function, contamination=0.5, mc_reps=1000):
+  """
+
+  :param baseline_policy:
+  :param proposed_policy:
+  :param true_model_list:
+  :param estimated_model:
+  :param num_pulls:
+  :param t:
+  :param T:
+  :param sampling_dbn:
+  :param mc_reps:
+  :return:
+  """
+  # Pre-generate data from estimated model
+  pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
+
+  # Check that estimated proposed regret is smaller than baseline; if not, do not reject
+  estimated_baseline_regret = true_cb_regret(baseline_policy, estimated_model, estimated_model,
+                                             num_pulls, t, T, pre_generated_data)
+  estimated_proposed_regret = true_cb_regret(proposed_policy, estimated_model, estimated_model,
+                                              num_pulls, t, T, pre_generated_data)
+
+  test_statistic = estimated_baseline_regret - estimated_proposed_regret
+
+  if test_statistic < 0:
+    return False
+  else:
+    diff_sampling_dbn = []
+    for true_model in true_model_list: # Assuming true_model_list are draws from approximate sampling dbn
+      # Pre-generate data from true_model
+      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
+
+      # Check if true_model is in H0
+      true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
+                                             t, T, pre_generated_data)
+      true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
+                                             t, T, pre_generated_data)
+      diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
+
+    # Reject is posterior probability of null is small
+    posterior_h0_prob = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
+    return posterior_h0_prob < alpha
 
 
 def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
@@ -321,13 +372,11 @@ if __name__ == "__main__":
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
   true_model_list = [[true_model_params[0], true_model_params[1], XprimeX_invs, Xs, ys]]
-
-  for i in range(10):
-    operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
-                                                          estimated_model, number_of_pulls,
-                                                          t, T, cb_sampling_dbn, alpha_schedule[t],
-                                                          true_cb_regret,
-                                                          pre_generate_cb_data, true_model_params, context_dbn_sampler,
-                                                          feature_function,
-                                                          inner_loop_mc_reps=100, outer_loop_mc_reps=100)
-    print(operating_char_dict)
+  operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
+                                                        estimated_model, number_of_pulls,
+                                                        t, T, cb_sampling_dbn, alpha_schedule[t],
+                                                        true_cb_regret,
+                                                        pre_generate_cb_data, true_model_params, context_dbn_sampler,
+                                                        feature_function,
+                                                        inner_loop_mc_reps=100, outer_loop_mc_reps=100)
+  print(operating_char_dict)
