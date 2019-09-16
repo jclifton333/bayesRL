@@ -349,7 +349,7 @@ if __name__ == "__main__":
 
   # Generate true model and contexts
   num_sampling_dbn_draws = 100
-  num_draws_per_arm = 5
+  num_draws_per_arm = 10
   true_model_params = [[np.random.normal(size=2), np.random.normal(size=2)],
                        [np.random.gamma(1), np.random.gamma(1)]]
   Xs = [feature_function(context_dbn_sampler(num_draws_per_arm)),
