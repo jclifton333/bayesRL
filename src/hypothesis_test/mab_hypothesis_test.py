@@ -43,6 +43,7 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])
   prior_prob = prior_histogram[0] / np.sum(prior_histogram[0])
   posterior_density = empirical_prob * prior_prob
+  pdb.set_trace()
   if len(np.where(bins <= 0)[0]) > 0 and len(np.where(bins[:-1] > 0)[0]) > 0:
     total_mass = np.sum(posterior_density)
     mass_less_than_0 = np.sum(posterior_density[np.where(bins <= 0)])

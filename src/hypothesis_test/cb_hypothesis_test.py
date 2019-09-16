@@ -328,7 +328,7 @@ if __name__ == "__main__":
   t = 1
   num_candidate_models = 10
   baseline_schedule = [0.05 for _ in range(T)]
-  tuning_schedule = [0.1 for _ in range(T)]
+  tuning_schedule = [0.00 for _ in range(T)]
   alpha_schedule = [0.025 for _ in range(T)]
   baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
   tuning_function = lambda T, t, zeta: tuning_schedule[t]
@@ -347,6 +347,7 @@ if __name__ == "__main__":
     # else:
     #   return X
 
+  # ToDo: not generating the correct number of sampling dbn samples
   # Generate true model and contexts
   num_sampling_dbn_draws = 100
   true_model_params = [[np.random.normal(size=2), np.random.normal(size=2)],
@@ -372,6 +373,7 @@ if __name__ == "__main__":
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
+  pdb.set_trace()
   sampled_model_list = [beta_hats, theta_hats, XprimeX_invs, Xs, ys]
 
   # Hypothesis test
