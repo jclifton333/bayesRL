@@ -254,7 +254,7 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
 
       # Compute regret at sampled model
       true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
-                                             t, T, pre_generated_data)
+                                            t, T, pre_generated_data)
       true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
                                              t, T, pre_generated_data)
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
@@ -285,30 +285,30 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = true_cb_regret(baseline_policy, estimated_model, estimated_model,
-                                             num_pulls, t, T, pre_generated_data)
+                                             num_pulls, t, t, pre_generated_data)
   estimated_proposed_regret = true_cb_regret(proposed_policy, estimated_model, estimated_model,
-                                              num_pulls, t, T, pre_generated_data)
+                                              num_pulls, t, t, pre_generated_data)
 
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
-    return False
+    return false
   else:
-    # Get cutoff by searching over possible models
+    # get cutoff by searching over possible models
     sampling_dbns = []
     for true_model in true_model_list:
-      # Pre-generate data from true_model
-      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
+      # pre-generate data from true_model
+      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, t-t, mc_reps)
 
-      # Check if true_model is in H0
+      # check if true_model is in h0
       true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
-                                             t, T, pre_generated_data)
+                                             t, t, pre_generated_data)
       true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
-                                             t, T, pre_generated_data)
-      # If in H0, get sampling dbn
+                                             t, t, pre_generated_data)
+      # if in h0, get sampling dbn
       if true_baseline_regret < true_proposed_regret:
         sampling_dbn = cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
-                                               t, T, sampling_dbn_sampler, true_cb_regret, pre_generate_cb_data,
+                                               t, t, sampling_dbn_sampler, true_cb_regret, pre_generate_cb_data,
                                                context_dbn_sampler, feature_function, reps_to_compute_regret=mc_reps)
         sampling_dbns.append(sampling_dbn)
 
@@ -347,23 +347,39 @@ if __name__ == "__main__":
     # else:
     #   return X
 
-  # ToDo: not generating the correct number of sampling dbn samples
   # Generate true model and contexts
   num_sampling_dbn_draws = 100
+  num_draws_per_arm = 5
   true_model_params = [[np.random.normal(size=2), np.random.normal(size=2)],
                        [np.random.gamma(1), np.random.gamma(1)]]
-  Xs = [feature_function(context_dbn_sampler(num_sampling_dbn_draws)),
-        feature_function(context_dbn_sampler(num_sampling_dbn_draws))]
+  Xs = [feature_function(context_dbn_sampler(num_draws_per_arm)),
+        feature_function(context_dbn_sampler(num_draws_per_arm))]
   XprimeX_invs = [np.linalg.inv(np.dot(x.T, x)) for x in Xs]
+  y_obs = [np.random.normal(loc=np.dot(x, b), scale=v) for b, v, x in zip(true_model_params[0], true_model_params[1],
+                                                                          Xs)]
 
-  # Draws from sampling dbn
-  ys = [np.random.normal(loc=np.dot(x, b), scale=v)
-         for x, b, v in zip(Xs, true_model_params[0], true_model_params[1])]
+  beta_hats = []
+  scale_hats = []
+  ys = []
+  for xprimex_inv, x, b, v in zip(XprimeX_invs, Xs, true_model_params[0], true_model_params[1]):
+    beta_hats_at_arm = []
+    scale_hats_at_arm = []
+    ys_at_arm = []
+    for draw in range(num_sampling_dbn_draws):
+      # Draw ys at features x
+      y_draw = np.random.normal(loc=np.dot(x, b), scale=v)
 
-  beta_hats = [np.dot(xpx_inv, np.dot(x.T, y)) for xpx_inv, x, y in zip(XprimeX_invs, Xs, ys)]
-  theta_hats = [p[1] for p in true_model_params]  # Assuming variances are known
-  estimated_model = [beta_hats, theta_hats, XprimeX_invs, Xs, ys]
-  number_of_pulls = [1, 1]
+      # Fit model given drawn ys
+      beta_hat_at_draw = np.dot(xprimex_inv, np.dot(x.T, y_draw))
+      beta_hats_at_arm.append(beta_hat_at_draw)
+      scale_hats_at_arm.append(v)  # Assuming scale is known
+      ys_at_arm.append(y_draw)
+    beta_hats.append(beta_hats_at_arm)
+    scale_hats.append(scale_hats_at_arm)
+    ys.append(ys_at_arm)
+
+  estimated_model = [true_model_params[0], true_model_params[1], XprimeX_invs, Xs, y_obs]
+  number_of_pulls = [num_draws_per_arm, num_draws_per_arm]
 
   def baseline_policy(estimated_means, standard_errors, number_of_pulls_, t):
     return policy(estimated_means, None, number_of_pulls_, tuning_function=baseline_tuning_function,
@@ -373,8 +389,13 @@ if __name__ == "__main__":
     return policy(estimated_means, None, number_of_pulls_, tuning_function=tuning_function,
                   tuning_function_parameter=tuning_function_parameter, T=T, t=t, env=None)
 
-  pdb.set_trace()
-  sampled_model_list = [beta_hats, theta_hats, XprimeX_invs, Xs, ys]
+  sampled_model_list = []
+  for model in range(num_sampling_dbn_draws):
+    sampled_model_list.append([[beta_hats[0][model], beta_hats[1][model]],
+                               [scale_hats[0][model], scale_hats[1][model]],
+                               [XprimeX_invs[0], XprimeX_invs[1]],
+                               [Xs[0], Xs[1]],
+                               [ys[0], ys[1]]])
 
   # Hypothesis test
   operating_char_dict = cb_ht_operating_characteristics(baseline_policy, proposed_policy, sampled_model_list,
