@@ -264,6 +264,32 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
     return posterior_h0_prob < alpha
 
 
+def is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls, t, T, true_cb_regret_,
+                  pre_generate_cb_data_, true_model_params_, true_model_context_sampler_, mc_reps):
+  """
+  Determine whether h0 is true starting at time t, using Monte Carlo estimates of regrets under true model.
+
+  :param baseline_policy:
+  :param proposed_policy:
+  :param estimated_model:
+  :param number_of_pulls:
+  :param t:
+  :param T:
+  :param true_cb_regret_:
+  :param pre_generate_cb_data_:
+  :param true_model_params_:
+  :return:
+  """
+  draws_from_estimated_model = pre_generate_cb_data_(true_model_params_, true_model_context_sampler_, T-t, mc_reps)
+  baseline_regret_at_truth = true_cb_regret_(baseline_policy, true_model_params, estimated_model, number_of_pulls,
+                                             t, T, draws_from_estimated_model)
+  proposed_regret_at_truth = true_cb_regret_(proposed_policy, true_model_params, estimated_model, number_of_pulls,
+                                             t, T, draws_from_estimated_model)
+  true_diff = baseline_regret_at_truth - proposed_regret_at_truth
+  h0_true = true_diff < 0
+  return h0_true
+
+
 def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                   t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data, context_dbn_sampler,
                   feature_function, mc_reps=1000):

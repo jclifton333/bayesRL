@@ -13,7 +13,7 @@ from functools import partial
 import datetime
 import yaml
 import multiprocessing as mp
-import cb_hypothesis_test as ht
+import src.hypothesis_test.cb_hypothesis_test as ht
 import numpy as np
 
 
@@ -65,6 +65,11 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
   # Initialize environment
   env = NormalCB(num_initial_pulls=1, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
                  context_var=context_var, list_of_reward_vars=list_of_reward_vars)
+
+  def true_context_sampler(n_):
+    X_ = np.random.multivariate_normal(mean=env.context_mean, cov=env.context_var, size=n_)
+    return X_
+
   true_model_params = [[beta, np.sqrt(var)] for beta, var in zip(env.list_of_reward_betas, env.list_of_reward_vars)]
 
   t1_errors = []
@@ -139,10 +144,9 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
                                       context_dbn_sampler, feature_function, mc_reps=mc_reps_for_ht)
 
       ## Get true regret of baseline ##
-      # ToDo: implement is_cb_h0_true
       h0_true, true_diff = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, env.number_of_pulls,
                                             t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
-                                            inner_loop_reps=mc_reps_for_ht)
+                                            true_context_sampler, mc_reps_for_ht)
 
       if ht_rejected and no_rejections_yet:
         when_hypothesis_rejected = int(t)
