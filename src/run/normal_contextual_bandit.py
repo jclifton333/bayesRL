@@ -172,11 +172,6 @@ def episode(policy_name, label, decay_function=None, n_patients=15, list_of_rewa
                                                  {'pre_simulated_data': pre_simulated_data},
                                                  bounds, explore_, positive_zeta=positive_zeta)
         tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
-      else:
-        tuning_function_parameter = tuned_bandit.random_search(tuned_bandit.oracle_rollout, policy, tuning_function,
-                                                               tuning_function_parameter,
-                                                               linear_model_results, T, t, estimated_context_mean,
-                                                               estimated_context_variance, env)
 
     for patient in range(n_patients):
       x = copy.copy(env.curr_context)

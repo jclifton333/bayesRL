@@ -649,8 +649,7 @@ class LinearCB(Bandit):
 
 class NormalCB(LinearCB):
   def __init__(self, num_initial_pulls, feature_function=None, list_of_reward_betas=[[1, 1], [2, -2]],
-               list_of_reward_thetas=[[0., 0.], [0., 0.]], list_of_reward_vars=[1, 1],
-               context_mean=[1, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
+               list_of_reward_vars=[1, 1], context_mean=[1, 0], context_var=np.array([[1., 0.1], [0.1, 1.]])):
     self.context_var = context_var
 
     # Context prior params
