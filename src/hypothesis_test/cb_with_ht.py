@@ -77,7 +77,6 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
   alpha_at_h0 = []
   for t in range(T):
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
-    X = env.X
 
     ## Hypothesis testing setup ##
     estimated_model = [[beta_hat, sigma_hat, XprimeX_inv, X, y] for beta_hat, sigma_hat, XprimeX_inv, X, y
@@ -96,23 +95,9 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
       param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['var_draw'])]
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
-
-    # Get operating characteristics
-    if time_to_tune and not ht_rejected:
-      def context_dbn_sampler(n_):
-        X_ = np.random.multivariate_normal(mean=env.estimated_context_mean, cov=env.estimated_context_cov, size=n_)
-        return X_
-
-      operating_char_dict = ht.cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model_list,
-                                                                estimated_model, env.number_of_pulls,
-                                                                t, T, ht.normal_mab_sampling_dbn, alpha_schedule[t],
-                                                                ht.true_normal_mab_regret,
-                                                                ht.pre_generate_normal_mab_data, true_model_params,
-                                                                context_dbn_sampler, feature_function,
-                                                                inner_loop_mc_reps=100, outer_loop_mc_reps=100)
     ## End hypothesis testing setup ##
 
-    if tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
+    if time_to_tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
       gen_model_parameters = []
       for rep in range(mc_replicates):
         draws = env.sample_from_posterior()
@@ -136,8 +121,13 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
                                                tuning_function, tuning_function_parameter, T,
                                                sim_env, mc_replicates,
                                                {'pre_simulated_data': pre_simulated_data},
-                                               bounds, explore_, positive_zeta=positive_zeta)
+                                               bounds, explore_, positive_zeta=positive_zeta, test=test)
       ## Hypothesis testing ##
+
+      def context_dbn_sampler(n_):
+        X_ = np.random.multivariate_normal(mean=env.estimated_context_mean, cov=env.estimated_context_cov, size=n_)
+        return X_
+
       ht_rejected = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.cb_sampling_dbn,
                                       alpha_schedule[t], ht.true_cb_regret, ht.pre_generate_cb_data,
@@ -152,15 +142,8 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
 
-    if ht_rejected and tune:
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                      tuning_function_parameter, T, t, env)
-    else:
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
-                      None, T, t, env)
-
-    t1_errors.append(operating_char_dict['type1'])
-    powers.append(operating_char_dict['type2'])
+    action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
+                    None, T, t, env)
     env.step(action)
 
     ## Record operating characteristics ##
@@ -170,10 +153,12 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
         alpha_at_h0.append(float(alpha_schedule[t]))
       else:
         t2_errors.append(int(1-ht_rejected))
+      if ht_rejected: # Break as soon as there is a rejection
+        break
 
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
-          'type2': type2_errors, 'alpha_at_h0': alpha_at_h0}
+          'type2': t2_errors, 'alpha_at_h0': alpha_at_h0}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -380,20 +365,10 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
 
 
 if __name__ == "__main__":
-  # std = 0.1
-  # list_of_reward_mus = [0.3, 0.6]
-  # save = False
-  # T = 50
-  # monte_carlo_reps = 100
-  # test = True
-  # BASELINE_SCHEDULE = [0.1 for _ in range(T)]
-  # ALPHA_SCHEDULE = [0.05 for _ in range(T)]
-  # policy_name = 'ht'
+  policy_name = 'eps-decay'
+  label = 0
+  T = 20
+  alpha_schedule = [1 / (T - t) for t in range(T)]
+  baseline_schedule = [0.1 for t in range(T)]
+  operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedule, n_patients=15)
 
-  # episode_partial = partial(episode, policy_name=policy_name, baseline_schedule=BASELINE_SCHEDULE,
-  #   alpha_schedule = ALPHA_SCHEDULE, std = std, T = T, monte_carlo_reps = monte_carlo_reps,
-  #   list_of_reward_mus = list_of_reward_mus, test = test)
-  # episode_partial(0)
-
-  run('eps-greedy-ht', std=1.0)
-  run('eps-greedy-ht')
