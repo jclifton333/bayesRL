@@ -17,11 +17,11 @@ import cb_hypothesis_test as ht
 import numpy as np
 
 
-def operating_chars_episode(policy_name, label, alpha_schedule, n_patients=15,
+def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedule, n_patients=15,
                             list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
                             context_mean=np.array([0.0, 0.0, 0.0]),
                             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
-                            mc_replicates=1000):
+                            mc_replicates=1000, test=False):
   """
   Currently assuming eps-greedy.
 
@@ -33,13 +33,15 @@ def operating_chars_episode(policy_name, label, alpha_schedule, n_patients=15,
   :param posterior_sample:
   :return:
   """
+  TUNE_INTERVAL = 5
+  np.random.seed(label)
+
   if test:
     NUM_CANDIDATE_HYPOTHESES = 5
     mc_reps_for_ht = 5
   else:
     NUM_CANDIDATE_HYPOTHESES = 20  # Number of candidate null models to consider when conducting ht
     mc_reps_for_ht = 500
-  np.random.seed(label)
 
   # Settings
   feature_function = lambda z: z
@@ -64,14 +66,15 @@ def operating_chars_episode(policy_name, label, alpha_schedule, n_patients=15,
   env = NormalCB(num_initial_pulls=1, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
                  context_var=context_var, list_of_reward_vars=list_of_reward_vars)
   true_model_params = [[beta, np.sqrt(var)] for beta, var in zip(env.list_of_reward_betas, env.list_of_reward_vars)]
-  cumulative_regret = 0.0
 
   t1_errors = []
-  powers = []
+  t2_errors = []
+  alpha_at_h0 = []
   for t in range(T):
+    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
     X = env.X
 
-    ## Hypothesis testing stuff ##
+    ## Hypothesis testing setup ##
     estimated_model = [[beta_hat, sigma_hat, XprimeX_inv, X, y] for beta_hat, sigma_hat, XprimeX_inv, X, y
                        in zip(env.beta_hat_list, env.sigma_hat_list, env.Xprime_X_inv_list,
                               env.X_list, env.y_list)]
@@ -90,7 +93,7 @@ def operating_chars_episode(policy_name, label, alpha_schedule, n_patients=15,
       true_model_list.append(param_list_for_sampled_model)
 
     # Get operating characteristics
-    if not ht_rejected:
+    if time_to_tune and not ht_rejected:
       def context_dbn_sampler(n_):
         X_ = np.random.multivariate_normal(mean=env.estimated_context_mean, cov=env.estimated_context_cov, size=n_)
         return X_
@@ -102,7 +105,7 @@ def operating_chars_episode(policy_name, label, alpha_schedule, n_patients=15,
                                                                 ht.pre_generate_normal_mab_data, true_model_params,
                                                                 context_dbn_sampler, feature_function,
                                                                 inner_loop_mc_reps=100, outer_loop_mc_reps=100)
-    ## End hypothesis testing stuff ##
+    ## End hypothesis testing setup ##
 
     if tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
       gen_model_parameters = []
@@ -129,11 +132,18 @@ def operating_chars_episode(policy_name, label, alpha_schedule, n_patients=15,
                                                sim_env, mc_replicates,
                                                {'pre_simulated_data': pre_simulated_data},
                                                bounds, explore_, positive_zeta=positive_zeta)
-      # Hypothesis testing
+      ## Hypothesis testing ##
       ht_rejected = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                       env.number_of_pulls, t, T, ht.cb_sampling_dbn,
                                       alpha_schedule[t], ht.true_cb_regret, ht.pre_generate_cb_data,
                                       context_dbn_sampler, feature_function, mc_reps=mc_reps_for_ht)
+
+      ## Get true regret of baseline ##
+      # ToDo: implement is_cb_h0_true
+      h0_true, true_diff = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, env.number_of_pulls,
+                                            t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
+                                            inner_loop_reps=mc_reps_for_ht)
+
       if ht_rejected and no_rejections_yet:
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
@@ -147,17 +157,19 @@ def operating_chars_episode(policy_name, label, alpha_schedule, n_patients=15,
 
     t1_errors.append(operating_char_dict['type1'])
     powers.append(operating_char_dict['type2'])
+    env.step(action)
 
-    res = env.step(action)
-    u = res['Utility']
+    ## Record operating characteristics ##
+    if time_to_tune:
+      if h0_true:
+        t1_errors.append(int(ht_rejected))
+        alpha_at_h0.append(float(alpha_schedule[t]))
+      else:
+        t2_errors.append(int(1-ht_rejected))
 
-    # Compute regret
-    regret = mu_opt - env.list_of_reward_mus[action]
-    cumulative_regret += regret
-
-  return {'cumulative_regret': cumulative_regret, 'when_hypothesis_rejected': when_hypothesis_rejected,
+  return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
-          'power': powers}
+          'type2': type2_errors, 'alpha_at_h0': alpha_at_h0}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
