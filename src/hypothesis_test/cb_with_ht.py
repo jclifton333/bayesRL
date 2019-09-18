@@ -403,7 +403,7 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False, s
   if save:
     results = {'t1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0,
                't2_errors': t2_errors}
-    base_name = 'eps-cb'
+    base_name = 'eps-cb-contam={}'.format(contamination)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -412,7 +412,7 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False, s
 
 
 if __name__ == "__main__":
-  T = 30
+  T = 50
   label = 1
   for contamination in np.linspace(0.0, 0.9, 5):
     operating_chars_run(label, contamination, T=T, replicates=36*2)
