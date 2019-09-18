@@ -351,14 +351,12 @@ class BernoulliMAB(MAB):
 
 class LinearCB(Bandit):
   """
-  ToDo: transform + covariate-dependent-variance needs to be implemented!
   Contextual bandit where rewards are normal-linear in a transformation of the original features. Variance
   is in general covariate-dependent:
     log V(r | x, a) = feature_function(x) . \theta_a
   """
   def __init__(self, num_initial_pulls, feature_function, context_mean,
-               list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]],
-               list_of_reward_theats=[[0., 0.], [0., 0.]], list_of_reward_vars=[1, 1]):
+               list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]], list_of_reward_vars=[1, 1]):
     Bandit.__init__(self)
     ## list_of_reward_vars: a list of scalars
     ## context_mean: the mean vetor, same length as each vector in the list "list_of_reward_betas";
@@ -661,7 +659,7 @@ class NormalCB(LinearCB):
                                           'lambda_post_context': self.lambda0_context}
 
     LinearCB.__init__(self, num_initial_pulls, feature_function, context_mean, list_of_reward_betas,
-                      list_of_reward_thetas, list_of_reward_vars)
+                      list_of_reward_vars)
 
   def draw_context(self, context_mean=None, context_var=None):
     if context_mean is None:

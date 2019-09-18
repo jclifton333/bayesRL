@@ -113,8 +113,8 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
 #                          'context_max': draws['context_max']}
           gen_model_parameters.append(param_dict)
 
-      sim_env = NormalCB(list_of_reward_betas=betas_for_each_action, context_mean=context_mean, context_var=context_var,
-                         list_of_reward_vars=vars_for_each_action)
+      sim_env = NormalCB(num_initial_pulls=1, list_of_reward_betas=betas_for_each_action, context_mean=context_mean,
+                         context_var=context_var, list_of_reward_vars=vars_for_each_action)
       pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T, n_patients=n_patients,
                                                        gen_model_params=gen_model_parameters)
       tuning_function_parameter = opt.bayesopt(rollout.normal_cb_rollout_with_fixed_simulations, policy,
@@ -142,8 +142,8 @@ def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedul
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
 
-    action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, baseline_tuning_function,
-                    None, T, t, env)
+    estimated_means = [np.dot(env.curr_context, b) for b in env.beta_hat_list]
+    action, _ = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
     env.step(action)
 
     ## Record operating characteristics ##
