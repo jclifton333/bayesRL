@@ -42,33 +42,30 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
     regret = 0.0
     num_pulls_rep = copy.copy(num_pulls)
     estimated_model_rollout = copy.deepcopy(estimated_model)  # ToDo: estimated model should include XprimeX_inv
-    beta_hats, _, XprimeX_invs, Xs, ys = estimated_model_rollout
 
     for tprime in range(T-t):
       # Take action
       context_features_tprime = context_features[tprime, rollout]
       # ToDo: can probably be optimized
-      means = [np.dot(beta_hat, context_features_tprime) for beta_hat in estimated_model_rollout[0]]
+      means = [np.dot(estimated_model_rollout[a_][0], context_features_tprime) for a_ in
+               range(len(estimated_model_rollout))]
       a, _ = policy(means, None, num_pulls_rep, tprime)
       reward = reward_draws[a][tprime - t, rollout]
 
-      # Update model estimate
-      n = num_pulls_rep[a] + 1
-
       # Incremental update to model estimate
-      estimated_model_rollout[3][a] = np.vstack((estimated_model_rollout[3][a], context_features_tprime))
-      estimated_model_rollout[4][a] = np.hstack((estimated_model_rollout[4][a], reward))
-      estimated_model_rollout[2][a] = la.sherman_woodbury(estimated_model_rollout[2][a], context_features_tprime,
+      estimated_model_rollout[a][3] = np.vstack((estimated_model_rollout[a][3], context_features_tprime))
+      estimated_model_rollout[a][4] = np.hstack((estimated_model_rollout[a][4], reward))
+      estimated_model_rollout[a][2] = la.sherman_woodbury(estimated_model_rollout[a][2], context_features_tprime,
                                                           context_features_tprime)
-      new_beta = np.dot(estimated_model_rollout[2][a], np.dot(estimated_model_rollout[3][a].T,
-                                                              estimated_model_rollout[4][a]))
+      new_beta = np.dot(estimated_model_rollout[a][2], np.dot(estimated_model_rollout[a][3].T,
+                                                              estimated_model_rollout[a][4]))
 
       # Update parameter lists
       # Using eps-greedy, so don't need to update cov estimate
-      estimated_model_rollout[0][a] = new_beta
+      estimated_model_rollout[a][0] = new_beta
 
       # Compute regret
-      means_at_each_arm = [np.dot(context_features_tprime, b) for b in true_model[0]]
+      means_at_each_arm = [np.dot(context_features_tprime, true_model[a_][0]) for a_ in range(len(true_model))]
       regret += (np.max(means_at_each_arm) - np.dot(context_features_tprime, new_beta))
 
     regrets.append(regret)
@@ -172,8 +169,8 @@ def pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T, m
   context_dim = len(context_features[0])
 
   # Draw rewards at each arm
-  for arm in range(len(true_model[0])):
-    beta, scale = true_model[0][arm], true_model[1][arm]  # Should be sigma, not sigma_sq
+  for arm in range(len(true_model)):
+    beta, scale = true_model[arm][0], true_model[arm][1]  # Should be sigma, not sigma_sq
     means = np.dot(context_features, beta).reshape((T, mc_reps))
     draws = np.random.normal(loc=means, scale=scale)
     draws_for_each_arm.append(draws)
@@ -265,7 +262,7 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
 
 
 def is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls, t, T, true_cb_regret_,
-                  pre_generate_cb_data_, true_model_params_, true_model_context_sampler_, mc_reps):
+                  pre_generate_cb_data_, true_model_params_, true_model_context_sampler_, mc_reps, feature_function):
   """
   Determine whether h0 is true starting at time t, using Monte Carlo estimates of regrets under true model.
 
@@ -280,10 +277,11 @@ def is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_p
   :param true_model_params_:
   :return:
   """
-  draws_from_estimated_model = pre_generate_cb_data_(true_model_params_, true_model_context_sampler_, T-t, mc_reps)
-  baseline_regret_at_truth = true_cb_regret_(baseline_policy, true_model_params, estimated_model, number_of_pulls,
+  draws_from_estimated_model = pre_generate_cb_data_(true_model_params_, true_model_context_sampler_, feature_function,
+                                                     T-t, mc_reps)
+  baseline_regret_at_truth = true_cb_regret_(baseline_policy, true_model_params_, estimated_model, number_of_pulls,
                                              t, T, draws_from_estimated_model)
-  proposed_regret_at_truth = true_cb_regret_(proposed_policy, true_model_params, estimated_model, number_of_pulls,
+  proposed_regret_at_truth = true_cb_regret_(proposed_policy, true_model_params_, estimated_model, number_of_pulls,
                                              t, T, draws_from_estimated_model)
   true_diff = baseline_regret_at_truth - proposed_regret_at_truth
   h0_true = true_diff < 0

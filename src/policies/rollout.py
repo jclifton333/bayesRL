@@ -167,8 +167,10 @@ def normal_cb_rollout_with_fixed_simulations(tuning_function_parameter, policy, 
 
         # Draw context and draw arm based on policy
         context = context_block[patient, :]
-        action = policy(beta_hat_list, sampling_cov_list, context, tuning_function,
-                        tuning_function_parameter, time_horizon, t, env)
+        means_list = [np.dot(context, b) for b in beta_hat_list]
+
+        # Assuming MAB policy, so need to pass list of means at context
+        action, _ = policy(means_list, None, None, tuning_function, tuning_function_parameter, time_horizon, t, env)
 
         # Get reward and regret
         reward = rewards_block[patient, action]

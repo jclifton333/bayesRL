@@ -350,11 +350,6 @@ class BernoulliMAB(MAB):
 
 
 class LinearCB(Bandit):
-  """
-  Contextual bandit where rewards are normal-linear in a transformation of the original features. Variance
-  is in general covariate-dependent:
-    log V(r | x, a) = feature_function(x) . \theta_a
-  """
   def __init__(self, num_initial_pulls, feature_function, context_mean,
                list_of_reward_betas=[[0.4, 0.4, -0.4], [0.6, 0.6, -0.4]], list_of_reward_vars=[1, 1]):
     Bandit.__init__(self)
@@ -364,7 +359,7 @@ class LinearCB(Bandit):
     self.num_initial_pulls = num_initial_pulls
     self.context_mean = context_mean
     self.number_of_actions = len(list_of_reward_vars)
-    self.context_dimension = len(list_of_reward_betas[0]) 
+    self.context_dimension = len(list_of_reward_betas[0])
     self.curr_context = None
     self.feature_function = feature_function
     self.list_of_reward_betas = list_of_reward_betas
