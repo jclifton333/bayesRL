@@ -415,5 +415,5 @@ if __name__ == "__main__":
   T = 30
   label = 1
   for contamination in np.linspace(0.0, 0.9, 5):
-    operating_chars_run(label, T=T, replicates=36*2)
+    operating_chars_run(label, contamination, T=T, replicates=36*2)
 
