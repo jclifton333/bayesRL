@@ -17,7 +17,7 @@ import src.hypothesis_test.cb_hypothesis_test as ht
 import numpy as np
 
 
-def operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedule, n_patients=15,
+def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedule, n_patients=15,
                             list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
                             context_mean=np.array([0.0, 0.0, 0.0]),
                             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
@@ -371,11 +371,47 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
   return
 
 
+def operating_chars_run(label, T=50, replicates=36, test=False, save=True):
+  BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
+  ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
+
+  if test:
+    replicates = num_cpus = 1
+    monte_carlo_reps = 5
+  else:
+    num_cpus = 36
+  episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
+                            alpha_schedule=ALPHA_SCHEDULE, T=T, test=test)
+  num_batches = int(replicates / num_cpus)
+
+  results = []
+  if test or replicates == 1:
+    results.append(episode_partial(0))
+  else:
+    pool = mp.Pool(processes=num_cpus)
+    for batch in range(label*num_batches, (label+1)*num_batches):
+      results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+      results += results_for_batch
+
+  t1_errors = []
+  for d in results:
+    t1_errors += d['type1']
+  t2_errors = [e for d in results for e in d['type2']]
+  alphas_at_h0 = [a for d in results for a in d['alpha_at_h0']]
+
+  if save:
+    results = {'t1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0,
+               't2_errors': t2_errors}
+    base_name = 'eps-cb'
+    prefix = os.path.join(project_dir, 'src', 'run', base_name)
+    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = '{}_{}.yml'.format(prefix, suffix)
+    with open(filename, 'w') as outfile:
+      yaml.dump(results, outfile)
+
+
 if __name__ == "__main__":
-  policy_name = 'eps-decay'
-  label = 0
-  T = 20
-  alpha_schedule = [1 / (T - t) for t in range(T)]
-  baseline_schedule = [0.1 for t in range(T)]
-  print(operating_chars_episode(policy_name, label, alpha_schedule, baseline_schedule, n_patients=15, T=T))
+  T = 30
+  label = 1
+  operating_chars_run(label, T=T, replicates=36*8)
 
