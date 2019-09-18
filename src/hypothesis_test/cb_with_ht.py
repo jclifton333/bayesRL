@@ -17,7 +17,7 @@ import src.hypothesis_test.cb_hypothesis_test as ht
 import numpy as np
 
 
-def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedule, n_patients=15,
+def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedule, contamination, n_patients=15,
                             list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
                             context_mean=np.array([0.0, 0.0, 0.0]),
                             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
@@ -138,7 +138,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
       ht_rejected = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                                  number_of_pulls, t, T, ht.cb_sampling_dbn,
                                                  alpha_schedule[t], ht.true_cb_regret, ht.pre_generate_cb_data,
-                                                 context_dbn_sampler, feature_function, mc_reps=mc_reps_for_ht)
+                                                 context_dbn_sampler, feature_function, contamination=contamination,
+                                                 mc_reps=mc_reps_for_ht)
 
       ## Get true regret of baseline ##
       h0_true = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
@@ -371,7 +372,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
   return
 
 
-def operating_chars_run(label, T=50, replicates=36, test=False, save=True):
+def operating_chars_run(label, contamination, T=50, replicates=36, test=False, save=True):
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
 
@@ -381,7 +382,7 @@ def operating_chars_run(label, T=50, replicates=36, test=False, save=True):
   else:
     num_cpus = 36
   episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
-                            alpha_schedule=ALPHA_SCHEDULE, T=T, test=test)
+                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
   num_batches = int(replicates / num_cpus)
 
   results = []
@@ -413,5 +414,6 @@ def operating_chars_run(label, T=50, replicates=36, test=False, save=True):
 if __name__ == "__main__":
   T = 30
   label = 1
-  operating_chars_run(label, T=T, replicates=36*8)
+  for contamination in np.linspace(0.0, 0.9, 5):
+    operating_chars_run(label, T=T, replicates=36*2)
 
