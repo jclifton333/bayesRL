@@ -43,7 +43,7 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
     num_pulls_rep = copy.copy(num_pulls)
     estimated_model_rollout = copy.deepcopy(estimated_model)  # ToDo: estimated model should include XprimeX_inv
 
-    for tprime in range(T-t):
+    for tprime in range(t, T):
       # Take action
       context_features_tprime = context_features[tprime, rollout]
       # ToDo: can probably be optimized
