@@ -45,7 +45,7 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
 
     for tprime in range(t, T):
       # Take action
-      context_features_tprime = context_features[tprime, rollout]
+      context_features_tprime = context_features[tprime - t, rollout]
       # ToDo: can probably be optimized
       means = [np.dot(estimated_model_rollout[a_][0], context_features_tprime) for a_ in
                range(len(estimated_model_rollout))]
