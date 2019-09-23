@@ -157,7 +157,6 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     ## Record operating characteristics ##
     if time_to_tune:
       if h0_true:
-        pdb.set_trace()
         t1_errors.append(int(ht_rejected))
         alpha_at_h0.append(float(alpha_schedule[t]))
       else:
@@ -417,11 +416,11 @@ if __name__ == "__main__":
   test = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  # for contamination in np.linspace(0.0, 0.9, 5):
-  #   operating_chars_run(label, contamination, T=T, replicates=36*2)
-  contamination = 0.9
-  episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
-                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
-  for l in range(10):
-    episode_partial(l)
+  for contamination in np.linspace(0.0, 0.9, 5):
+    operating_chars_run(1, contamination, T=T, replicates=36*2)
+  # contamination = 0.9
+  # episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
+  #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
+  # for l in range(10):
+  #   episode_partial(l)
 

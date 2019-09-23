@@ -429,21 +429,13 @@ class LinearCB(Bandit):
     :return:
     """
     draws_dict = {}
+    # Use sampling dbn as approximate posterior
     for a in range(self.number_of_actions):
-      # Posterior parameters for this arm
-      # a_post = self.posterior_params_dict[a]['a_post']
-      # b_post = self.posterior_params_dict[a]['b_post']
-      Lambda_inv_post = self.posterior_params_dict[a]['Lambda_inv_post']
-      beta_post = self.posterior_params_dict[a]['beta_post']
-
-      # sigma_sq_draw = np.random.gamma(a_post, 1.0 / b_post)
-      # Just draw from the damn sampling dbn of sigmasqhat
+      beta_post = self.beta_hat_list[a]
       sigma_sq_hat = self.sigma_hat_list[a]**2
-      n = self.X_list[a].shape[0]
-      sigma_sq_draw = np.random.gamma(n / 2.0, n / (2 * sigma_sq_hat))
       beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post,
-                                                              variance_shrinkage * sigma_sq_draw * Lambda_inv_post)
-      draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_draw}
+                                                              sigma_sq_hat * self.Xprime_X_inv_list[a])
+      draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_hat}
     return draws_dict
 
   def initial_pulls(self):
