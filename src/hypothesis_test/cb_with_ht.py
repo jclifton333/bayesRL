@@ -99,7 +99,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
       true_model_list.append(param_list_for_sampled_model)
     ## End hypothesis testing setup ##
 
-    if time_to_tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
+    # if time_to_tune and not ht_rejected:  # Propose a tuned policy if ht has not already been rejected
+    if time_to_tune:
       gen_model_parameters = []
       for rep in range(mc_replicates):
         draws = env.sample_from_posterior()
@@ -142,9 +143,11 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
                                                  mc_reps=mc_reps_for_ht)
 
       ## Get true regret of baseline ##
-      h0_true = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
-                                 t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
-                                 true_context_sampler, mc_reps_for_ht, feature_function)
+      h0_true, true_diff_ = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
+                                             t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
+                                             true_context_sampler, mc_reps_for_ht, feature_function)
+      print('true diff: {}'.format(true_diff_))
+      print('beta hat: {}'.format(env.beta_hat_list))
 
       if ht_rejected and no_rejections_yet:
         when_hypothesis_rejected = int(t)
@@ -161,8 +164,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
         alpha_at_h0.append(float(alpha_schedule[t]))
       else:
         t2_errors.append(int(1-ht_rejected))
-      if ht_rejected: # Break as soon as there is a rejection
-        break
+      # if ht_rejected: # Break as soon as there is a rejection
+      #   break
 
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
@@ -416,11 +419,10 @@ if __name__ == "__main__":
   test = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  for contamination in np.linspace(0.0, 0.9, 5):
-    operating_chars_run(1, contamination, T=T, replicates=36*2)
-  # contamination = 0.9
-  # episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
-  #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
-  # for l in range(10):
-  #   episode_partial(l)
+  # for contamination in np.linspace(0.0, 0.9, 5):
+  #   operating_chars_run(1, contamination, T=T, replicates=36*2)
+  contamination = 0.9
+  episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
+                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
+  episode_partial(0)
 

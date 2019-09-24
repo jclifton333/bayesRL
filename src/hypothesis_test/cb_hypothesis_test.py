@@ -240,6 +240,7 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
                                               num_pulls, t, T, pre_generated_data)
 
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
+  print('test_statistic: {}'.format(test_statistic))
 
   if test_statistic < 0:
     return False
@@ -285,7 +286,7 @@ def is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_p
                                              t, T, draws_from_estimated_model)
   true_diff = baseline_regret_at_truth - proposed_regret_at_truth
   h0_true = true_diff < 0
-  return h0_true
+  return h0_true, true_diff
 
 
 def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
