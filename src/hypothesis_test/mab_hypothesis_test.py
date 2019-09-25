@@ -33,13 +33,13 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
 
   # Generate data from prior
   prior_draws = np.random.normal(scale=1, size=len(empirical_dbn))
-  empirical_draws = np.random.normal(loc=np.mean(empirical_dbn), scale=2*np.std(empirical_dbn), size=len(empirical_dbn))
+  # empirical_draws = np.random.normal(loc=np.mean(empirical_dbn), scale=2*np.std(empirical_dbn), size=len(empirical_dbn))
 
   # Get histograms and combine
-  # empirical_histogram = np.histogram(empirical_dbn, bins=bins, density=False)
-  empirical_histogram = np.histogram(empirical_draws, bins=bins, density=False)
-  prior_histogram = np.histogram(prior_draws, bins=bins, density=False)
-  # prior_histogram = [np.ones(len(bins)-1)]  # Uniform
+  empirical_histogram = np.histogram(empirical_dbn, bins=bins, density=False)
+  # empirical_histogram = np.histogram(empirical_draws, bins=bins, density=False)
+  # prior_histogram = np.histogram(prior_draws, bins=bins, density=False)
+  prior_histogram = [np.ones(len(bins)-1)]  # Uniform
 
   # Get posterior odds ratio
   empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])

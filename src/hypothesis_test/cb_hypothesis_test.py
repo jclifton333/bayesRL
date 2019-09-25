@@ -17,8 +17,34 @@ from src.hypothesis_test.mab_hypothesis_test import approximate_posterior_h0_pro
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.metrics.pairwise import pairwise_kernels
 import numpy as np
+from sklearn.linear_model import Ridge
 import copy
 from numba import njit, jit
+
+
+def cb_iwp(env_, action_probs_list_):
+  """
+  Get ipw-weighted least squares estimate of CB conditional means.
+
+  :param env_:
+  :param action_probs_list_:
+  :return:
+  """
+  beta_hats_ = []
+  covs_ = []
+  for aprobs, X_a, y_a in zip(action_probs_list_, env_.X_list, env_.y_list):
+    # Get ipw estimate of beta
+    lm = Ridge()
+    inv_probs = 1 / np.array(aprobs)
+    lm.fit(X_a, y_a, sample_weight=inv_probs)
+    beta_hats_.append(lm.coef_)
+
+    # Get approximate sampling variance of ipw estimator
+    n, p = X_a.shape
+    mse_ = np.mean((lm.predict(X_a) - y_a)**2) / np.max((1.0, n - p))
+    cov_a = mse_ * np.linalg.inv(np.dot(X_a.T, np.dot(np.diag(inv_probs), X_a)) + 0.01*np.eye(p))
+    covs_.append(cov_a)
+  return beta_hats, covs_
 
 
 def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_generated_data):

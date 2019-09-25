@@ -423,19 +423,22 @@ class LinearCB(Bandit):
     # self.posterior_params_dict[a]['b_post'] = new_b
     self.posterior_params_dict[a]['beta_post'] = new_beta
 
-  def sample_from_posterior(self, variance_shrinkage=1.0):
+  def sample_from_posterior(self, beta_hats=None, beta_hat_covs=None, variance_shrinkage=1.0):
     """
     Sample from normal-gamma posterior.
     :return:
     """
+    if beta_hats is None:
+      beta_hats = self.beta_hat_list
+    if beta_hat_covs is None:
+      beta_hat_covs = [s**2 * XpXinv for s, XpXinv in zip(self.sigma_hat_list, self.Xprime_X_inv_list)]
     draws_dict = {}
     # Use sampling dbn as approximate posterior
     for a in range(self.number_of_actions):
-      beta_post = self.beta_hat_list[a]
-      sigma_sq_hat = self.sigma_hat_list[a]**2
-      beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post,
-                                                              sigma_sq_hat * self.Xprime_X_inv_list[a])
-      draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': sigma_sq_hat}
+      beta_post = beta_hats[a]
+      beta_cov = beta_hat_covs[a]
+      beta_give_sigma_sq_draw = np.random.multivariate_normal(beta_post, beta_cov)
+      draws_dict[a] = {'beta_draw': beta_give_sigma_sq_draw, 'var_draw': self.sigma_hat_list[a]}
     return draws_dict
 
   def initial_pulls(self):

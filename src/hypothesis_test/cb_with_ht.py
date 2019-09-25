@@ -75,6 +75,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   t1_errors = []
   t2_errors = []
   alpha_at_h0 = []
+  action_probs = []
   for t in range(T):
     print(t)
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
@@ -92,6 +93,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
     true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
     print('sampling candidate models')
+
+    beta_hats_, beta_covs_ = ht.cb_ipw(env, action_probs)
     for draw in range(NUM_CANDIDATE_HYPOTHESES):
       sampled_model = env.sample_from_posterior()
       param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['var_draw'])]
@@ -154,7 +157,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
         no_rejections_yet = False
 
     estimated_means = [np.dot(env.curr_context, b) for b in env.beta_hat_list]
-    action, _ = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
+    action, action_prob = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
+    action_probs.append(action_prob)
     env.step(action)
 
     ## Record operating characteristics ##
