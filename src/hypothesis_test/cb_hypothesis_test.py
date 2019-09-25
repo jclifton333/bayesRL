@@ -22,7 +22,7 @@ import copy
 from numba import njit, jit
 
 
-def cb_iwp(env_, action_probs_list_):
+def cb_ipw(env_, action_probs_list_):
   """
   Get ipw-weighted least squares estimate of CB conditional means.
 
