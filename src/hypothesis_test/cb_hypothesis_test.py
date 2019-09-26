@@ -44,7 +44,7 @@ def cb_ipw(env_, action_probs_list_):
     mse_ = np.mean((lm.predict(X_a) - y_a)**2) / np.max((1.0, n - p))
     cov_a = mse_ * np.linalg.inv(np.dot(X_a.T, np.dot(np.diag(inv_probs), X_a)) + 0.01*np.eye(p))
     covs_.append(cov_a)
-  return beta_hats, covs_
+  return beta_hats_, covs_
 
 
 def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_generated_data):

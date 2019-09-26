@@ -75,7 +75,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   t1_errors = []
   t2_errors = []
   alpha_at_h0 = []
-  action_probs = []
+  action_probs = [[1.0] for a in range(len(list_of_reward_betas))]
   for t in range(T):
     print(t)
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
@@ -96,7 +96,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
     beta_hats_, beta_covs_ = ht.cb_ipw(env, action_probs)
     for draw in range(NUM_CANDIDATE_HYPOTHESES):
-      sampled_model = env.sample_from_posterior()
+      sampled_model = env.sample_from_posterior(beta_hats=beta_hats_)
       param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['var_draw'])]
                                       for a in range(env.number_of_actions)]
       true_model_list.append(param_list_for_sampled_model)
@@ -158,7 +158,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
     estimated_means = [np.dot(env.curr_context, b) for b in env.beta_hat_list]
     action, action_prob = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
-    action_probs.append(action_prob)
+    action_probs[action].append(action_prob)
     env.step(action)
 
     ## Record operating characteristics ##
@@ -168,8 +168,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
         alpha_at_h0.append(float(alpha_schedule[t]))
       else:
         t2_errors.append(int(1-ht_rejected))
-      if ht_rejected: # Break as soon as there is a rejection
-        break
+      # if ht_rejected: # Break as soon as there is a rejection
+      #   break
 
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
@@ -423,10 +423,10 @@ if __name__ == "__main__":
   test = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  for contamination in np.linspace(0.0, 0.9, 5):
-    operating_chars_run(1, contamination, T=T, replicates=36*4)
-  # contamination = 0.9
-  # episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
-  #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
-  # episode_partial(0)
+  # for contamination in np.linspace(0.0, 0.9, 5):
+  #   operating_chars_run(1, contamination, T=T, replicates=36*4)
+  contamination = 0.9
+  episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
+                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
+  episode_partial(0)
 
