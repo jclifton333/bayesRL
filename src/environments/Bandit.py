@@ -680,8 +680,9 @@ class NormalCB(LinearCB):
     self.posterior_context_params_dict['b_post_context'] = b_post_context
     self.posterior_context_params_dict['mu_post_context'] = post_mean
 
-  def sample_from_posterior(self, variance_shrinkage=1.0):
-    draws_dict = super(NormalCB, self).sample_from_posterior(variance_shrinkage=variance_shrinkage)
+  def sample_from_posterior(self, beta_hats=None, beta_covs=None, variance_shrinkage=1.0):
+    draws_dict = super(NormalCB, self).sample_from_posterior(beta_hats=beta_hats, beta_hat_covs=beta_covs,
+                                                             variance_shrinkage=variance_shrinkage)
 
     # Get posterior parameters
     a_post_context = self.posterior_context_params_dict['a_post_context']
@@ -727,9 +728,10 @@ class NormalUniformCB(LinearCB):
     self.posterior_context_params_dict['b_pareto_post'] = np.max((self.max_X,
                                                                   self.posterior_context_params_dict['b_pareto_post']))
 
-  def sample_from_posterior(self, variance_shrinkage=1.0):
+  def sample_from_posterior(self, beta_hats=None, beta_covs=None, variance_shrinkage=1.0):
     # Sample from condtional model
-    draws_dict = super(NormalUniformCB, self).sample_from_posterior(variance_shrinkage=variance_shrinkage)
+    draws_dict = super(NormalUniformCB, self).sample_from_posterior(beta_hats=beta_hats, beta_hat_covs=beta_covs,
+                                                                    variance_shrinkage=variance_shrinkage)
 
     # Sample from context model
     K_post = self.posterior_context_params_dict['K_post']
