@@ -34,6 +34,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
+  DONT_TUNE_UNTIL = 10
   np.random.seed(label)
 
   if test:
@@ -78,7 +79,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   action_probs = [[1.0] for a in range(len(list_of_reward_betas))]
   for t in range(T):
     print(t)
-    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0)
+    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0 and t >= DONT_TUNE_UNTIL)
 
     ## Hypothesis testing setup ##
     estimated_model = [[beta_hat, sigma_hat, XprimeX_inv, X, y] for beta_hat, sigma_hat, XprimeX_inv, X, y
@@ -168,8 +169,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
         alpha_at_h0.append(float(alpha_schedule[t]))
       else:
         t2_errors.append(int(1-ht_rejected))
-      # if ht_rejected: # Break as soon as there is a rejection
-      #   break
+      if ht_rejected: # Break as soon as there is a rejection
+        break
 
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
@@ -423,10 +424,10 @@ if __name__ == "__main__":
   test = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  # for contamination in np.linspace(0.0, 0.9, 5):
-  #   operating_chars_run(1, contamination, T=T, replicates=36*4)
-  contamination = 0.9
-  episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
-                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
-  episode_partial(0)
+  for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
+    operating_chars_run(1, contamination, T=T, replicates=36*4)
+  # contamination = 0.9
+  # episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
+  #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
+  # episode_partial(0)
 
