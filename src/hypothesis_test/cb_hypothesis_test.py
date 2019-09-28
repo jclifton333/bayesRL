@@ -336,9 +336,9 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
 
   # Check that estimated proposed regret is smaller than baseline; if not, do not reject
   estimated_baseline_regret = true_cb_regret(baseline_policy, estimated_model, estimated_model,
-                                             num_pulls, t, t, pre_generated_data)
+                                             num_pulls, t, T, pre_generated_data)
   estimated_proposed_regret = true_cb_regret(proposed_policy, estimated_model, estimated_model,
-                                              num_pulls, t, t, pre_generated_data)
+                                              num_pulls, t, T, pre_generated_data)
 
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
@@ -349,17 +349,17 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
     sampling_dbns = []
     for true_model in true_model_list:
       # pre-generate data from true_model
-      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, t-t, mc_reps)
+      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
 
       # check if true_model is in h0
       true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
-                                             t, t, pre_generated_data)
+                                             t, T, pre_generated_data)
       true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
-                                             t, t, pre_generated_data)
+                                             t, T, pre_generated_data)
       # if in h0, get sampling dbn
       if true_baseline_regret < true_proposed_regret:
         sampling_dbn = cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
-                                               t, t, sampling_dbn_sampler, true_cb_regret, pre_generate_cb_data,
+                                               t, T, sampling_dbn_sampler, true_cb_regret, pre_generate_cb_data,
                                                context_dbn_sampler, feature_function, reps_to_compute_regret=mc_reps)
         sampling_dbns.append(sampling_dbn)
 
