@@ -34,7 +34,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 10
+  DONT_TUNE_UNTIL = 20
   np.random.seed(label)
 
   if test:
@@ -140,7 +140,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
       print('hypothesis testing')
       number_of_pulls = [len(y_list_) for y_list_ in env.y_list]
-      ht_rejected = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+      ht_rejected = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                                  number_of_pulls, t, T, ht.cb_sampling_dbn,
                                                  alpha_schedule[t], ht.true_cb_regret, ht.pre_generate_cb_data,
                                                  context_dbn_sampler, feature_function, contamination=contamination,
