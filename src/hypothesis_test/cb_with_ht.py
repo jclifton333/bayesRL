@@ -34,7 +34,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 20
+  DONT_TUNE_UNTIL = 5
   np.random.seed(label)
 
   if test:
@@ -140,11 +140,15 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
       print('hypothesis testing')
       number_of_pulls = [len(y_list_) for y_list_ in env.y_list]
+      # ht_rejected = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+      #                                            number_of_pulls, t, T, ht.cb_sampling_dbn,
+      #                                            alpha_schedule[t], ht.true_cb_regret, ht.pre_generate_cb_data,
+      #                                            context_dbn_sampler, feature_function, contamination=contamination,
+      #                                            mc_reps=mc_reps_for_ht)
       ht_rejected = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
-                                                 number_of_pulls, t, T, ht.cb_sampling_dbn,
-                                                 alpha_schedule[t], ht.true_cb_regret, ht.pre_generate_cb_data,
-                                                 context_dbn_sampler, feature_function, contamination=contamination,
-                                                 mc_reps=mc_reps_for_ht)
+                                     number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t], ht.true_cb_regret,
+                                     ht.pre_generate_cb_data, context_dbn_sampler, feature_function,
+                                     mc_reps=mc_reps_for_ht)
 
       ## Get true regret of baseline ##
       h0_true, true_diff_ = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
@@ -426,8 +430,8 @@ if __name__ == "__main__":
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
     operating_chars_run(1, contamination, T=T, replicates=36*4)
-  # contamination = 0.9
+  contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
-  #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
+  #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=True)
   # episode_partial(0)
 
