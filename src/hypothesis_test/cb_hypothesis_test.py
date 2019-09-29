@@ -107,7 +107,7 @@ def cb_sampling_dbn(true_model_params_, context_dbn_sampler, feature_function, n
   :return:
   """
   sampled_model = []
-  p = len(true_model_params[0][0])
+  p = len(true_model_params_[0][0])
   beta_hats = []
   XprimeX_invs = []
   scales = []
@@ -343,7 +343,7 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
-    return false
+    return False
   else:
     # get cutoff by searching over possible models
     sampling_dbns = []
