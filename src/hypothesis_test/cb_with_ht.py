@@ -429,7 +429,7 @@ if __name__ == "__main__":
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
-    operating_chars_run(1, contamination, T=T, replicates=36*4)
+    operating_chars_run(1, contamination, T=T, replicates=36*4, test=False)
   contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=True)

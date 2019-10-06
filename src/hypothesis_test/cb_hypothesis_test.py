@@ -124,7 +124,7 @@ def cb_sampling_dbn(true_model_params_, context_dbn_sampler, feature_function, n
     means = np.dot(context_features, beta_for_arm)  # Get true means and variances at contexts
 
     # Sample beta_hat from sampling_dbn
-    y = np.random.normal(loc=means, scale=scale_for_arm)
+    y = np.random.normal(loc=means, scale=np.max((0.001, scale_for_arm)))  # In case estimated scale=0
     if context_features.shape[0] == 1:
       XprimeX_inv = la.sherman_woodbury(np.eye(p), context_features[0], context_features[0])
     else:
