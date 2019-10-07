@@ -50,7 +50,25 @@ def ipw_regret_estimate(in_sample_size, out_of_sample_size, Delta, propensity_es
 
 def max_ipw_regret(in_sample_size, out_of_sample_size, epsilon, min_range, max_range, propensity_sums):
   propensity_estimate_ = propensity_estimator(epsilon, in_sample_size, Delta, t, propensity_sums)
-  grid = np.linspace(min_range, max_range, 10)  # ToDo: Compute grid once elsewhere?
+  grid = np.linspace(min_range, max_range, 20)  # ToDo: Compute grid once elsewhere?
   regrets = [ipw_regret_estimate(in_sample_size, out_of_sample_size, Delta_, propensity_estimate_) for Delta_ in grid]
   return np.max(regrets)
+
+
+def minimax_epsilon(in_sample_size, out_of_sample_size, min_range, max_range, propensity_sums):
+  epsilon_grid = np.linspace(0, 1.0, 20)
+  best_eps = None
+  best_regret = float('inf')
+  for eps in epsilon_grid:
+    eps_regret= max_ipw_regret(in_sample_size, out_of_sample_size, eps, min_range, max_range, propensity_sumsk)
+    if eps_regret < best_regret:
+      best_eps = eps
+      best_regret = eps_regret
+  return best_eps
+
+
+
+
+
+
 

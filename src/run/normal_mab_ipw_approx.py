@@ -8,7 +8,7 @@ sys.path.append(project_dir)
 
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.policies import gittins_index_policies as gittins
-from src.policies.ipw_regret_estimate import max_ipw_regret
+import src.policies.ipw_regret_estimate as ipw
 from src.policies import rollout
 from src.environments.Bandit import NormalMAB
 import src.policies.global_optimization as opt
@@ -19,7 +19,8 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(label, std=0.1, list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, posterior_sample=False):
+def episode(label, std=0.1, list_of_reward_mus=[0.0,0.25], T=50, monte_carlo_reps=1000, in_sample_size=100,
+            out_of_sample_size=10000, posterior_sample=False):
   np.random.seed(label)
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
 
@@ -39,48 +40,18 @@ def episode(label, std=0.1, list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps
     estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
     estimated_vars_list.append([float(s) for s in env.estimated_vars])
 
-    if tune:
-      if posterior_sample:
-        reward_means = []
-        reward_vars = []
-        for rep in range(monte_carlo_reps):
-          if bootstrap_posterior:
-            draws = env.sample_from_bootstrap()
-          else:
-            draws = env.sample_from_posterior()
-          means_for_each_action = []
-          vars_for_each_action = []
-          for a in range(env.number_of_actions):
-            mean_a = draws[a]['mu_draw']
-            var_a = draws[a]['var_draw']
-            means_for_each_action.append(mean_a)
-            vars_for_each_action.append(var_a)
-          reward_means.append(means_for_each_action)
-          reward_vars.append(vars_for_each_action)
-      else:
-        reward_means = None
-        reward_vars = None
+    # Get best epsilon using ipw estimator
+    # Get confidence intervals to form range for minimax
 
-      sim_env = NormalMAB(list_of_reward_mus=env.estimated_means, list_of_reward_vars=env.estimated_vars)
-      pre_simulated_data = sim_env.generate_mc_samples(monte_carlo_reps, T, reward_means=reward_means,
-                                                       reward_vars=reward_vars)
-      print(sim_env.estimated_means)
-      tuning_function_parameter = opt.bayesopt(max_ipw_regret, policy, tuning_function,
-                                               tuning_function_parameter, T, env, monte_carlo_reps,
-                                               {'pre_simulated_data': pre_simulated_data},
-                                               bounds, explore_, positive_zeta=positive_zeta)
-      tuning_parameter_sequence.append([float(z) for z in tuning_function_parameter])
+    mu_1_upper_conf = env.estimated_means[0] + 1.96*env.standard_errors[0]
+    mu_1_lower_conf = env.estimated_means[0] - 1.96*env.standard_errors[0]
+    mu_2_upper_conf = env.estimated_means[1] + 1.96*env.standard_errors[1]
+    mu_2_lower_conf = env.estimated_means[1] - 1.96*env.standard_errors[1]
 
-    print('standard errors {}'.format(env.standard_errors))
-    print('estimated vars {}'.format(env.estimated_vars))
-    if policy_name == 'gittins':
-      estimated_means = []
-      for aa in range(env.number_of_actions):
-        estimated_means.append(sum(env.draws_from_each_arm[aa])/env.number_of_pulls[aa])
-      action = policy(estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                    tuning_function_parameter, T, t, env)
-    else:
-      action = policy(env.estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
+    min_range_ = np.max((0.25, mu_2_lower_conf - mu_1_upper_conf))
+    max_range_ = np.min((0.75, mu_2_upper_conf - mu_1_lower_conf))
+    best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, min_range_, max_range_, propensity_sums)
+    action = policy(estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
                     tuning_function_parameter, T, t, env)
     res = env.step(action)
     u = res['Utility']
