@@ -6,6 +6,31 @@ import numpy as np
 from scipy.stats import norm
 
 
+def propensity_estimator(epsilon, in_sample_size, Delta, t, propensity_sums):
+  """
+
+  :param epsilon:
+  :param in_sample_size:
+  :param Delta:
+  ;param t: current timestep
+  :param propensity_sums: tuple (sum 1/pi_tilde, sum 1/(1-pi_tilde)) until t-1
+  :return:
+  """
+  if propensity_sums is None:
+    pi_inv_sum, m_pi_inv_sum = 2, 2
+  else:
+    pi_inv_sum, m_pi_inv_sum = propensity_sums
+  propensity_denominator = (pi_inv_sum + m_pi_inv_sum) / (t - 1)**2
+  e_ = norm.cdf(-Delta / np.sqrt(propensity_denominator))
+  for t in range(t, in_sample_size):
+    pi_t = (1 - epsilon) * e_ + epsilon / 2
+    pi_inv_sum += 1 / pi_t
+    m_pi_inv_sum += 1 / (1 - pi_t)
+    propensity_denominator = (pi_inv_sum + m_pi_inv_sum) / t**2
+    e_ = norm.cdf(-Delta / np.sqrt(propensity_denominator))
+  return pi_t
+
+
 def ipw_regret_estimate(in_sample_size, out_of_sample_size, Delta, propensity_estimate):
   """
 
@@ -23,8 +48,8 @@ def ipw_regret_estimate(in_sample_size, out_of_sample_size, Delta, propensity_es
   return estimated_regret
 
 
-def max_ipw_regret(in_sample_size, out_of_sample_size, epsilon, min_range, max_range):
-  propensity_estimate_ = propensity_estimator(epsilon)
+def max_ipw_regret(in_sample_size, out_of_sample_size, epsilon, min_range, max_range, propensity_sums):
+  propensity_estimate_ = propensity_estimator(epsilon, in_sample_size, Delta, t, propensity_sums)
   grid = np.linspace(min_range, max_range, 10)  # ToDo: Compute grid once elsewhere?
   regrets = [ipw_regret_estimate(in_sample_size, out_of_sample_size, Delta_, propensity_estimate_) for Delta_ in grid]
   return np.max(regrets)
