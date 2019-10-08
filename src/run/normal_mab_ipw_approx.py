@@ -15,7 +15,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_of_sample_size=100):
+def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=10, out_of_sample_size=100):
   np.random.seed(label)
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
   lower_bound = 0.1
@@ -56,7 +56,7 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_o
       max_range_ = np.min((upper_bound, mu_2_upper_conf - mu_1_lower_conf))
       best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, min_range_, max_range_,
                                          (pi_inv_sum, m_pi_inv_sum), t)
-      epsilon_sequence.append(best_epsilon)
+      epsilon_sequence.append(float(best_epsilon))
 
       pi_inv_sum += 1 / arm0_prob  # ToDo: Check that this is the correct arm
       m_pi_inv_sum += 1 / (1 - arm0_prob)
@@ -75,7 +75,7 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_o
   return {'cumulative_regret': cumulative_regret, 'epsilon_sequence': epsilon_sequence}
 
 
-def run(replicates=48, tune=True):
+def run(replicates=48, tune=True, save=True):
   # Partial function to distribute
   episode_partial = partial(episode, tune=tune)
 
@@ -85,6 +85,9 @@ def run(replicates=48, tune=True):
 
   # Get regrets
   mean_regret = float(np.mean([d['cumulative_regret'] for d in res]))
+  epsilon_sequences = [d['epsilon_sequence'] for d in res]
+  if save:
+    results = {'mean_regret': mean_regret, 'epsilon_sequence': epsilon_sequences}
 
 
 if __name__ == "__main__":
