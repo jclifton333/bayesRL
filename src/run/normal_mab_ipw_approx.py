@@ -75,5 +75,17 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_o
   return {'cumulative_regret': cumulative_regret, 'epsilon_sequence': epsilon_sequence}
 
 
+def run(replicates=48, tune=True):
+  # Partial function to distribute
+  episode_partial = partial(episode, tune=tune)
+
+  # Run episodes in parallel
+  pool = mp.Pool(processes=replicates)
+  res = pool.map(episode_partial, range(replicates))
+
+  # Get regrets
+  mean_regret = float(np.mean([d['cumulative_regret'] for d in res]))
+
+
 if __name__ == "__main__":
   print(episode(0))
