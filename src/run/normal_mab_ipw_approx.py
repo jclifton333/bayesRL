@@ -16,7 +16,6 @@ import multiprocessing as mp
 
 
 def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=10, out_of_sample_size=100):
-  np.random.seed(label)
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
   lower_bound = 0.1
   upper_bound = 0.55
@@ -88,7 +87,9 @@ def run(replicates=48, tune=True, save=True):
   epsilon_sequences = [d['epsilon_sequence'] for d in res]
   if save:
     results = {'mean_regret': mean_regret, 'epsilon_sequence': epsilon_sequences}
+  print(mean_regret)
 
 
 if __name__ == "__main__":
-  print(episode(0))
+  np.random.seed(3)
+  run(tune=False)
