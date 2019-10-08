@@ -6,12 +6,8 @@ project_dir = os.path.join(this_dir, '..', '..')
 sys.path.append(project_dir)
 
 
-from src.policies import tuned_bandit_policies as tuned_bandit
-from src.policies import gittins_index_policies as gittins
 import src.policies.ipw_regret_estimate as ipw
-from src.policies import rollout
 from src.environments.Bandit import NormalMAB
-import src.policies.global_optimization as opt
 import numpy as np
 from functools import partial
 import datetime
@@ -27,22 +23,18 @@ def episode(label, std=0.1, list_of_reward_mus=[0.0,0.25], T=50, monte_carlo_rep
   cumulative_regret = 0.0
   mu_opt = np.max(env.list_of_reward_mus)
   env.reset()
-  tuning_parameter_sequence = []
   # Initial pulls
   for a in range(env.number_of_actions):
     env.step(a)
 
-  estimated_means_list = []
-  estimated_vars_list = []
-  actions_list = []
-  rewards_list = []
-  for t in range(T):
-    estimated_means_list.append([float(xbar) for xbar in env.estimated_means])
-    estimated_vars_list.append([float(s) for s in env.estimated_vars])
+  # Initial propensities
+  pi_tilde = 0.5
+  pi_inv_sum = (1 / pi_tilde + 1 / pi_tilde)  # Propensity sums, used for IPW estimates of regret
+  m_pi_inv_sum = (1 / (1 - pi_tilde) + 1 / (1 - pi_tilde))
 
+  for t in range(T):
     # Get best epsilon using ipw estimator
     # Get confidence intervals to form range for minimax
-
     mu_1_upper_conf = env.estimated_means[0] + 1.96*env.standard_errors[0]
     mu_1_lower_conf = env.estimated_means[0] - 1.96*env.standard_errors[0]
     mu_2_upper_conf = env.estimated_means[1] + 1.96*env.standard_errors[1]
@@ -51,17 +43,23 @@ def episode(label, std=0.1, list_of_reward_mus=[0.0,0.25], T=50, monte_carlo_rep
     min_range_ = np.max((0.25, mu_2_lower_conf - mu_1_upper_conf))
     max_range_ = np.min((0.75, mu_2_upper_conf - mu_1_lower_conf))
     best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, min_range_, max_range_, propensity_sums)
-    action = policy(estimated_means, env.standard_errors, env.number_of_pulls, tuning_function,
-                    tuning_function_parameter, T, t, env)
-    res = env.step(action)
-    u = res['Utility']
-    actions_list.append(int(action))
-    rewards_list.append(float(u))
 
-    # Compute regret
+    # Get action probabilities (also used for propensities)
+    arm0_prob = (env.estimated_means[0] > env.estimated_means[1])*((1 - best_epsilon) + best_epsilon/2) \
+                + (env.estimated_means[0] <= env.estimated_means[1])*(best_epsilon/2)
+
+    pi_inv_sum += 1 / arm0_prob  # ToDo: Check that this is the correct arm
+    m_pi_inv_sum += 1 / (1 - arm0_prob)
+
+    # Get eps-greedy action
+    if np.random.uniform() < arm0_prob:
+      action = 0
+    else:
+      action = 1
+
+    # Take action and update regret
+    env.step(action)
     regret = mu_opt - env.list_of_reward_mus[action]
     cumulative_regret += regret
 
-  return {'cumulative_regret': cumulative_regret, 'zeta_sequence': tuning_parameter_sequence,
-          'estimated_means': estimated_means_list, 'estimated_vars': estimated_vars_list,
-          'rewards_list': rewards_list, 'actions_list': actions_list}
+  return {'cumulative_regret': cumulative_regret}
