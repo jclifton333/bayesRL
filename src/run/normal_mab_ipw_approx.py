@@ -37,7 +37,7 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=10, out_o
   epsilon_sequence = []
   # Get initial epsilon
   best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, lower_bound, upper_bound,
-                                       (pi_inv_sum, m_pi_inv_sum), t)
+                                       (pi_inv_sum, m_pi_inv_sum), 0)
   epsilon_sequence.append(best_epsilon)
   for t in range(T):
     # Get action probabilities (also used for propensities)
