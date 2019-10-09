@@ -15,7 +15,7 @@ import yaml
 import multiprocessing as mp
 
 
-def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=10, out_of_sample_size=100):
+def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_of_sample_size=100):
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
   lower_bound = 0.1
   upper_bound = 0.55
@@ -37,7 +37,7 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=10, out_o
   # Get initial epsilon
   best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, lower_bound, upper_bound,
                                        (pi_inv_sum, m_pi_inv_sum), 0)
-  epsilon_sequence.append(best_epsilon)
+  epsilon_sequence.append(float(best_epsilon))
   for t in range(T):
     # Get action probabilities (also used for propensities)
     arm0_prob = (env.estimated_means[0] > env.estimated_means[1])*((1 - best_epsilon) + best_epsilon/2) \
@@ -71,25 +71,39 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=10, out_o
     regret = mu_opt - env.list_of_reward_mus[action]
     cumulative_regret += regret
 
+  cumulative_regret += out_of_sample_size*(env.estimated_means[0] > env.estimated_means[1])
   return {'cumulative_regret': cumulative_regret, 'epsilon_sequence': epsilon_sequence}
 
 
-def run(replicates=48, tune=True, save=True):
+def run(replicates, tune=True, save=True):
   # Partial function to distribute
   episode_partial = partial(episode, tune=tune)
 
   # Run episodes in parallel
-  pool = mp.Pool(processes=replicates)
-  res = pool.map(episode_partial, range(replicates))
+  num_batches = int(np.floor(replicates / 48))
+  pool = mp.Pool(processes=48)
+  res = []
+  for batch in range(num_batches)
+    res_batch = pool.map(episode_partial, range(replicates*batch, replicates*(batch+1)))
+    res += res_batch
 
-  # Get regrets
+  # Collect results
+  regrets_for_episode = [d['cumulative_regret'] for d in res]
+  se_regret = float(np.std(regrets_for_episode) / replicates)
   mean_regret = float(np.mean([d['cumulative_regret'] for d in res]))
   epsilon_sequences = [d['epsilon_sequence'] for d in res]
   if save:
-    results = {'mean_regret': mean_regret, 'epsilon_sequence': epsilon_sequences}
-  print(mean_regret)
+    results = {'mean_regret': mean_regret, 'epsilon_sequence': epsilon_sequences, 'se_regret': se_regret}
 
+    # Make filename and save to yaml
+    base_name = 'ipw-estimate-tune={}'.format(tune)
+    prefix = os.path.join(project_dir, 'src', 'run', base_name)
+    suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+    filename = '{}_{}.yml'.format(prefix, suffix)
+    with open(filename, 'w') as outfile:
+      yaml.dump(results, outfile)
 
 if __name__ == "__main__":
   np.random.seed(3)
-  run(tune=False)
+  run(48*4, tune=False)
+  run(48*4, tune=True)
