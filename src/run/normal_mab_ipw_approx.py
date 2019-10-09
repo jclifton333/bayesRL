@@ -83,7 +83,7 @@ def run(replicates, tune=True, save=True):
   num_batches = int(np.floor(replicates / 48))
   pool = mp.Pool(processes=48)
   res = []
-  for batch in range(num_batches)
+  for batch in range(num_batches):
     res_batch = pool.map(episode_partial, range(replicates*batch, replicates*(batch+1)))
     res += res_batch
 
