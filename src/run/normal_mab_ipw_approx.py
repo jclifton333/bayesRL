@@ -61,10 +61,10 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_o
       se_ipw = std_ipw / np.sqrt(t + 1)  # Pooled estimate
 
       # Get confidence intervals to form range for minimax
-      mu_1_upper_conf = mu_ipw[0] + 1.96*se_ipw
-      mu_1_lower_conf = mu_ipw[0] - 1.96*se_ipw
-      mu_2_upper_conf = mu_ipw[1] + 1.96*se_ipw
-      mu_2_lower_conf = mu_ipw[1] - 1.96*se_ipw
+      mu_1_upper_conf = mu_ipw[0] + 1.96*se_ipw[0]
+      mu_1_lower_conf = mu_ipw[0] - 1.96*se_ipw[0]
+      mu_2_upper_conf = mu_ipw[1] + 1.96*se_ipw[1]
+      mu_2_lower_conf = mu_ipw[1] - 1.96*se_ipw[1]
 
       min_range_ = np.max((lower_bound, mu_2_lower_conf - mu_1_upper_conf))
       max_range_ = np.min((upper_bound, mu_2_upper_conf - mu_1_lower_conf))
