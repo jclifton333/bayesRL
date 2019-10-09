@@ -57,7 +57,7 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_o
 
     if tune:
       # Get best epsilon using ipw estimator
-      mu_ipw, std_ipw = ht.ipw(env.number_of_actions, actions, action_probs, rewards)
+      mu_ipw, std_ipw = ht.ipw(env.number_of_actions, np.array(actions), np.array(action_probs), np.array(rewards))
       se_ipw = std_ipw / np.sqrt(t + 1)  # Pooled estimate
 
       # Get confidence intervals to form range for minimax
