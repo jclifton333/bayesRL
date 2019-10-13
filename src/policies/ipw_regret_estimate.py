@@ -65,7 +65,7 @@ def max_ipw_regret(in_sample_size, out_of_sample_size, epsilon, min_range, max_r
 
 
 def minimax_epsilon(in_sample_size, out_of_sample_size, min_range, max_range, propensity_sums, t):
-  epsilon_grid = np.linspace(0, 1.0, 20)
+  epsilon_grid = np.linspace(0.1, 1.0, 20)
   best_eps = None
   best_regret = float('inf')
   estimated_max_regret_list = []
