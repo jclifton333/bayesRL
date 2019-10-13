@@ -21,7 +21,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
                             list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
                             context_mean=np.array([0.0, 0.0, 0.0]),
                             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
-                            mc_replicates=100, test=False, use_default_tuning_parameter=False):
+                            mc_replicates=100, test=False, lmeter=False):
   """
   Currently assuming eps-greedy.
 
@@ -160,7 +160,6 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
       h0_true, true_diff_ = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
                                              t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
                                              true_context_sampler, mc_reps_for_ht, feature_function)
-      pdb.set_trace()
       print('true diff: {}'.format(true_diff_))
       print('beta hat: {}'.format(env.beta_hat_list))
 
