@@ -69,7 +69,7 @@ def episode(label, tune=True, std=1., list_of_reward_mus=[0.0,0.1], T=50, out_of
       diff_lower_conf = diff - 1.96*se_ipw
       diff_upper_conf = diff + 1.96*se_ipw
 
-      best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, diff_lower_conf, diff_upper_conf,
+      best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, lower_bound, upper_bound,
                                          (pi_sum, pi_inv_sum, m_pi_inv_sum), t)
       epsilon_sequence.append(float(best_epsilon))
 
