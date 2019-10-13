@@ -34,7 +34,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 10
+  DONT_TUNE_UNTIL = 30
   np.random.seed(label)
 
   if test:
