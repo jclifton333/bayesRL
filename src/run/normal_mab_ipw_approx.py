@@ -17,7 +17,7 @@ import multiprocessing as mp
 from scipy.stats import norm
 
 
-def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_of_sample_size=10000):
+def episode(label, tune=True, std=1., list_of_reward_mus=[0.0,0.1], T=50, out_of_sample_size=10000):
   np.random.seed(label)
   env = NormalMAB(list_of_reward_mus=list_of_reward_mus, list_of_reward_vars=[std**2]*len(list_of_reward_mus))
   lower_bound = 0.1
@@ -62,18 +62,18 @@ def episode(label, tune=True, std=0.1, list_of_reward_mus=[0.0,0.1], T=50, out_o
       se_ipw = std_ipw / np.sqrt(t + 1)  # Pooled estimate
 
       # Get confidence intervals to form range for minimax
-      mu_1_upper_conf = mu_ipw[0] + 1.96*se_ipw[0]
-      mu_1_lower_conf = mu_ipw[0] - 1.96*se_ipw[0]
-      mu_2_upper_conf = mu_ipw[1] + 1.96*se_ipw[1]
-      mu_2_lower_conf = mu_ipw[1] - 1.96*se_ipw[1]
+      v0 = pi_inv_sum / (t+1)**2
+      v1 = m_pi_inv_sum / (t+1)**2
+      se_ipw = np.sqrt((v0 + v1) / 2)
+      diff = mu_ipw[1] - mu_ipw[0]
+      diff_lower_conf = diff - 1.96*se_ipw
+      diff_upper_conf = diff + 1.96*se_ipw
 
-      min_range_ = np.max((lower_bound, mu_2_lower_conf - mu_1_upper_conf))
-      max_range_ = np.min((upper_bound, mu_2_upper_conf - mu_1_lower_conf))
-      best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, min_range_, max_range_,
+      best_epsilon = ipw.minimax_epsilon(in_sample_size, out_of_sample_size, diff_lower_conf, diff_upper_conf,
                                          (pi_sum, pi_inv_sum, m_pi_inv_sum), t)
       epsilon_sequence.append(float(best_epsilon))
 
-      propensity = 1 - norm.cdf(-(mu_ipw[0] - mu_ipw[1]) / np.sqrt(2*se_ipw))
+      propensity = 1 - norm.cdf(diff / se_ipw)
       pi_sum += propensity
       pi_inv_sum += 1 / propensity
       m_pi_inv_sum += 1 / (1 - propensity)
@@ -114,7 +114,7 @@ def run(replicates, tune=True, save=True, out_of_sample_size=1000):
     results = {'mean_regret': mean_regret, 'epsilon_sequence': epsilon_sequences, 'se_regret': se_regret}
 
     # Make filename and save to yaml
-    base_name = 'ipw-estimate-tune={}'.format(tune)
+    base_name = 'ipw-estimate-N={}-tune={}'.format(out_of_sample_size,tune)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
     filename = '{}_{}.yml'.format(prefix, suffix)
@@ -124,6 +124,10 @@ def run(replicates, tune=True, save=True, out_of_sample_size=1000):
 
 if __name__ == "__main__":
   np.random.seed(3)
-  # episode(0, tune=False, std=0.1, list_of_reward_mus=[0.0, 0.1], T=50, out_of_sample_size=1000)
-  run(48*4, tune=False)
-  run(48*4, tune=True)
+  # episode(0, tune=True, std=0.1, list_of_reward_mus=[0.0, 0.1], T=50, out_of_sample_size=1000)
+  run(48*4, tune=False, out_of_sample_size=100)
+  run(48*4, tune=True, out_of_sample_size=100)
+  run(48*4, tune=False, out_of_sample_size=1000)
+  run(48*4, tune=True, out_of_sample_size=1000)
+  run(48*4, tune=False, out_of_sample_size=10000)
+  run(48*4, tune=True, out_of_sample_size=10000)

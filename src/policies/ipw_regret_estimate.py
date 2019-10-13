@@ -22,14 +22,14 @@ def propensity_estimator(epsilon, in_sample_size, Delta, t, propensity_sums):
     pi_sum, pi_inv_sum, m_pi_inv_sum = 0.5, 2, 2
   else:
     pi_sum, pi_inv_sum, m_pi_inv_sum = propensity_sums
-  propensity_denominator = (pi_inv_sum + m_pi_inv_sum) / (t - 1)**2
+  propensity_denominator = (pi_inv_sum + m_pi_inv_sum) / (t + 1)**2
   e_ = norm.cdf(-Delta / np.sqrt(propensity_denominator))
   for t in range(t, in_sample_size):
     pi_t = (1 - epsilon) * e_ + epsilon / 2
     pi_sum += pi_t
     pi_inv_sum += 1 / pi_t
     m_pi_inv_sum += 1 / (1 - pi_t)
-    propensity_denominator = (pi_inv_sum + m_pi_inv_sum) / t**2
+    propensity_denominator = (pi_inv_sum + m_pi_inv_sum) / (t+1)**2
     e_ = norm.cdf(-Delta / np.sqrt(propensity_denominator))
   return pi_sum, pi_inv_sum, m_pi_inv_sum
 
