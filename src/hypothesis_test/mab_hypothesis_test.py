@@ -25,51 +25,60 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   :param empirical_dbn:
   :return:
   """
-  min_, max_ = np.min(empirical_dbn), np.max(empirical_dbn)
-  quantiles = np.percentile(empirical_dbn, [0.01, 0.99])
-  bins = np.hstack(([min_], np.linspace(quantiles[0], quantiles[1], 15), [max_]))
-  if 0 not in bins:
-    bins = np.concatenate((bins[np.where(bins < 0)], [0.0], bins[np.where(bins > 0)]))  # Insert 0
+  # min_, max_ = np.min(empirical_dbn), np.max(empirical_dbn)
+  # quantiles = np.percentile(empirical_dbn, [0.01, 0.99])
+  # bins = np.hstack(([min_], np.linspace(quantiles[0], quantiles[1], 15), [max_]))
+  # if 0 not in bins:
+  #   bins = np.concatenate((bins[np.where(bins < 0)], [0.0], bins[np.where(bins > 0)]))  # Insert 0
 
-  # Generate data from prior
-  prior_draws = np.random.normal(scale=1, size=len(empirical_dbn))
-  # empirical_draws = np.random.normal(loc=np.mean(empirical_dbn), scale=2*np.std(empirical_dbn), size=len(empirical_dbn))
+  # # Generate data from prior
+  # prior_draws = np.random.normal(scale=1, size=len(empirical_dbn))
+  # # empirical_draws = np.random.normal(loc=np.mean(empirical_dbn), scale=2*np.std(empirical_dbn), size=len(empirical_dbn))
 
-  # Get histograms and combine
-  empirical_histogram = np.histogram(empirical_dbn, bins=bins, density=False)
-  # empirical_histogram = np.histogram(empirical_draws, bins=bins, density=False)
+  # # Get histograms and combine
+  # empirical_histogram = np.histogram(empirical_dbn, bins=bins, density=False)
+  # # empirical_histogram = np.histogram(empirical_draws, bins=bins, density=False)
   # prior_histogram = np.histogram(prior_draws, bins=bins, density=False)
-  prior_histogram = [np.ones(len(bins)-1)]  # Uniform
+  # # prior_histogram = [np.ones(len(bins)-1)]  # Uniform
 
-  # Get posterior odds ratio
-  empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])
-  prior_prob = prior_histogram[0] / np.sum(prior_histogram[0])
-  posterior_density = empirical_prob * prior_prob
-  if len(np.where(bins <= 0)[0]) > 0 and len(np.where(bins[:-1] > 0)[0]) > 0:
-    total_mass = np.sum(posterior_density)
-    mass_less_than_0 = np.sum(posterior_density[np.where(bins <= 0)])
-    probability_less_than_0 = mass_less_than_0 / total_mass
-    odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
+  # # Get posterior odds ratio
+  # empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])
+  # prior_prob = prior_histogram[0] / np.sum(prior_histogram[0])
+  # posterior_density = empirical_prob * prior_prob
 
-    # Get correction factor
-    if epsilon > 0:
-      # ToDo: Using conservative test!
-      best_null_value = np.max(empirical_prob[np.where(bins <= 0)])
-      # best_alt_value = np.max(empirical_prob[np.where(bins[:-1] > 0)])
-      correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
-      # correction = 1 / (1 + (epsilon * best_alt_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass))
-    else:
-      correction = 1
+  # Use normal prior and normal approximation to empirical dbn
+  mu_empirical = np.mean(empirical_dbn)
+  sd_empirical = np.std(empirical_dbn)
+  integrand_ = lambda x: norm.pdf(x, loc=mu_empirical, scale=sd_empirical) * norm.pdf(x)
+  total_mass = quad(integrand_, -np.infty, np.infty)[0]
+  probability_less_than_0 = quad(integrand_, -np.infty, 0)[0] / total_mass
+  odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
 
-    # Probability
-    corrected_odds_ratio = odds_ratio * correction
-    null_prob = corrected_odds_ratio / (1 + corrected_odds_ratio)
-  elif len(np.where(bins <= 0)[0]) == 0:
-    null_prob = 0.0
-  elif len(np.where(bins[:-1] > 0)[0]) == 0:
-    null_prob = 1.0
+  # if len(np.where(bins <= 0)[0]) > 0 and len(np.where(bins[:-1] > 0)[0]) > 0:
+  #   total_mass = np.sum(posterior_density)
+  #   mass_less_than_0 = np.sum(posterior_density[np.where(bins <= 0)])
+  #   probability_less_than_0 = mass_less_than_0 / total_mass
+  #   odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
 
-  return null_prob, [float(d) for d in posterior_density]
+  # Get correction factor
+  if epsilon > 0:
+    # ToDo: Using conservative test!
+    best_null_value = mu_empirical
+    # best_null_value = np.max(empirical_prob[np.where(bins <= 0)])
+    # best_alt_value = np.max(empirical_prob[np.where(bins[:-1] > 0)])
+    correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
+    # correction = 1 / (1 + (epsilon * best_alt_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass))
+  else:
+    correction = 1
+
+  # Probability
+  corrected_odds_ratio = odds_ratio * correction
+  null_prob = corrected_odds_ratio / (1 + corrected_odds_ratio)
+  # elif len(np.where(bins <= 0)[0]) == 0:
+  #   null_prob = 0.0
+  # elif len(np.where(bins[:-1] > 0)[0]) == 0:
+  #   null_prob = 1.0
+  return null_prob, None
 
 
 def stratified_bootstrap_indices(num_actions, actions):

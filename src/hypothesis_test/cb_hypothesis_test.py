@@ -34,7 +34,7 @@ def cb_ipw(env_, action_probs_list_):
   covs_ = []
   for aprobs, X_a, y_a in zip(action_probs_list_, env_.X_list, env_.y_list):
     # Get ipw estimate of beta
-    lm = Ridge()
+    lm = LinearRegression()
     inv_probs = 1 / np.array(aprobs)
     lm.fit(X_a, y_a, sample_weight=inv_probs)
     beta_hats_.append(lm.coef_)
@@ -92,7 +92,7 @@ def true_cb_regret(policy, true_model, estimated_model, num_pulls, t, T, pre_gen
 
       # Compute regret
       means_at_each_arm = [np.dot(context_features_tprime, true_model[a_][0]) for a_ in range(len(true_model))]
-      regret += (np.max(means_at_each_arm) - np.dot(context_features_tprime, new_beta))
+      regret += (np.max(means_at_each_arm) - np.dot(context_features_tprime, true_model[a][0]))
 
     regrets.append(regret)
   return np.mean(regrets)
