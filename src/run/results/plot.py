@@ -171,6 +171,19 @@ acts = np.vstack(doc['actions'])
 plt.hist(acts[:,-5:])
 
 
-
-
+with open("mdp-grid-eps-decay_181030_015955.yml", 'r') as f:
+  doc = yaml.load(f)
+eps = []
+T = len(doc['zeta_sequences'][0])
+for t in range(T):
+  zeta = doc['zeta_sequences'][10][t]
+  eps.append(expit_epsilon_decay(T, t, zeta))
+plt.plot(eps)
+acts = np.vstack(doc['actions'])
+plt.hist(acts[:,-5:])
+#### check posterior alphas
+from grid import Gridworld
+posterior_alpha = doc['posterior_alphas'][0]
+transition_prob = posterior_alpha/np.sum(posterior_alpha, axis=2).reshape(16,4,1)
+transitionMatrices = grid.convert_to_transitionMatrices(transition_prob)
 

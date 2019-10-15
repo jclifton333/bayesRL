@@ -158,12 +158,12 @@ def fitted_q_step1_mHealth_vanilla(env, times=100, sampling=False):
   return optimal_actions
 
 
-def mdp_epsilon_policy(optimal_action, tuning_function, tuning_function_parameter, time_horizon,
+def mdp_epsilon_policy(optimal_actions, tuning_function, tuning_function_parameter, time_horizon,
                       t):
   epsilon = tuning_function(time_horizon, t, tuning_function_parameter)
-  random_action_index = (np.random.rand(len(optimal_action)) < epsilon)
-  optimal_action[random_action_index] = np.random.choice(2, size=sum(random_action_index))
-  return optimal_action
+  random_action_index = (np.random.rand(len(optimal_actions)) < epsilon)
+  optimal_actions[random_action_index] = np.random.choice(2, size=sum(random_action_index))
+  return optimal_actions
 
 
 def condition_dist_of_next_state(X, Y, env):
@@ -490,23 +490,23 @@ def episode(policy_name, label, mc_replicates=10, T=50, nPatients=15):
     actions = policy(optimal_actions, tuning_function, tuning_function_parameter, T, t)
     x_initials, reward = env.step(actions)
     sx_initials = env.get_current_SX()
-    print(sx_initials[:,1])
+    print(mc_replicates, t, sx_initials[:,1])
 #    print('time {}: reward {}; action {}, glucose {}'.format(time, reward, action, x_initial[1]))
     rewards[t] = reward
     actions_array[:, t] = actions
 #    pdb.set_trace()
     results = {'T':T, 'mc_replicates': mc_replicates, 't':t, 'cum_rewards': float(sum(rewards)), 
-               'rewards':list(rewards)}
+               'reward':float(reward)}
              #  'rewards': float(np.mean(cum_rewards)), 'se_rewards':float(np.std(cum_rewards)/np.sqrt(replicates)),
                #'zeta_sequences': list(tuning_function_parameter)}#, 'actions': actions}#, 'rewards':rewards}
 
     base_name = 'mdp-glucose-{}'.format(policy_name)
     prefix = os.path.join(project_dir, 'src', 'environments', base_name)
     suffix = nPatients
-    filename = '{}_{}.yml'.format(prefix, suffix)
+    filename = '{}_{}_T{}_nMC().yml'.format(prefix, suffix, T, mc_replicates)
     #np.save('{}_{}'.format(prefix, suffix), results)
-#    with open(filename, 'a') as outfile:
-#      yaml.dump(results, outfile)
+    with open(filename, 'a') as outfile:
+      yaml.dump(results, outfile)
     
 #  print('cum_rewards {}, rewards {}'.format( sum(rewards), rewards) )
 #  print(type(rewards))
@@ -524,8 +524,8 @@ def run(policy_name, save=True, mc_replicates=10, T=50):
   """
 
 #  replicates = 48
-  num_cpus = int(mp.cpu_count())
-#  num_cpus = 4
+#  num_cpus = int(mp.cpu_count())
+  num_cpus = 24
   replicates = 24
   results = []
   pool = mp.Pool(processes=num_cpus)
@@ -562,9 +562,9 @@ if __name__ == '__main__':
 #  check_coef_converge()
 #  episode('eps-decay', 0, T=5)
 #  episode('eps-fixed-decay', 0, T=50)
-#  run('eps-decay', T=25)
+#  run('eps-decay', T= 25, mc_replicates=1000)
 #  run('eps-fixed-decay', T=25)
-  run('eps',save=False, T=50)
+  run('eps',save=False, T=25)
 #  episode('eps', 0, T=200)
 #  result = episode('eps', 0, T=50)
   # print(result['actions'])

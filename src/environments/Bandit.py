@@ -67,7 +67,7 @@ class MAB(Bandit):
     self.estimated_means[a] += (u - self.estimated_means[a]) / self.number_of_pulls[a]
     self.draws_from_each_arm[a] = np.append(self.draws_from_each_arm[a], u)
     std = np.std(self.draws_from_each_arm[a])
-    self.estimated_vars[a] = std ** 2 
+    self.estimated_vars[a] = std ** 2
     self.standard_errors[a] = std / np.sqrt(self.number_of_pulls[a])
     return u
 

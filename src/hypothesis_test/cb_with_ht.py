@@ -21,7 +21,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
                             list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
                             context_mean=np.array([0.0, 0.0, 0.0]),
                             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
-                            mc_replicates=100, test=False, lmeter=False):
+                            mc_replicates=100, test=False, use_default_tuning_parameter=False):
   """
   Currently assuming eps-greedy.
 
@@ -98,7 +98,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     if time_to_tune:
       # beta_hats_, beta_covs_ = ht.cb_ipw(env, action_probs)
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
-        sampled_model = env.sample_from_posterior()
+        sampled_model = env.sample_from_posterior(beta_hats=list_of_reward_betas) # ToDo: using true model for debugging
         param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['var_draw'])]
                                         for a in range(env.number_of_actions)]
         true_model_list.append(param_list_for_sampled_model)
@@ -436,11 +436,11 @@ if __name__ == "__main__":
   use_default_tuning_parameter = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
+  for contamination in [0.0, 0.5, 0.99]:
     operating_chars_run(1, contamination, T=T, replicates=36*4, test=False)
   # contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
-  #                           use_default_tuning_parameter=use_default_tuning_parameter)
+  #                           use_default_tuning_parameter=True)
   # episode_partial(0)
 

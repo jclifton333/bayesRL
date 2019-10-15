@@ -36,12 +36,6 @@ def episode(policy_name, label, std=0.1, list_of_reward_mus=[0.3,0.6], T=50, mon
     tune = False
     tuning_function_parameter = None
   elif policy_name == 'eps-decay-fixed':
-#    if T==25:
-#      tuning_function = lambda a, b, c: 0.7**b
-#    elif T==50:
-#      tuning_function = lambda a, b, c: 0.85**b
-    tuning_function = lambda a, t, c: 0.5 / (t + 1)
-#    tuning_function = tuned_bandit.expit_epsilon_decay
 #    tuning_function = tuned_bandit.stepwise_linear_epsilon
     policy = tuned_bandit.mab_epsilon_greedy_policy
     tune = False
@@ -268,49 +262,14 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6],save=True, T=50, mont
 
 
 if __name__ == '__main__':
-#  episode('frequentist-ts-tuned', np.random.randint(low=1, high=1000))
-#   run('eps-decay-fixed', save=False, std=1)
+  # episode('ucb-tune-posterior-sample', np.random.randint(low=1, high=1000))
+#   run('eps-decay-fixed', save=False)
   # run('eps')
-#   run('greedy', save=False)
+   run('greedy', save=False)
   # run('eps-decay-bootstrap-sample', T=1, monte_carlo_reps=1)
   # run('ts-decay-posterior-sample', T=10, monte_carlo_reps=100)
-#  run('ucb', std=0.1, T=50, save=False, monte_carlo_reps=1000)
-#  run('ucb-fixed-decay', std=1, T=50, monte_carlo_reps=1000)
-#   run('ts-fixed', T=50, monte_carlo_reps=1000)
-#   run('frequentist-ts', T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
-  run('gittins', T=50, std=0.1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], monte_carlo_reps=1000, posterior_sample=True)
-#   run('frequentist-ts-fixed-decay', list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], T=50, std=1, monte_carlo_reps=1000, posterior_sample=True)
-
-#  run('frequentist-ts-tuned', T=50, std=0.1, list_of_reward_mus=[0.3,0.6], monte_carlo_reps=1000, posterior_sample=True)
-#  run('eps-decay', T=50, std=0.1, list_of_reward_mus=[0.3,0.6],monte_carlo_reps=1000, posterior_sample=True)
-#  run('ucb-tune-posterior-sample', std=0.1,list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, posterior_sample=True)
-#  run('frequentist-ts-tuned', T=50, std=1, list_of_reward_mus=[0.3,0.6], monte_carlo_reps=1000, posterior_sample=True)
-#  run('eps-decay', T=50, std=1, list_of_reward_mus=[0.3,0.6],monte_carlo_reps=1000, posterior_sample=True)
-#  run('ucb-tune-posterior-sample', std=1,list_of_reward_mus=[0.3,0.6], T=50, monte_carlo_reps=1000, posterior_sample=True)
-#
-#  run('frequentist-ts-tuned', T=50, std=0.1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], monte_carlo_reps=1000, posterior_sample=True)
-#  run('eps-decay', T=50, std=0.1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66],monte_carlo_reps=1000, posterior_sample=True)
-#  run('ucb-tune-posterior-sample', std=0.1,list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], T=50, monte_carlo_reps=1000, posterior_sample=True)
-#  run('frequentist-ts-tuned', T=50, std=1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], monte_carlo_reps=1000, posterior_sample=True)
-#  run('eps-decay', T=50, std=1, list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66],monte_carlo_reps=1000, posterior_sample=True)
-#  run('ucb-tune-posterior-sample', std=1,list_of_reward_mus=[0.73, 0.56, 0.33, 0.04, 0.66], T=50, monte_carlo_reps=1000, posterior_sample=True)
-#
-#  run('frequentist-ts-tuned', T=50, std=0.1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
-#      monte_carlo_reps=1000, posterior_sample=True)
-#  run('eps-decay', T=50, std=0.1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42],
-#      monte_carlo_reps=1000, posterior_sample=True)
-#  run('ucb-tune-posterior-sample', std=0.1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
-#      T=50, monte_carlo_reps=1000, posterior_sample=True)  
-#  run('frequentist-ts-tuned', T=50, std=1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
-#      monte_carlo_reps=1000, posterior_sample=True)
-#  run('eps-decay', T=50, std=1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42],
-#      monte_carlo_reps=1000, posterior_sample=True)
-#  run('ucb-tune-posterior-sample', std=1, list_of_reward_mus=[0.74, 0.15, 0.34, 0.48, 0.53, 0.23, 0.47, 0.51, 0.71, 0.42], 
-#      T=50, monte_carlo_reps=1000, posterior_sample=True)
-  
-
-
-
-
-
-
+#  run('ucb', std=0.1, T=50, monte_carlo_reps=1000)
+  # run('ts-fixed', T=50, monte_carlo_reps=1000)
+  # run('frequentist-ts', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
+  # run('eps-decay', T=50, std=0.1, monte_carlo_reps=1000, posterior_sample=True)
+  # run('ucb-tune-posterior-sample', std=0.1, T=50, monte_carlo_reps=1000, posterior_sample=True)

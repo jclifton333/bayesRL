@@ -32,11 +32,12 @@ def cb_ipw(env_, action_probs_list_):
   """
   beta_hats_ = []
   covs_ = []
+  aprobs_sum = np.sum(np.hstack([aprobs for aprobs in action_probs_list_]))
   for aprobs, X_a, y_a in zip(action_probs_list_, env_.X_list, env_.y_list):
     # Get ipw estimate of beta
-    lm = LinearRegression()
+    lm = LinearRegression(fit_intercept=False)
     inv_probs = 1 / np.array(aprobs)
-    lm.fit(X_a, y_a, sample_weight=inv_probs)
+    lm.fit(X_a, y_a, sample_weight=inv_probs / aprobs_sum)
     beta_hats_.append(lm.coef_)
 
     # Get approximate sampling variance of ipw estimator
