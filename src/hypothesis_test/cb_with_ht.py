@@ -98,7 +98,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     if time_to_tune:
       # beta_hats_, beta_covs_ = ht.cb_ipw(env, action_probs)
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
-        sampled_model = env.sample_from_posterior(beta_hats=list_of_reward_betas) # ToDo: using true model for debugging
+        # sampled_model = env.sample_from_posterior(beta_hats=list_of_reward_betas) # ToDo: using true model for debugging
+        sampled_model = env.sample_from_posterior()
         param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['var_draw'])]
                                         for a in range(env.number_of_actions)]
         true_model_list.append(param_list_for_sampled_model)
@@ -391,7 +392,8 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
   return
 
 
-def operating_chars_run(label, contamination, T=50, replicates=36, test=False, save=True):
+def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
+                        use_default_tuning_parameter=use_default_tuning_parameter, save=True):
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
 
@@ -401,7 +403,8 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False, s
   else:
     num_cpus = 36
   episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
-                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test)
+                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
+                            use_default_tuning_parameter=use_default_tuning_parameter)
   num_batches = int(replicates / num_cpus)
 
   results = []
@@ -437,7 +440,8 @@ if __name__ == "__main__":
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   for contamination in [0.0, 0.5, 0.99]:
-    operating_chars_run(1, contamination, T=T, replicates=36*4, test=False)
+    operating_chars_run(1, contamination, T=T, replicates=36*4, test=False,
+                        use_default_tuning_parameter=use_default_tuning_parameter)
   # contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
