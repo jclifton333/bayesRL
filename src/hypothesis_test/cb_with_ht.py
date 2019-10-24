@@ -48,10 +48,10 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   # Settings
   feature_function = lambda z: z
   positive_zeta = False
-  # baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
-  # tuning_function = tuned_bandit.expit_epsilon_decay
-  tuning_function = lambda T, t, zeta: baseline_schedule[t]
-  baseline_tuning_function = lambda T, t, zeta: 0.5
+  baseline_tuning_function = lambda T, t, zeta: baseline_schedule[t]
+  tuning_function = tuned_bandit.expit_epsilon_decay
+  # tuning_function = lambda T, t, zeta: baseline_schedule[t]
+  # baseline_tuning_function = lambda T, t, zeta: 0.5
   policy = tuned_bandit.mab_epsilon_greedy_policy
   if policy_name == 'baseline':
     tune = False
@@ -439,15 +439,16 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 if __name__ == "__main__":
   T = 50
   test = False
-  use_default_tuning_parameter = True
-  BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
+  use_default_tuning_parameter = False
+  # BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
+  BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  # for contamination in [0.0, 0.5, 0.99]:
-  #   operating_chars_run(1, contamination, T=T, replicates=36*4, test=False,
-  #                       use_default_tuning_parameter=use_default_tuning_parameter)
-  contamination = 0.9
-  episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
-                            alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
-                            use_default_tuning_parameter=True)
-  episode_partial(1)
+  for contamination in [0.0, 0.5, 0.99]:
+    operating_chars_run(1, contamination, T=T, replicates=36*4, test=False,
+                        use_default_tuning_parameter=use_default_tuning_parameter)
+  # contamination = 0.9
+  # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
+  #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
+  #                           use_default_tuning_parameter=True)
+  # episode_partial(1)
 

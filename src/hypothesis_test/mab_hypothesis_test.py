@@ -53,7 +53,6 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   total_mass = quad(integrand_, -np.infty, np.infty)[0]
   probability_less_than_0 = quad(integrand_, -np.infty, 0)[0] / total_mass
   odds_ratio = probability_less_than_0 / (1 - probability_less_than_0)
-  pdb.set_trace()
 
   # if len(np.where(bins <= 0)[0]) > 0 and len(np.where(bins[:-1] > 0)[0]) > 0:
   #   total_mass = np.sum(posterior_density)
