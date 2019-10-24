@@ -393,7 +393,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
 
 
 def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
-                        use_default_tuning_parameter=use_default_tuning_parameter, save=True):
+                        use_default_tuning_parameter=False, save=True):
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
 
