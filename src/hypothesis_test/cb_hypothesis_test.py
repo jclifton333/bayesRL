@@ -266,10 +266,10 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
   estimated_proposed_regret = true_cb_regret(proposed_policy, estimated_model, estimated_model,
                                               num_pulls, t, T, pre_generated_data)
 
-  test_statistic = estimated_baseline_regret - estimated_proposed_regret
-  print('test_statistic: {}'.format(test_statistic))
+  test_diff = estimated_baseline_regret - estimated_proposed_regret
+  # print('test_statistic: {}'.format(test_statistic))
 
-  if test_statistic < 0:
+  if test_diff < 0:
     return False
   else:
     diff_sampling_dbn = []
@@ -285,6 +285,7 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
       diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
 
     # Reject is posterior probability of null is small
+    print('test statistic: {}'.format(np.mean(diff_sampling_dbn)))
     posterior_h0_prob, _ = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
     return posterior_h0_prob < alpha
 
