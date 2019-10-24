@@ -8,6 +8,7 @@ sys.path.append(project_dir)
 from src.policies import tuned_bandit_policies as tuned_bandit
 from src.policies import rollout
 from src.environments.Bandit import LinearCB, NormalCB
+from scipy.stats import norm
 from sklearn.linear_model import Ridge, LinearRegression
 import src.policies.global_optimization as opt
 from functools import partial
@@ -22,7 +23,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
                             list_of_reward_betas=[[-10, 0.4, 0.4, -0.4], [-9.8, 0.6, 0.6, -0.4]],
                             context_mean=np.array([0.0, 0.0, 0.0]),
                             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
-                            mc_replicates=100, test=False, use_default_tuning_parameter=False):
+                            mc_replicates=100, test=False, use_default_tuning_parameter=False,
+                            test_statistic_only=False):
   """
   Currently assuming eps-greedy.
 
@@ -80,6 +82,13 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   t2_errors = []
   alpha_at_h0 = []
   action_probs = [[1.0] for a in range(len(list_of_reward_betas))]
+  diff_errors = []
+
+  # Data for computing propensities; using Kyle's notation
+  pi_tilde_1_inv_sum = 2
+  pi_tilde_2_inv_sum = 2
+  e_tilde = 0.5
+
   for t in range(T):
     print(t)
     time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0 and t >= DONT_TUNE_UNTIL)
@@ -154,20 +163,22 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
       print('hypothesis testing')
       number_of_pulls = [len(y_list_) for y_list_ in env.y_list]
       # ToDo: using true context dbn sampler for debugging
-      ht_rejected = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+      ht_rejected, test_statistic = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                                  number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t],
                                                  ht.true_cb_regret,
                                                  ht.pre_generate_cb_data, true_context_sampler, feature_function,
-                                                 mc_reps=mc_reps_for_ht, contamination=contamination)
+                                                 mc_reps=mc_reps_for_ht, contamination=contamination,
+                                                 test_statistic_only=test_statistic_only)
 
       ## Get true regret of baseline ##
       h0_true, true_diff_ = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
                                              t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
                                              true_context_sampler, mc_reps_for_ht, feature_function)
+      diff_errors.append(test_statistic - true_diff_)
       print('true diff: {}'.format(true_diff_))
       print('beta hat: {}'.format(env.beta_hat_list))
 
-      if ht_rejected and no_rejections_yet:
+      if ht_rejected and no_rejections_yet and not test_statistic_only:
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
 
@@ -178,18 +189,22 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     env.step(action)
 
     ## Record operating characteristics ##
-    if time_to_tune:
-      if h0_true:
-        t1_errors.append(int(ht_rejected))
-        alpha_at_h0.append(float(alpha_schedule[t]))
-      else:
-        t2_errors.append(int(1-ht_rejected))
-      if ht_rejected: # Break as soon as there is a rejection
+    if test_statistic_only:
+      if ht_rejected:
         break
+    else:
+      if time_to_tune:
+        if h0_true:
+          t1_errors.append(int(ht_rejected))
+          alpha_at_h0.append(float(alpha_schedule[t]))
+        else:
+          t2_errors.append(int(1-ht_rejected))
+        if ht_rejected: # Break as soon as there is a rejection
+          break
 
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
-          'type2': t2_errors, 'alpha_at_h0': alpha_at_h0}
+          'type2': t2_errors, 'alpha_at_h0': alpha_at_h0, 'bias': float(np.mean(diff_errors))}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -396,7 +411,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
 
 
 def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
-                        use_default_tuning_parameter=False, save=True):
+                        use_default_tuning_parameter=False, save=True, test_statistic_only=False):
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
 
@@ -407,7 +422,8 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
     num_cpus = 36
   episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
-                            use_default_tuning_parameter=use_default_tuning_parameter)
+                            use_default_tuning_parameter=use_default_tuning_parameter,
+                            test_statistic_only=test_statistic_only)
   num_batches = int(replicates / num_cpus)
 
   results = []
@@ -424,10 +440,11 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
     t1_errors += d['type1']
   t2_errors = [e for d in results for e in d['type2']]
   alphas_at_h0 = [a for d in results for a in d['alpha_at_h0']]
+  biases = [d['bias'] for d in results]
 
   if save:
     results = {'t1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0,
-               't2_errors': t2_errors}
+               't2_errors': t2_errors, 'bias': float(np.mean(biases))}
     base_name = 'eps-cb-contam={}'.format(contamination)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
@@ -439,13 +456,15 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 if __name__ == "__main__":
   T = 50
   test = False
-  use_default_tuning_parameter = False
+  use_default_tuning_parameter = True
+  test_statistic_only = True
   # BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   for contamination in [0.0, 0.5, 0.99]:
     operating_chars_run(1, contamination, T=T, replicates=36*4, test=False,
-                        use_default_tuning_parameter=use_default_tuning_parameter)
+                        use_default_tuning_parameter=use_default_tuning_parameter,
+                        test_statistic_only=test_statistic_only)
   # contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,

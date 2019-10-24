@@ -243,7 +243,7 @@ def cb_ht_operating_characteristics(baseline_policy, proposed_policy, true_model
 
 def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model, num_pulls,
                               t, T, sampling_dbn_sampler, alpha, true_cb_regret, pre_generate_cb_data, context_dbn_sampler,
-                              feature_function, contamination=0.99, mc_reps=1000):
+                              feature_function, contamination=0.99, test_statistic_only=False, mc_reps=1000):
   """
 
   :param baseline_policy:
@@ -269,25 +269,28 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
   test_diff = estimated_baseline_regret - estimated_proposed_regret
   # print('test_statistic: {}'.format(test_statistic))
 
-  if test_diff < 0:
-    return False
+  if test_statistic_only:
+    return None, test_diff
   else:
-    diff_sampling_dbn = []
-    for true_model in true_model_list:  # Assuming true_model_list are draws from approximate sampling dbn
-      # Pre-generate data from sampled model
-      pre_generated_data = pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T-t, mc_reps)
+    if test_diff < 0:
+      return False
+    else:
+      diff_sampling_dbn = []
+      for true_model in true_model_list:  # Assuming true_model_list are draws from approximate sampling dbn
+        # Pre-generate data from sampled model
+        pre_generated_data = pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T-t, mc_reps)
 
-      # Compute regret at sampled model
-      true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
-                                            t, T, pre_generated_data)
-      true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
-                                             t, T, pre_generated_data)
-      diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
+        # Compute regret at sampled model
+        true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
+                                              t, T, pre_generated_data)
+        true_proposed_regret = true_cb_regret(proposed_policy, true_model, estimated_model, num_pulls,
+                                               t, T, pre_generated_data)
+        diff_sampling_dbn.append(true_baseline_regret - true_proposed_regret)
 
-    # Reject is posterior probability of null is small
-    print('test statistic: {}'.format(np.mean(diff_sampling_dbn)))
-    posterior_h0_prob, _ = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
-    return posterior_h0_prob < alpha
+      # Reject is posterior probability of null is small
+      print('test statistic: {}'.format(np.mean(diff_sampling_dbn)))
+      posterior_h0_prob, _ = approximate_posterior_h0_prob(diff_sampling_dbn, epsilon=contamination)
+      return posterior_h0_prob < alpha, test_diff
 
 
 def is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls, t, T, true_cb_regret_,
