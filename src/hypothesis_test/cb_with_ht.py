@@ -468,6 +468,6 @@ if __name__ == "__main__":
   # contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
-  #                           use_default_tuning_parameter=True)
+  #                           use_default_tuning_parameter=True, test_statistic_only=test_statistic_only)
   # episode_partial(1)
 
