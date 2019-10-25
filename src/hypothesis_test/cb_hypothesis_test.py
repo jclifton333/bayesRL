@@ -22,18 +22,17 @@ import copy
 from numba import njit, jit
 
 
-def cb_ipw(env_, pi_tilde_0_list_):
+def cb_ipw(env_, pi_tilde_lists_):
   """
   Get ipw-weighted least squares estimate of CB conditional means.
 
   :param env_:
-  :param action_probs_list_:
   :return:
   """
   beta_hats_ = []
   covs_ = []
-  aprobs_sum = np.sum(np.hstack([aprobs for aprobs in action_probs_list_]))
-  for aprobs, X_a, y_a in zip(action_probs_list_, env_.X_list, env_.y_list):
+  aprobs_sum = np.sum(np.hstack([aprobs for aprobs in pi_tilde_lists_]))
+  for aprobs, X_a, y_a in zip(pi_tilde_lists_, env_.X_list, env_.y_list):
     # Get ipw estimate of beta
     lm = LinearRegression(fit_intercept=False)
     inv_probs = 1 / np.array(aprobs)

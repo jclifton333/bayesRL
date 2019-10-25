@@ -112,6 +112,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     if time_to_tune:
       pi_tilde_0_list_, pi_tilde_1_list_ = env.ipw_weights(env.beta_hat_list, baseline_schedule, actions)
       beta_hats_, beta_covs_ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
+      pdb.set_trace()
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
         sampled_model = env.sample_from_posterior(beta_hats=beta_hats_)
         # sampled_model = env.sample_from_posterior()
@@ -473,7 +474,7 @@ if __name__ == "__main__":
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   # BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  for contamination in [0.0]:
+  for contamination in [0.0, 0.5, 0.99]:
     operating_chars_run(2, contamination, T=T, replicates=36*8, test=False,
                         use_default_tuning_parameter=use_default_tuning_parameter,
                         test_statistic_only=test_statistic_only)
