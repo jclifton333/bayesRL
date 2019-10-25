@@ -67,6 +67,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
               'zeta1': [50.0, 49.0, 1.0, 49.0, 1.0, 1.0,  85.04499728],
               'zeta2': [0.1, 2.5, 1.0, 2.5, 2.5, 2.5, 0.09655535]}
   when_hypothesis_rejected = float('inf')
+  number_of_tests = 0
 
   # Initialize environment
   env = NormalCB(num_initial_pulls=1, list_of_reward_betas=list_of_reward_betas, context_mean=context_mean,
@@ -178,6 +179,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
       print('true diff: {}'.format(true_diff_))
       print('beta hat: {}'.format(env.beta_hat_list))
 
+      number_of_tests += 1
       if ht_rejected and no_rejections_yet and not test_statistic_only:
         when_hypothesis_rejected = int(t)
         no_rejections_yet = False
@@ -202,8 +204,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
         if ht_rejected: # Break as soon as there is a rejection
           break
 
-  total_t1_error_prob = float(np.sum(t1_errors)) / t
-  total_t2_error_prob = float(np.sum(t2_errors)) / t
+  total_t1_error_prob = float(np.sum(t1_errors)) / number_of_tests
+  total_t2_error_prob = float(np.sum(t2_errors)) / number_of_tests
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_h0': alpha_at_h0, 'bias': float(np.mean(diff_errors)), 
