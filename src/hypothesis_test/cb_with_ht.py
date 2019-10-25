@@ -83,6 +83,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   t2_errors = []
   alpha_at_h0 = []
   action_probs = [[1.0] for a in range(len(list_of_reward_betas))]
+  actions = []
   diff_errors = []
 
   # Data for computing propensities; using Kyle's notation
@@ -109,10 +110,11 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     print('sampling candidate models')
 
     if time_to_tune:
-      # beta_hats_, beta_covs_ = ht.cb_ipw(env, action_probs)
+      pi_tilde_0_list_, pi_tilde_1_list_ = env.ipw_weights(env.beta_hat_list, baseline_schedule, actions)
+      beta_hats_, beta_covs_ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
-        # sampled_model = env.sample_from_posterior(beta_hats=list_of_reward_betas) # ToDo: using true model for debugging
-        sampled_model = env.sample_from_posterior()
+        sampled_model = env.sample_from_posterior(beta_hats=beta_hats_)
+        # sampled_model = env.sample_from_posterior()
         param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['var_draw'])]
                                         for a in range(env.number_of_actions)]
         true_model_list.append(param_list_for_sampled_model)
@@ -187,6 +189,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     print(env.estimated_context_cov)
     estimated_means = [np.dot(env.curr_context, b) for b in env.beta_hat_list]
     action, action_prob = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
+    actions.append(action)
     action_probs[action].append(action_prob)
     env.step(action)
 

@@ -424,7 +424,7 @@ class LinearCB(Bandit):
     # self.posterior_params_dict[a]['b_post'] = new_b
     self.posterior_params_dict[a]['beta_post'] = new_beta
 
-  def ipw_weights(self, beta_list, epsilon_list):
+  def ipw_weights(self, beta_list, epsilon_list, actions):
     """
     ToDo: using Kyle's method, assuming 2 arms!
 
@@ -433,6 +433,8 @@ class LinearCB(Bandit):
     :return:
     """
     # Initialize
+    pi_tilde_0_list = [0.5]
+    pi_tilde_1_list = [0.5]
     pi_tilde_0 = 0.5
     pi_tilde_0_inv_sum = 4
     pi_tilde_1_inv_sum = 4
@@ -443,17 +445,20 @@ class LinearCB(Bandit):
     e_tilde = norm.cdf(e_tilde_num / e_tilde_denom)
     # ToDo: not quite right, need to change variance to correspond to
     # ToDo: contextual rather than multi-armed bandit
-    for t, x in enumerate(self.X[1:, :]):
+    for t, x in enumerate(self.X[2:, :]):
       eps_t = epsilon_list[t]
       pi_tilde_0 = (1 - eps_t)*e_tilde + eps_t / 2
+      if actions[t] == 0:
+        pi_tilde_0_list.append(pi_tilde_0)
+      else:
+        pi_tilde_1_list.appned(1 - pi_tilde_0)
       pi_tilde_0_inv_sum += 1/pi_tilde_0
       pi_tilde_1_inv_sum += 1/(1 - pi_tilde_0)
       e_tilde_num = -np.dot(x, beta0 - beta1)
       e_tilde_denom = np.sqrt(1 / (t+3)**2 * (pi_tilde_0_inv_sum +
                               pi_tilde_1_inv_sum))
-
-
-
+      e_tilde = norm.cdf(e_tilde_num / e_tilde_denom)
+    return pi_tilde_0_list, pi_tilde_1_list
 
   def sample_from_posterior(self, beta_hats=None, beta_hat_covs=None, variance_shrinkage=1.0):
     """
