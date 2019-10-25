@@ -444,8 +444,8 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
   t2_errors = [e for d in results for e in d['type2']]
   alphas_at_h0 = [a for d in results for a in d['alpha_at_h0']]
   biases = [d['bias'] for d in results]
-  total_t1_probs = [d['total_t1_prob'] for d in reuslts]
-  total_t2_probs = [d['total_t2_prob'] for d in reuslts]
+  total_t1_probs = [d['total_t1_prob'] for d in results]
+  total_t2_probs = [d['total_t2_prob'] for d in results]
 
   if save:
     results = {'t1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0,
@@ -463,13 +463,13 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 if __name__ == "__main__":
   T = 50
   test = False
-  use_default_tuning_parameter = True
+  use_default_tuning_parameter = False
   test_statistic_only = False
-  # BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
-  BASELINE_SCHEDULE = [1.0 for t in range(T)]
+  BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
+  # BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   for contamination in [0.0]:
-    operating_chars_run(2, contamination, T=T, replicates=36*4, test=False,
+    operating_chars_run(2, contamination, T=T, replicates=36*8, test=False,
                         use_default_tuning_parameter=use_default_tuning_parameter,
                         test_statistic_only=test_statistic_only)
   # contamination = 0.9

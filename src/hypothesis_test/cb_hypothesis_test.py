@@ -273,7 +273,7 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
     return None, test_diff
   else:
     if test_diff < 0:
-      return False
+      return False, test_diff
     else:
       diff_sampling_dbn = []
       for true_model in true_model_list:  # Assuming true_model_list are draws from approximate sampling dbn
