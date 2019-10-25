@@ -451,7 +451,7 @@ class LinearCB(Bandit):
       if actions[t] == 0:
         pi_tilde_0_list.append(pi_tilde_0)
       else:
-        pi_tilde_1_list.appned(1 - pi_tilde_0)
+        pi_tilde_1_list.append(1 - pi_tilde_0)
       pi_tilde_0_inv_sum += 1/pi_tilde_0
       pi_tilde_1_inv_sum += 1/(1 - pi_tilde_0)
       e_tilde_num = -np.dot(x, beta0 - beta1)
