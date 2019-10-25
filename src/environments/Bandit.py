@@ -14,6 +14,7 @@ sys.path.append(project_dir)
 
 import copy
 import numpy as np
+from scipy.stats import norm
 import src.policies.linear_algebra as la
 from abc import ABCMeta, abstractmethod
 
@@ -422,6 +423,37 @@ class LinearCB(Bandit):
     # self.posterior_params_dict[a]['a_post'] = new_a
     # self.posterior_params_dict[a]['b_post'] = new_b
     self.posterior_params_dict[a]['beta_post'] = new_beta
+
+  def ipw_weights(self, beta_list, epsilon_list):
+    """
+    ToDo: using Kyle's method, assuming 2 arms!
+
+    :param beta_list: List of betas to use as plugin for true betas.
+    :param epsilon_list: epsilons used to make each decision in the history
+    :return:
+    """
+    # Initialize
+    pi_tilde_0 = 0.5
+    pi_tilde_0_inv_sum = 4
+    pi_tilde_1_inv_sum = 4
+    x0 = self.X[0, :]
+    beta0, beta1 = beta_list
+    e_tilde_num = -np.dot(x0, beta0 - beta1)
+    e_tilde_denom = np.sqrt(2)
+    e_tilde = norm.cdf(e_tilde_num / e_tilde_denom)
+    # ToDo: not quite right, need to change variance to correspond to
+    # ToDo: contextual rather than multi-armed bandit
+    for t, x in enumerate(self.X[1:, :]):
+      eps_t = epsilon_list[t]
+      pi_tilde_0 = (1 - eps_t)*e_tilde + eps_t / 2
+      pi_tilde_0_inv_sum += 1/pi_tilde_0
+      pi_tilde_1_inv_sum += 1/(1 - pi_tilde_0)
+      e_tilde_num = -np.dot(x, beta0 - beta1)
+      e_tilde_denom = np.sqrt(1 / (t+3)**2 * (pi_tilde_0_inv_sum +
+                              pi_tilde_1_inv_sum))
+
+
+
 
   def sample_from_posterior(self, beta_hats=None, beta_hat_covs=None, variance_shrinkage=1.0):
     """
