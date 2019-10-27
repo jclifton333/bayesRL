@@ -41,7 +41,7 @@ def cb_ipw(env_, pi_tilde_lists_):
 
     # Get approximate sampling variance of ipw estimator
     n, p = X_a.shape
-    mse_ = np.mean((lm.predict(X_a) - y_a)**2) / np.max((1.0, n - p))
+    mse_ = np.sum((lm.predict(X_a) - y_a)**2) / np.max((1.0, n - p))
     cov_a = mse_ * np.linalg.inv(np.dot(X_a.T, np.dot(np.diag(inv_probs), X_a)) + 0.01*np.eye(p))
     covs_.append(cov_a)
   return beta_hats_, covs_
