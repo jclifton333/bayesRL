@@ -129,7 +129,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     if time_to_tune:
       gen_model_parameters = []
       for rep in range(mc_replicates):
-        draws = env.sample_from_posterior()
+        draws = env.sample_from_posterior(beta_hats_, beta_covs_)
         betas_for_each_action = []
         vars_for_each_action = []
         for a in range(env.number_of_actions):
@@ -142,7 +142,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 #                          'context_max': draws['context_max']}
           gen_model_parameters.append(param_dict)
 
-      sim_env = NormalCB(num_initial_pulls=1, list_of_reward_betas=betas_for_each_action, context_mean=context_mean,
+      # ToDo: using some true parameters, for debugging
+      sim_env = NormalCB(num_initial_pulls=1, list_of_reward_betas=beta_hats_, context_mean=context_mean,
                          context_var=context_var, list_of_reward_vars=vars_for_each_action)
       print('pre-simulating data')
       pre_simulated_data = sim_env.generate_mc_samples(mc_replicates, T, n_patients=n_patients,
@@ -165,6 +166,12 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
       print('hypothesis testing')
       number_of_pulls = [len(y_list_) for y_list_ in env.y_list]
+      ## Get true regret of baseline ##
+      h0_true, true_diff_ = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
+                                             t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
+                                             true_context_sampler, mc_reps_for_ht, feature_function)
+      print('true diff: {}'.format(true_diff_))
+
       # ToDo: using true context dbn sampler for debugging
       ht_rejected, test_statistic = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                                  number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t],
@@ -173,12 +180,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
                                                  mc_reps=mc_reps_for_ht, contamination=contamination,
                                                  test_statistic_only=test_statistic_only)
 
-      ## Get true regret of baseline ##
-      h0_true, true_diff_ = ht.is_cb_h0_true(baseline_policy, proposed_policy, estimated_model, number_of_pulls,
-                                             t, T, ht.true_cb_regret, ht.pre_generate_cb_data, true_model_params,
-                                             true_context_sampler, mc_reps_for_ht, feature_function)
       diff_errors.append(test_statistic - true_diff_)
-      print('true diff: {}'.format(true_diff_))
       print('beta hat: {}'.format(env.beta_hat_list))
 
       number_of_tests += 1
@@ -468,7 +470,7 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 if __name__ == "__main__":
   T = 50
   test = False
-  use_default_tuning_parameter = False
+  use_default_tuning_parameter = True
   test_statistic_only = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   # BASELINE_SCHEDULE = [1.0 for t in range(T)]
@@ -481,5 +483,5 @@ if __name__ == "__main__":
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
   #                           use_default_tuning_parameter=True, test_statistic_only=test_statistic_only)
-  # episode_partial(1)
+  # episode_partial(4)
 
