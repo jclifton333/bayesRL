@@ -24,7 +24,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
                             context_mean=np.array([0.0, 0.0, 0.0]),
                             context_var=np.array([[1.0,0,0], [0,1.,0], [0, 0, 1.]]), list_of_reward_vars=[1, 1], T=50,
                             mc_replicates=100, test=False, use_default_tuning_parameter=False,
-                            test_statistic_only=False):
+                            test_statistic_only=False, bias_only=False):
   """
   Currently assuming eps-greedy.
 
@@ -93,7 +93,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
   for t in range(T):
     print(t)
-    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0 and t >= DONT_TUNE_UNTIL)
+    time_to_tune = (tune and t > 0 and t % TUNE_INTERVAL == 0 and t >= DONT_TUNE_UNTIL and not bias_only)
 
     ## Hypothesis testing setup ##
     estimated_model = [[beta_hat, sigma_hat, XprimeX_inv, X, y] for beta_hat, sigma_hat, XprimeX_inv, X, y
@@ -109,9 +109,11 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
     print('sampling candidate models')
 
-    if time_to_tune:
+    if time_to_tune or bias_only:
       pi_tilde_0_list_, pi_tilde_1_list_ = env.ipw_weights(env.beta_hat_list, baseline_schedule, actions)
       beta_hats_, _ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
+
+    if time_to_tune:
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
         sampled_model = env.sample_from_posterior(beta_hats=beta_hats_)
         # sampled_model = env.sample_from_posterior()
@@ -422,7 +424,7 @@ def run(policy_name, std=0.1, list_of_reward_mus=[0.3,0.6], save=True, T=10, mon
 
 
 def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
-                        use_default_tuning_parameter=False, save=True, test_statistic_only=False):
+                        use_default_tuning_parameter=False, save=True, test_statistic_only=False, bias_only=False):
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
 
@@ -434,7 +436,7 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
   episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
                             use_default_tuning_parameter=use_default_tuning_parameter,
-                            test_statistic_only=test_statistic_only)
+                            test_statistic_only=test_statistic_only, bias_only=bias_only)
   num_batches = int(replicates / num_cpus)
 
   results = []
@@ -476,14 +478,15 @@ if __name__ == "__main__":
   T = 50
   test = True
   use_default_tuning_parameter = True
-  test_statistic_only = True
+  test_statistic_only = False
+  bias_only = True
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   # BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   for contamination in [0.0]:
     operating_chars_run(2, contamination, T=T, replicates=36*8, test=False,
                         use_default_tuning_parameter=use_default_tuning_parameter,
-                        test_statistic_only=test_statistic_only)
+                        test_statistic_only=test_statistic_only, bias_only=bias_only)
   # contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
