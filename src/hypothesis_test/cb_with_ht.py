@@ -37,7 +37,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 30
+  DONT_TUNE_UNTIL = 10
   np.random.seed(100*label)
 
   if test:
@@ -111,9 +111,9 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
     if time_to_tune:
       pi_tilde_0_list_, pi_tilde_1_list_ = env.ipw_weights(env.beta_hat_list, baseline_schedule, actions)
-      beta_hats_, beta_covs_ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
+      beta_hats_, _ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
-        sampled_model = env.sample_from_posterior(beta_hats=beta_hats_, beta_covs=beta_covs_)
+        sampled_model = env.sample_from_posterior(beta_hats=beta_hats_)
         # sampled_model = env.sample_from_posterior()
         param_list_for_sampled_model = [[sampled_model[a]['beta_draw'], np.sqrt(sampled_model[a]['var_draw'])]
                                         for a in range(env.number_of_actions)]
@@ -129,7 +129,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     if time_to_tune:
       gen_model_parameters = []
       for rep in range(mc_replicates):
-        draws = env.sample_from_posterior(beta_hats_, beta_covs_)
+        draws = env.sample_from_posterior(beta_hats_)
         betas_for_each_action = []
         vars_for_each_action = []
         for a in range(env.number_of_actions):
