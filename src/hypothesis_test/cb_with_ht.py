@@ -214,7 +214,8 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_h0': alpha_at_h0, 'bias': float(np.mean(diff_errors)), 
-          'total_t1_prob': total_t1_error_prob, 'total_t2_prob': total_t2_error_prob}
+          'total_t1_prob': total_t1_error_prob, 'total_t2_prob': total_t2_error_prob,
+          'beta_hats_diff': np.array(beta_hats_) - np.array(list_of_reward_betas)}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -453,12 +454,16 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
   biases = [d['bias'] for d in results]
   total_t1_probs = [d['total_t1_prob'] for d in results]
   total_t2_probs = [d['total_t2_prob'] for d in results]
+  beta_hat_diffs = [d['beta_hats_diff'] for d in results]
+  beta_hat_diffs = np.array(beta_hat_diffs).mean(axis=0)
+  beta_hat_bias = [float(diff) for diff in beta_hat_diffs]
 
   if save:
     results = {'t1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0,
                't2_errors': t2_errors, 'bias': float(np.mean(biases)), 
                'total_t1_probs': float(np.mean(total_t1_probs)),
-               'total_t2_probs': float(np.mean(total_t2_probs))}
+               'total_t2_probs': float(np.mean(total_t2_probs)),
+               'beta_hat_bias': beta_hat_bias}
     base_name = 'eps-cb-contam={}'.format(contamination)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
@@ -469,13 +474,13 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 
 if __name__ == "__main__":
   T = 50
-  test = False
+  test = True
   use_default_tuning_parameter = True
-  test_statistic_only = False
+  test_statistic_only = True
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   # BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  for contamination in [0.0, 0.5, 0.99]:
+  for contamination in [0.0]:
     operating_chars_run(2, contamination, T=T, replicates=36*8, test=False,
                         use_default_tuning_parameter=use_default_tuning_parameter,
                         test_statistic_only=test_statistic_only)
