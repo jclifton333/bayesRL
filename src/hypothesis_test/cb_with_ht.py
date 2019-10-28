@@ -211,8 +211,11 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
         if ht_rejected: # Break as soon as there is a rejection
           break
 
-  total_t1_error_prob = float(np.sum(t1_errors)) / number_of_tests
-  total_t2_error_prob = float(np.sum(t2_errors)) / number_of_tests
+  if not bias_only:
+    total_t1_error_prob = float(np.sum(t1_errors)) / number_of_tests
+    total_t2_error_prob = float(np.sum(t2_errors)) / number_of_tests
+  else:
+    total_t1_error_prob = total_t2_error_prob = None
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_h0': alpha_at_h0, 'bias': float(np.mean(diff_errors)), 
