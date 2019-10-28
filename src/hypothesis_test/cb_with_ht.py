@@ -37,7 +37,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 10
+  DONT_TUNE_UNTIL = 40 
   np.random.seed(100*label)
 
   if test:
@@ -109,9 +109,11 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
     print('sampling candidate models')
 
-    if time_to_tune or bias_only:
-      pi_tilde_0_list_, pi_tilde_1_list_ = env.ipw_weights(env.beta_hat_list, baseline_schedule, actions)
-      beta_hats_, _ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
+    if time_to_tune or (bias_only and t >= DONT_TUNE_UNTIL):
+      # pi_tilde_0_list_, pi_tilde_1_list_ = env.ipw_weights(env.beta_hat_list, baseline_schedule, actions)
+      # beta_hats_, _ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
+      beta_hats_, _ = ht.cb_ipw(env, action_probs)
+      # beta_hats_ = env.beta_hat_list
 
     if time_to_tune:
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
@@ -192,7 +194,20 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
     print(env.estimated_context_cov)
     estimated_means = [np.dot(env.curr_context, b) for b in env.beta_hat_list]
-    action, action_prob = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
+    action, eps = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
+
+    # Compute propensity by bootstrapping observed contexts
+    conditional_action_probs = []
+    for i in range(100):
+      x_i = env.X[np.random.choice(env.X.shape[0])]  
+      best_action = np.dot(env.beta_hat_list[1] - env.beta_hat_list[0], x_i) > 0
+      if best_action == action:
+        conditional_action_prob = (1 - eps) + eps/2
+      else:
+        conditional_action_prob = eps/2
+      conditional_action_probs.append(conditional_action_prob)
+    action_prob = np.mean(conditional_action_probs)
+
     actions.append(action)
     action_probs[action].append(action_prob)
     env.step(action)
@@ -461,6 +476,7 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
   total_t2_probs = [d['total_t2_prob'] for d in results]
   beta_hat_diffs = [d['beta_hats_diff'] for d in results]
   beta_hat_diffs = np.array(beta_hat_diffs).mean(axis=0)
+  pdb.set_trace()
   beta_hat_bias = [float(diff) for diff in beta_hat_diffs]
 
   if save:
@@ -487,7 +503,7 @@ if __name__ == "__main__":
   # BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   for contamination in [0.0]:
-    operating_chars_run(2, contamination, T=T, replicates=36*8, test=False,
+    operating_chars_run(2, contamination, T=T, replicates=36*32, test=False,
                         use_default_tuning_parameter=use_default_tuning_parameter,
                         test_statistic_only=test_statistic_only, bias_only=bias_only)
   # contamination = 0.9

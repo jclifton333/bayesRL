@@ -83,8 +83,7 @@ def mab_epsilon_greedy_policy(estimated_means, standard_errors, number_of_pulls,
     action_prob = greedy_action_prob
   else:
     action_prob = 1 - greedy_action_prob
-  return action, action_prob
-
+  return action, epsilon
 
 def normal_mab_ucb_policy(estimated_means, standard_errors, number_of_pulls, tuning_function,
                       tuning_function_parameter, T, t, env):
