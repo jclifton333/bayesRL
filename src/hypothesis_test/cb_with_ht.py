@@ -377,6 +377,7 @@ def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list
     regret = mu_opt - env.list_of_reward_mus[action]
     cumulative_regret += regret
 
+  pdb.set_trace()
   return {'cumulative_regret': cumulative_regret, 'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'power': powers}
@@ -490,10 +491,10 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 
 if __name__ == "__main__":
   T = 50
-  test = False
+  test = True
   use_default_tuning_parameter = True
-  test_statistic_only = False
-  bias_only = False
+  test_statistic_only = True
+  bias_only = True
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   # BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
