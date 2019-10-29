@@ -14,6 +14,7 @@ sys.path.append(project_dir)
 
 import copy
 import numpy as np
+from sklearn.linear_model import LinearRegression, Ridge
 from scipy.stats import norm
 import src.policies.linear_algebra as la
 from abc import ABCMeta, abstractmethod

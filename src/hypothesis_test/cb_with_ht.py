@@ -37,7 +37,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 40 
+  DONT_TUNE_UNTIL = 10
   np.random.seed(100*label)
 
   if test:
@@ -109,11 +109,15 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     true_model_list = []  # Construct list of candidate models by drawing from sampling dbn
     print('sampling candidate models')
 
-    if time_to_tune or (bias_only and t >= DONT_TUNE_UNTIL):
+    if time_to_tune or bias_only:
       # pi_tilde_0_list_, pi_tilde_1_list_ = env.ipw_weights(env.beta_hat_list, baseline_schedule, actions)
       # beta_hats_, _ = ht.cb_ipw(env, [pi_tilde_0_list_, pi_tilde_1_list_])
-      beta_hats_, _ = ht.cb_ipw(env, action_probs)
-      # beta_hats_ = env.beta_hat_list
+      # beta_hats_, _ = ht.cb_ipw(env, action_probs)
+      lm0 = LinearRegression(fit_intercept=False)
+      lm0.fit(env.X_list[0], env.y_list[0])
+      lm1 = LinearRegression(fit_intercept=False)
+      lm1.fit(env.X_list[1], env.y_list[1])
+      beta_hats_ = [lm0.coef_, lm1.coef_] 
 
     if time_to_tune:
       for draw in range(NUM_CANDIDATE_HYPOTHESES):
@@ -194,20 +198,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
 
     print(env.estimated_context_cov)
     estimated_means = [np.dot(env.curr_context, b) for b in env.beta_hat_list]
-    action, eps = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
-
-    # Compute propensity by bootstrapping observed contexts
-    conditional_action_probs = []
-    for i in range(100):
-      x_i = env.X[np.random.choice(env.X.shape[0])]  
-      best_action = np.dot(env.beta_hat_list[1] - env.beta_hat_list[0], x_i) > 0
-      if best_action == action:
-        conditional_action_prob = (1 - eps) + eps/2
-      else:
-        conditional_action_prob = eps/2
-      conditional_action_probs.append(conditional_action_prob)
-    action_prob = np.mean(conditional_action_probs)
-
+    action, action_prob = policy(estimated_means, None, None, baseline_tuning_function, None, T, t, env)
     actions.append(action)
     action_probs[action].append(action_prob)
     env.step(action)
@@ -231,11 +222,15 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     total_t2_error_prob = float(np.sum(t2_errors)) / number_of_tests
   else:
     total_t1_error_prob = total_t2_error_prob = None
+  lm0 = LinearRegression(fit_intercept=False)
+  lm0.fit(env.X_list[0], env.y_list[0])
+  lm1 = LinearRegression(fit_intercept=False)
+  lm1.fit(env.X_list[1], env.y_list[1])
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_h0': alpha_at_h0, 'bias': float(np.mean(diff_errors)), 
           'total_t1_prob': total_t1_error_prob, 'total_t2_prob': total_t2_error_prob,
-          'beta_hats_diff': np.array(beta_hats_) - np.array(list_of_reward_betas)}
+          'beta_hats_diff': np.array([lm0.coef_, lm1.coef_]) - np.array(list_of_reward_betas)}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -495,10 +490,10 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 
 if __name__ == "__main__":
   T = 50
-  test = True
+  test = False
   use_default_tuning_parameter = True
   test_statistic_only = False
-  bias_only = True
+  bias_only = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   # BASELINE_SCHEDULE = [1.0 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
