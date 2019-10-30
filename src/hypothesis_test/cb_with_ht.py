@@ -181,13 +181,17 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
       print('true diff: {}'.format(true_diff_))
 
       # ToDo: using true context dbn sampler for debugging
-      ht_rejected, test_statistic = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+      # ht_rejected, test_statistic = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+      #                                            number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t],
+      #                                            ht.true_cb_regret,
+      #                                            ht.pre_generate_cb_data, true_context_sampler, feature_function,
+      #                                            mc_reps=mc_reps_for_ht, contamination=contamination,
+      #                                            test_statistic_only=test_statistic_only)
+      ht_rejected, test_statistic = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                                  number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t],
                                                  ht.true_cb_regret,
                                                  ht.pre_generate_cb_data, true_context_sampler, feature_function,
-                                                 mc_reps=mc_reps_for_ht, contamination=contamination,
-                                                 test_statistic_only=test_statistic_only)
-
+                                                 mc_reps=mc_reps_for_ht)
       diff_errors.append(test_statistic - true_diff_)
       print('beta hat: {}'.format(env.beta_hat_list))
 

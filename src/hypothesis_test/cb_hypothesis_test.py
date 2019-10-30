@@ -347,7 +347,7 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
   test_statistic = estimated_baseline_regret - estimated_proposed_regret
 
   if test_statistic < 0:
-    return False
+    return False, test_statistic
   else:
     # get cutoff by searching over possible models
     sampling_dbns = []
@@ -370,11 +370,11 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
     if sampling_dbns:  # If sampling dbns non-empty, compute cutoff
       cutoff = cutoff_for_ht(alpha, sampling_dbns)
       if test_statistic > cutoff:
-        return True
+        return True, test_statistic
       else:
-        return False
+        return False, test_statistic
     else:  # If sampling_dbns empty, use cutoff=0
-      return True
+      return True, test_statistic
 
 
 if __name__ == "__main__":
