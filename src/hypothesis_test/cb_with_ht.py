@@ -37,7 +37,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   :return:
   """
   TUNE_INTERVAL = 5
-  DONT_TUNE_UNTIL = 10
+  DONT_TUNE_UNTIL = 30
   np.random.seed(100*label)
 
   if test:
@@ -181,17 +181,17 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
       print('true diff: {}'.format(true_diff_))
 
       # ToDo: using true context dbn sampler for debugging
-      # ht_rejected, test_statistic = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
-      #                                            number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t],
-      #                                            ht.true_cb_regret,
-      #                                            ht.pre_generate_cb_data, true_context_sampler, feature_function,
-      #                                            mc_reps=mc_reps_for_ht, contamination=contamination,
-      #                                            test_statistic_only=test_statistic_only)
-      ht_rejected, test_statistic = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+      ht_rejected, test_statistic = ht.conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
                                                  number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t],
                                                  ht.true_cb_regret,
                                                  ht.pre_generate_cb_data, true_context_sampler, feature_function,
-                                                 mc_reps=mc_reps_for_ht)
+                                                 mc_reps=mc_reps_for_ht, contamination=contamination,
+                                                 test_statistic_only=test_statistic_only)
+      # ht_rejected, test_statistic = ht.conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_model,
+      #                                            number_of_pulls, t, T, ht.cb_sampling_dbn, alpha_schedule[t],
+      #                                            ht.true_cb_regret,
+      #                                            ht.pre_generate_cb_data, true_context_sampler, feature_function,
+      #                                            mc_reps=mc_reps_for_ht)
       diff_errors.append(test_statistic - true_diff_)
       print('beta hat: {}'.format(env.beta_hat_list))
 
@@ -476,8 +476,8 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
   total_t2_probs = [d['total_t2_prob'] for d in results]
   beta_hat_diffs = [d['beta_hats_diff'] for d in results]
   beta_hat_diffs = np.array(beta_hat_diffs).mean(axis=0)
-  pdb.set_trace()
-  beta_hat_bias = [float(diff) for diff in beta_hat_diffs]
+  # beta_hat_bias = [float(diff) for diff in beta_hat_diffs]
+  beta_hat_bias = None
 
   if save:
     results = {'t1_errors': t1_errors, 'alphas_at_h0': alphas_at_h0,
@@ -495,18 +495,24 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
 
 if __name__ == "__main__":
   T = 50
-  test = True
-  use_default_tuning_parameter = True
-  test_statistic_only = True
-  bias_only = True
+  test = False
+  use_default_tuning_parameter = False
+  test_statistic_only = False
+  bias_only = False
   BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
-  # BASELINE_SCHEDULE = [1.0 for t in range(T)]
+  # BASELINE_SCHEDULE = [0.05 for t in range(T)]
   ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  for contamination in [0.0]:
-    operating_chars_run(2, contamination, T=T, replicates=36*32, test=False,
+  for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
+    operating_chars_run(2, contamination, T=T, replicates=32*8, test=False,
+                        test_statistic_only=test_statistic_only, bias_only=bias_only)
+  BASELINE_SCHEDULE = [0.1 for t in range(T)]
+  ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
+  for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
+    operating_chars_run(2, contamination, T=T, replicates=32*8, test=False,
                         use_default_tuning_parameter=use_default_tuning_parameter,
                         test_statistic_only=test_statistic_only, bias_only=bias_only)
-  # contamination = 0.9
+
+  # # contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
   #                           alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
   #                           use_default_tuning_parameter=True, test_statistic_only=test_statistic_only)

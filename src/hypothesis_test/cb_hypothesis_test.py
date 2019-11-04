@@ -108,15 +108,10 @@ def cb_sampling_dbn(true_model_params_, context_dbn_sampler, feature_function, n
   """
   sampled_model = []
   p = len(true_model_params_[0][0])
-  beta_hats = []
-  XprimeX_invs = []
-  scales = []
-  Xs= []
-  ys = []
   num_actions = len(num_pulls)
   for arm in range(num_actions):
-    beta_for_arm = true_model_params_[0][arm]
-    scale_for_arm = true_model_params_[1][arm]
+    beta_for_arm = true_model_params_[arm][0]
+    scale_for_arm = true_model_params_[arm][1]
     arm_pulls = num_pulls[arm]
 
     contexts = context_dbn_sampler(arm_pulls)  # Draw contexts
@@ -133,13 +128,9 @@ def cb_sampling_dbn(true_model_params_, context_dbn_sampler, feature_function, n
     beta_hat = np.dot(XprimeX_inv, np.dot(context_features.T, y))
 
     # Add parameters for this arm
-    beta_hats.append(beta_hat)
-    scales.append(scale_for_arm)
-    XprimeX_invs.append(XprimeX_inv)
-    Xs.append(context_features)
-    ys.append(y)
+    sampled_model.append([beta_hat, scale_for_arm, XprimeX_inv, context_features, y])
 
-  return [beta_hats, scales, XprimeX_invs, Xs, ys]
+  return sampled_model
 
 
 def cb_regret_sampling_dbn(baseline_policy, proposed_policy, true_model, estimated_model, num_pulls,
