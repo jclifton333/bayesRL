@@ -505,12 +505,12 @@ if __name__ == "__main__":
   for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
     operating_chars_run(2, contamination, T=T, replicates=32*8, test=False,
                         test_statistic_only=test_statistic_only, bias_only=bias_only)
-  BASELINE_SCHEDULE = [0.1 for t in range(T)]
-  ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
-  for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
-    operating_chars_run(2, contamination, T=T, replicates=32*8, test=False,
-                        use_default_tuning_parameter=use_default_tuning_parameter,
-                        test_statistic_only=test_statistic_only, bias_only=bias_only)
+  # BASELINE_SCHEDULE = [0.1 for t in range(T)]
+  # ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
+  # for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
+  #   operating_chars_run(2, contamination, T=T, replicates=32*8, test=False,
+  #                       use_default_tuning_parameter=use_default_tuning_parameter,
+  #                       test_statistic_only=test_statistic_only, bias_only=bias_only)
 
   # # contamination = 0.9
   # episode_partial = partial(operating_chars_episode, policy_name='cb_ht', baseline_schedule=BASELINE_SCHEDULE,
