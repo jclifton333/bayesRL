@@ -27,7 +27,7 @@ class GlucoseTransitionModel():
     self.nPatients = len(X)
     x0 = np.ones(15)/2.0 # initialize the parameters
     x0[8:11] = np.zeros(3)
-    bnds = ((0.0001,2), (4, 13), (0.0001,2), (-2, 2), (0,1), (0,1), (0,1), (0,1), (-20,0),(-1,1),(-1,1),
+    bnds = ((0.0001,None), (0, 20), (0.0001,None), (None, None), (0,1), (0,1), (0,1), (0,1), (-20,20),(-2,2),(-2,2),
             (0.0001,0.9999), (0.0001,0.9999), (0.0001,0.9999), (0.0001,0.9999))
 #    bnds = ((0.0001,2), (7.7,7.7), (1,1), (0,0), (0.14,0.14), (0.2,0.2), (0.02, 0.02), (0.14,0.14), (-10,-10),(0.08,0.08),(0.5,0.5),
 #            (0.2,0.2), (0.2,0.2), (0.2,0.2), (0.35,0.35))
@@ -53,8 +53,9 @@ class GlucoseTransitionModel():
     y_each_patient = X_each_patient[:, 2]
     x = death_prob_coef[0]+death_prob_coef[1]*y_each_patient[:-1]**2*(y_each_patient[:-1]>7)+\
         death_prob_coef[2]*X_each_patient[:-1, 0]
+    x = np.clip(x, -100, 100) ## clip the range of x in case to generate nan values
     prob_c = self.exp_helper(x)
-    prob_c[prob_c==0] = 10**(-9); prob_c[prob_c==1] = 1-10**(-9) ## in case log(0) gives nan
+    prob_c[prob_c==0] = 10**(-9); prob_c[prob_c==1] = 1-10**(-9); ## in case log(0) gives nan
     loglikeli = sum(weight[1:]*(X_each_patient[1:, 5] * np.log(prob_c) + \
                     (1-X_each_patient[1:, 5]) * np.log(1-prob_c)))
     return loglikeli

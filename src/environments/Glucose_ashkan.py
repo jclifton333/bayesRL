@@ -44,6 +44,7 @@ class Glucose(object):
 
     self.s_initials = s_initials
     self.prev_u_t = [self.mu0] * nPatients
+    self.t = None
     
   @staticmethod
   def reward_function(s):
