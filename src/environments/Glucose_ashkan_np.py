@@ -113,6 +113,8 @@ class Glucose_np(object):
     ## death indicator
     A1c_indicator=int(prev_A1c>7)
     x=self.death_prob_coef[0]+self.death_prob_coef[1]*A1c_indicator*(prev_A1c**2)+self.death_prob_coef[2]*prev_NAT
+#    pdb.set_trace()
+    x = np.clip(x, -100, 100) ## clip the range of x in case to generate nan values
     c_t=np.random.binomial(1,self.exp_helper(x),1)
     return c_t
 
