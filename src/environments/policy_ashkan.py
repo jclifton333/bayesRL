@@ -10,9 +10,10 @@ Policy for Glucose-Ashkan model
 
 from Glucose_ashkan import *
 from ashkan_mle import *
+from Glucose_ashkan_np import *
+
 
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 #import matplotlib.pyplot as plt
 from functools import partial
@@ -113,6 +114,12 @@ def rewards_policy(rep, gamma, gamma_type, K, env, T, policy="eps-greedy", epsil
                     rewards_gammas_means = tune_gamma["rewards_gammas_means"]
                     rewards_gammas_means_each_t = np.append(rewards_gammas_means_each_t,rewards_gammas_means)
                     print(t, rewards, gamma)
+                elif gamma_type=="tune_np":
+                    tune_gamma = policy_tune_gamma_np(env, gammas, K, T, rollouts=rollouts, regr=regr)
+                    gamma = tune_gamma["gamma"]
+                    rewards_gammas_means = tune_gamma["rewards_gammas_means"]
+                    rewards_gammas_means_each_t = np.append(rewards_gammas_means_each_t,rewards_gammas_means)
+                    print(t, rewards, gamma)
                 elif gamma_type=="not_tune":
                     gamma = gamma
                 elif gamma_type=="random":
@@ -136,7 +143,7 @@ def rewards_policy(rep, gamma, gamma_type, K, env, T, policy="eps-greedy", epsil
                 mean_rewards += (rewards - mean_rewards) / (t+1)
 #                if not is_rollout:
 #                    pdb.set_trace()
-    if gamma_type == "tune":
+    if gamma_type == "tune" or gamma_type=="tune_np":
         return({'mean_rewards':mean_rewards, 'gammas_used':gammas_used, 
                 'rewards_gammas_means_each_t':rewards_gammas_means_each_t})
     else:
@@ -147,7 +154,7 @@ def policy_tune_gamma(env, gammas, K, T, rollouts, regr):
   rollout_gamma_type = "not_tune"
   rewards_gammas = np.zeros(shape=(rollouts, len(gammas)))
   for i in range(rollouts):
-    print('rollout {}'.format(i))
+#    print('rollout {}'.format(i))
     rep = i
     model_boot = GlucoseTransitionModel()
     model_boot.bootstrap_and_fit_conditional_densities(env.X)
@@ -165,7 +172,27 @@ def policy_tune_gamma(env, gammas, K, T, rollouts, regr):
   return({"gamma":gammas[np.argmax(rewards_gammas_means)], "rewards_gammas_means":rewards_gammas_means})
 
     
-#
+def policy_tune_gamma_np(env, gammas, K, T, rollouts, regr):
+  rollout_gamma_type = "not_tune"
+  rewards_gammas = np.zeros(shape=(rollouts, len(gammas)))
+  for i in range(rollouts):
+#    print('rollout {}'.format(i))
+    rep = i
+    model_boot = GlucoseTransitionModel()
+    model_boot.bootstrap_and_fit_conditional_densities_except_A1c_np(env.X)
+    for j in range(len(gammas)):
+      env_rollout = Glucose_np(nPatients=env.nPatients, regression=model_boot.regression, sd=model_boot.sd, 
+                               sigma_eps = model_boot.sigma_eps, mu0 = model_boot.mu0, sigma_B0_X0_Y0 = model_boot.sigma_B0_X0_Y0, 
+                               mu_B0_X0 = model_boot.mu_B0_X0, prob_L_given_trts = model_boot.prob_L_given_trts,
+                               death_prob_coef=model_boot.death_prob_coef)
+      gamma = gammas[j]
+      rewards_gammas[i,j] = rewards_policy(rep, gamma, rollout_gamma_type, K, env_rollout, 
+                    T, regr=regr, is_rollout=True)["mean_rewards"] 
+#  pdb.set_trace()
+  rewards_gammas_means = np.mean(rewards_gammas, axis=0)
+#  print(rewards_gammas_means)
+  return({"gamma":gammas[np.argmax(rewards_gammas_means)], "rewards_gammas_means":rewards_gammas_means})
+
   
 #reg = regressor(n_estimators=30, n_jobs=7, min_samples_leaf=1)
 #reg.fit(np.hstack((S,A.reshape(len(A), 1))), target)
