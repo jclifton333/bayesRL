@@ -85,6 +85,9 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   action_probs = [[1.0] for a in range(len(list_of_reward_betas))]
   actions = []
   diff_errors = []
+  h1_true_list = []
+  alpha_prods = []
+  t1_error_prods = []
 
   # Data for computing propensities; using Kyle's notation
   pi_tilde_1_inv_sum = 2
@@ -213,13 +216,16 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
         break
     else:
       if time_to_tune:
+        h1_true_list.append(int(1-h0_true))
+        alpha_prods.append(alpha_schedule[t]*h0_true*(T-t))
+        t1_error_prods.append(ht_rejected*h0_true*(T-t))
         if h0_true:
           t1_errors.append(int(ht_rejected))
           alpha_at_h0.append(float(alpha_schedule[t]))
         else:
           t2_errors.append(int(1-ht_rejected))
-        if ht_rejected: # Break as soon as there is a rejection
-          break
+        # if ht_rejected: # Break as soon as there is a rejection
+        #   break
 
   if not bias_only:
     total_t1_error_prob = float(np.sum(t1_errors)) / number_of_tests
@@ -230,11 +236,18 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
   lm0.fit(env.X_list[0], env.y_list[0])
   lm1 = LinearRegression(fit_intercept=False)
   lm1.fit(env.X_list[1], env.y_list[1])
+
+  alpha_prods_cum = np.cumsum(alpha_prods)
+  alpha_prods_cum = [float(ap) for ap in alpha_prods_cum]
+  t1_prods_cum = np.cumsum(t1_error_prods)
+  t1_prods_cum = [float(tp) for tp in t1_prods_cum]
+
   return {'when_hypothesis_rejected': when_hypothesis_rejected,
           'baseline_schedule': baseline_schedule, 'alpha_schedule': alpha_schedule, 'type1': t1_errors,
           'type2': t2_errors, 'alpha_at_h0': alpha_at_h0, 'bias': float(np.mean(diff_errors)), 
           'total_t1_prob': total_t1_error_prob, 'total_t2_prob': total_t2_error_prob,
-          'beta_hats_diff': np.array([lm0.coef_, lm1.coef_]) - np.array(list_of_reward_betas)}
+          'beta_hats_diff': np.array([lm0.coef_, lm1.coef_]) - np.array(list_of_reward_betas),
+          'h1_true_list': h1_true_list, 'alpha_prods_cum': alpha_prods_cum, 't1_prods_cum': t1_prods_cum}
 
 
 def episode(label, policy_name, baseline_schedule, alpha_schedule, std=0.1, list_of_reward_mus=[0.3,0.6], T=50,
@@ -468,15 +481,23 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
       results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
       results += results_for_batch
 
-  t1_errors = []
-  for d in results:
-    t1_errors += d['type1']
-  t2_errors = [e for d in results for e in d['type2']]
-  alphas_at_h0 = [a for d in results for a in d['alpha_at_h0']]
+  t1_errors = [d['type1'] for d in results]
+  t2_errors = [d['type2'] for d in results]
+  alphas_at_h0 = [d['alpha_at_h0'] for d in results]
   biases = [d['bias'] for d in results]
   total_t1_probs = [d['total_t1_prob'] for d in results]
   total_t2_probs = [d['total_t2_prob'] for d in results]
   beta_hat_diffs = [d['beta_hats_diff'] for d in results]
+  h1_true = [d['h1_true_list'] for d in results]
+  t1_prods_cum = [d['t1_prods_cum'] for d in results]
+  alpha_prods_cum = [d['alpha_prods_cum'] for d in results]
+
+  t1_prods_cum_mean = np.array(t1_prods_cum).mean(axis=0)
+  t1_prods_cum_mean = [float(tp) for tp in t1_prods_cum_mean]
+  alpha_prods_cum_mean = np.array(alpha_prods_cum).mean(axis=0)
+  alpha_prods_cum_mean = [float(tp) for tp in alpha_prods_cum_mean]
+  h1_prob = np.array(h1_true).mean(axis=0)
+  h1_prob = [float(p) for p in h1_prob]
   beta_hat_diffs = np.array(beta_hat_diffs).mean(axis=0)
   # beta_hat_bias = [float(diff) for diff in beta_hat_diffs]
   beta_hat_bias = None
@@ -486,7 +507,9 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
                't2_errors': t2_errors, 'bias': float(np.mean(biases)), 
                'total_t1_probs': float(np.mean(total_t1_probs)),
                'total_t2_probs': float(np.mean(total_t2_probs)),
-               'beta_hat_bias': beta_hat_bias}
+               'beta_hat_bias': beta_hat_bias,
+               'h1_true': h1_true, 'h1_prob': h1_prob, 't1_prods_cum': t1_prods_cum_mean,
+               'alpha_prods_cum': alpha_prods_cum_mean}
     base_name = 'eps-cb-contam={}'.format(contamination)
     prefix = os.path.join(project_dir, 'src', 'run', base_name)
     suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
@@ -504,11 +527,11 @@ if __name__ == "__main__":
   bias_only = False
   # BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   BASELINE_SCHEDULE = [0.05 for t in range(T)]
-  ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
+  ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
   for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
-    operating_chars_run(2, contamination, T=T, replicates=32*8, test=False,
-                        test_statistic_only=test_statistic_only, bias_only=bias_only,
-                        list_of_reward_vars=list_of_reward_vars)
+    operating_chars_run(2, contamination, T=T, replicates=48, test=False,
+                      test_statistic_only=test_statistic_only, bias_only=bias_only,
+                      list_of_reward_vars=list_of_reward_vars)
   # BASELINE_SCHEDULE = [0.1 for t in range(T)]
   # ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   # for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:

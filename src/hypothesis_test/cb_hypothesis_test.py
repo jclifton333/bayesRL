@@ -344,7 +344,8 @@ def conduct_cb_ht(baseline_policy, proposed_policy, true_model_list, estimated_m
     sampling_dbns = []
     for true_model in true_model_list:
       # pre-generate data from true_model
-      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, mc_reps)
+      # ToDo: using mc_reps = 1 for sampling dbn
+      pre_generated_data = pre_generate_cb_data(estimated_model, context_dbn_sampler, feature_function, T-t, 1)
 
       # check if true_model is in h0
       true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
