@@ -11,14 +11,14 @@ import copy
 import pickle
 
 def reward_t_T(gamma, env, env_tilde, T, epsilon, K, regr):
-    ## to calculate cumulative rewards from t to T under a model sampled from the sampling dbn of the estimated model:
+    ## to calculate mean rewards from t to T under a model sampled from the sampling dbn of the estimated model:
     ## assign the current states to the env_tilde
     env_tilde.R = copy.deepcopy(env.R); env_tilde.S = copy.deepcopy(env.S)
     env_tilde.X = copy.deepcopy(env.X); env_tilde.A = copy.deepcopy(env.A)
     env_tilde.current_s = copy.deepcopy(env.current_s)
     env_tilde.prev_u_t = copy.deepcopy(env.prev_u_t)
     env_tilde.t = copy.deepcopy(env.t)
-    cum_rewards = 0
+    mean_rewards = []
     for t in np.arange(env_tilde.t, T):
         epsilon_t = epsilon
         if regr=="RF":
@@ -29,17 +29,17 @@ def reward_t_T(gamma, env, env_tilde, T, epsilon, K, regr):
         random_prob = np.random.rand(env.nPatients) 
         est_opt_actions[random_prob < epsilon_t] = actions_random[random_prob < epsilon_t]
         done,_,rewards = env_tilde.step(est_opt_actions)
-        cum_rewards += rewards
+        mean_rewards = np.append(mean_rewards, rewards)
         if done:
             break
-    return cum_rewards
+    return np.mean(mean_rewards)
 
 def ht(gamma0, gamma1, env, T, epsilon, K, regr, B, N, alpha):
     ## gamma0, gamma1: the baseline and proposed schedules
-    model_boot = GlucoseTransitionModel()
-    model_boot.bootstrap_and_fit_conditional_densities(env.X)
-    cum_reward0 = []; cum_reward1 = []
+    mean_reward0 = []; mean_reward1 = []
     for b in range(B):
+        model_boot = GlucoseTransitionModel()
+        model_boot.bootstrap_and_fit_conditional_densities(env.X)
         env_tilde0 = Glucose(nPatients=env.nPatients, sigma_eps = model_boot.sigma_eps, 
                              mu0 = model_boot.mu0, sigma_B0_X0_Y0 = model_boot.sigma_B0_X0_Y0, 
                              mu_B0_X0 = model_boot.mu_B0_X0, prob_L_given_trts = model_boot.prob_L_given_trts,
@@ -48,9 +48,9 @@ def ht(gamma0, gamma1, env, T, epsilon, K, regr, B, N, alpha):
                              mu0 = model_boot.mu0, sigma_B0_X0_Y0 = model_boot.sigma_B0_X0_Y0, 
                              mu_B0_X0 = model_boot.mu_B0_X0, prob_L_given_trts = model_boot.prob_L_given_trts,
                              tau_trts=model_boot.tau_trts, death_prob_coef=model_boot.death_prob_coef)
-        cum_reward0 = np.append(cum_reward0, reward_t_T(gamma0, env, env_tilde0, T, epsilon, K, regr))
-        cum_reward1 = np.append(cum_reward1, reward_t_T(gamma1, env, env_tilde1, T, epsilon, K, regr))
-    rej_prop = np.mean((cum_reward0 - cum_reward1)<0) ## P(delta < 0)
+        mean_reward0 = np.append(mean_reward0, reward_t_T(gamma0, env, env_tilde0, T, epsilon, K, regr))
+        mean_reward1 = np.append(mean_reward1, reward_t_T(gamma1, env, env_tilde1, T, epsilon, K, regr))
+    rej_prop = np.mean((mean_reward0 - mean_reward1)<0) ## P(delta < 0)
     rej_indicator = (rej_prop < alpha)
     
     ## calculate true value under the true model
@@ -62,8 +62,8 @@ def ht(gamma0, gamma1, env, T, epsilon, K, regr, B, N, alpha):
         value1 += reward_t_T(gamma1, env, env_true1, T, epsilon, K, regr)
     value0 /= N; value1 /= N 
     rej_true = ((value0 - value1)<0) ## indicator
-    return({"value0":value0, "value1":value1, "cum_reward0_list":cum_reward0, 
-            "cum_reward1_list":cum_reward1, "rej_indicator":rej_indicator, "rej_true":rej_true})
+    return({"value0":value0, "value1":value1, "mean_reward0_list":mean_reward0, 
+            "mean_reward1_list":mean_reward1, "rej_indicator":rej_indicator, "rej_true":rej_true})
     
 def ht_whole_traj(rep, gamma0, gamma1, env, T, epsilon, K, regr, B=100, N=200, alpha=0.05):
     np.random.seed(rep)
@@ -80,7 +80,7 @@ def ht_whole_traj(rep, gamma0, gamma1, env, T, epsilon, K, regr, B=100, N=200, a
         else:
             print("time step {}".format(t))
             if not rej_indicator:
-                ht_results = ht(gamma0, gamma1, env, T, epsilon, K, regr, B, N, alpha)
+                ht_results = ht(gamma0, gamma1, env, T, epsilon, K, regr, B, N, alpha=0.5/(T-t))
                 ht_list = np.append(ht_list, ht_results)
                 rej_indicator = ht_results["rej_indicator"]     
                 if rej_indicator:
@@ -112,13 +112,13 @@ if __name__ == "__main__":
     nPatients = 100
     env = Glucose(nPatients=nPatients)
     policy = "eps-greedy"
-    epsilon = 0.05; T=10; K=1
+    epsilon = 0.05; T=10; K=1; B=100; N=100
     regr = "RF" 
-    gamma0=0.1; gamma1=0.9
+    gamma0=0.0; gamma1=0.9
 #    results = ht_whole_traj(0, gamma0, gamma1, env, T, epsilon, K, regr, B=10, N=50, alpha=0.05)
     pl = Pool(numCores)
     results = pl.map(partial(ht_whole_traj, gamma0=gamma0, gamma1=gamma1, env=env, T = T,
-                          epsilon=epsilon, K=K, regr=regr, B=100, N=200, alpha=0.05), range(Rep))
+                          epsilon=epsilon, K=K, regr=regr, B=B, N=N, alpha=0.05), range(Rep))
     pl.close()
     ## write results into txt
     with open("Ashkan_HT_"+"gamma0_"+str(gamma0)+"_gamma1_"+str(gamma1)+"_regr_"+str(regr)+"_K_"+str(K)+"_T_"+str(T)+"_nPatients_"+str(env.nPatients)+".txt", "wb") as fp:
@@ -138,4 +138,22 @@ if __name__ == "__main__":
                 total_t1_error += d_each_t['rej_indicator']
     print("T1 error: {}, T2 error: {}, total T1 error: {}".format(np.mean(t1_error), 
           np.mean(t2_error), total_t1_error/total_num_ht))
+    
+    
+#os.chdir("/Users/lwu9/Documents/lab_proj/PE")
+#with open("Ashkan_HT_"+"gamma0_"+str(gamma0)+"_gamma1_"+str(gamma1)+"_regr_"+str(regr)+"_K_"+str(K)+"_T_"+str(T)+"_nPatients_"+str(env.nPatients)+".txt", "rb") as fp:
+#    results = pickle.load(fp)
+#
+#d_each_rep=ht_results[6]
+#for d_each_t in d_each_rep:
+#    print(d_each_t['rej_true'], d_each_t['rej_indicator'], d_each_t['value0']-d_each_t['value1'])
+#
+#for i in range(96):
+#    d_each_rep=ht_results[i]
+#    print(i,  d_each_rep[-1]['rej_indicator'])
+
+    
+    
+
+
 

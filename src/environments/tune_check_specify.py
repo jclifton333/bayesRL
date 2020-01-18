@@ -33,8 +33,8 @@ def run_tuned_check_specify(numCores, Rep, K, env, T, policy, epsilon, fixed_dec
                         gammas=np.arange(0,1.1,0.1)), range(Rep))
     pl.close()
     # write results into txt
-#    with open("Ashkan_"+gamma_type+str(regr)+"_K_"+str(K)+"_T_"+str(T)+"_nPatients_"+str(env.nPatients)+".txt", "wb") as fp:
-#        pickle.dump(tune, fp)
+    with open("Ashkan_"+gamma_type+str(regr)+"_K_"+str(K)+"_T_"+str(T)+"_nPatients_"+str(env.nPatients)+".txt", "wb") as fp:
+        pickle.dump(tune, fp)
     results = [i["mean_rewards"] for i in tune]
     gammas_used = np.vstack([i["gammas_used"] for i in tune])
     print(tune)
@@ -81,14 +81,14 @@ def run_tuned_check_specify(numCores, Rep, K, env, T, policy, epsilon, fixed_dec
 
 
 if __name__ == "__main__":
-    numCores = 50
+    numCores = 86
     Rep=numCores
-    nPatients = 100
+    nPatients = 50
     env = Glucose(nPatients=nPatients)
     policy = "eps-greedy"
     epsilon = 0.05
     fixed_decay = 0
-    rollouts=100
+    rollouts=50
     T=10
     K=1
     regr = "linear" 

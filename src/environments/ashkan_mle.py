@@ -135,6 +135,7 @@ class GlucoseTransitionModel():
           sample_weight = np.append(sample_weight, weight[i][:-1])
       regression = regressor(n_estimators=50, min_samples_leaf=1)
       regression.fit(x, y, sample_weight=sample_weight)
+#      pdb.set_trace()
       y_pred = regression.predict(x)
       sd = np.std(y_pred-y)
       self.sd = sd
@@ -144,7 +145,7 @@ class GlucoseTransitionModel():
     ## taus: paramenters of treatment effect
     ## the function need to be miniized
     sigma_eps, mu0, sigma_B0_X0_Y0, mu_B0_X0 = parameters[:4]
-    death_prob_coef = parameters[8:11]
+    death_prob_coef = parameters[4:7]
     prob_L_given_trts = parameters[-4:]
     log_likelihood = 0
     #pdb.set_trace()
@@ -176,11 +177,13 @@ class GlucoseTransitionModel():
             (0.0001,0.9999), (0.0001,0.9999), (0.0001,0.9999), (0.0001,0.9999))
 #    bnds = ((0.0001,2), (7.7,7.7), (1,1), (0,0), (0.14,0.14), (0.2,0.2), (0.02, 0.02), (0.14,0.14), (-10,-10),(0.08,0.08),(0.5,0.5),
 #            (0.2,0.2), (0.2,0.2), (0.2,0.2), (0.35,0.35))
-    res = minimize(self.joint_loglikeli, x0, method='SLSQP', bounds=bnds)
+    res = minimize(self.joint_loglikeli_except_A1c, x0, method='SLSQP', bounds=bnds)
+#    res = minimize(self.joint_loglikeli_except_A1c, x0, method='L-BFGS-B', bounds=bnds)
     self.sigma_eps, self.mu0, self.sigma_B0_X0_Y0, self.mu_B0_X0 = res.x[:4]
     self.death_prob_coef = res.x[4:7]
     self.prob_L_given_trts = res.x[-4:]
     self.res = res 
+#    pdb.set_trace()
 
   def bootstrap_and_fit_conditional_densities_except_A1c_np(self, X):
     weight = [np.random.exponential(size=X[j].shape[0]) for j in range(len(X))]
