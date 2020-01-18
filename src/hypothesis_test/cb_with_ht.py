@@ -45,7 +45,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     mc_reps_for_ht = 5
   else:
     NUM_CANDIDATE_HYPOTHESES = 100  # Number of candidate null models to consider when conducting ht
-    mc_reps_for_ht = 500
+    mc_reps_for_ht = 100
 
   # Settings
   feature_function = lambda z: z

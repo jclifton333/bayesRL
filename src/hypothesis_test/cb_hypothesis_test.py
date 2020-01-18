@@ -268,7 +268,7 @@ def conduct_approximate_cb_ht(baseline_policy, proposed_policy, true_model_list,
       diff_sampling_dbn = []
       for true_model in true_model_list:  # Assuming true_model_list are draws from approximate sampling dbn
         # Pre-generate data from sampled model
-        pre_generated_data = pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T-t, mc_reps)
+        pre_generated_data = pre_generate_cb_data(true_model, context_dbn_sampler, feature_function, T-t, 1)
 
         # Compute regret at sampled model
         true_baseline_regret = true_cb_regret(baseline_policy, true_model, estimated_model, num_pulls,
