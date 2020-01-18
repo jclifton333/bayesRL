@@ -464,13 +464,14 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
     replicates = num_cpus = 1
     monte_carlo_reps = 5
   else:
-    num_cpus = 36
+    num_cpus = 72
   episode_partial = partial(operating_chars_episode, policy_name='eps-decay', baseline_schedule=BASELINE_SCHEDULE,
                             alpha_schedule=ALPHA_SCHEDULE, contamination=contamination, T=T, test=test,
                             use_default_tuning_parameter=use_default_tuning_parameter,
                             test_statistic_only=test_statistic_only, bias_only=bias_only,
                             list_of_reward_vars=list_of_reward_vars)
-  num_batches = int(replicates / num_cpus)
+  num_reps_per_batch = 24
+  num_batches = int(replicates / num_reps_per_batch)
 
   results = []
   if test or replicates == 1:
@@ -528,8 +529,8 @@ if __name__ == "__main__":
   # BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   BASELINE_SCHEDULE = [0.05 for t in range(T)]
   ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
-  for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:
-    operating_chars_run(2, contamination, T=T, replicates=48, test=False,
+  for contamination in [0.5]:
+    operating_chars_run(2, contamination, T=T, replicates=96, test=False,
                       test_statistic_only=test_statistic_only, bias_only=bias_only,
                       list_of_reward_vars=list_of_reward_vars)
   # BASELINE_SCHEDULE = [0.1 for t in range(T)]
