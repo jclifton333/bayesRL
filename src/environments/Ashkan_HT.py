@@ -65,7 +65,7 @@ def ht(gamma0, gamma1, env, T, epsilon, K, regr, B, N, alpha):
     return({"value0":value0, "value1":value1, "mean_reward0_list":mean_reward0, 
             "mean_reward1_list":mean_reward1, "rej_indicator":rej_indicator, "rej_true":rej_true})
     
-def ht_whole_traj(rep, gamma0, gamma1, env, T, epsilon, K, regr, B=100, N=200, alpha=0.05):
+def ht_whole_traj(rep, gamma0, gamma1, env, T, epsilon, K, regr, alpha,B=100, N=200):
     np.random.seed(rep)
     env.reset()
     mean_rewards = 0
@@ -104,24 +104,71 @@ def ht_whole_traj(rep, gamma0, gamma1, env, T, epsilon, K, regr, B=100, N=200, a
             done,_,rewards = env.step(est_opt_actions)
             mean_rewards += (rewards - mean_rewards) / (t+1)
     return({"mean_rewards":mean_rewards, "gammas_used":gammas_used, "ht_list":ht_list})
-                
+
+def ht_once_traj(rep, gamma0, gamma1, env, T, epsilon, K, regr,alpha, B, N, ht_t=4):
+    ## only do the HT once in a trajectory at time step ht_t
+    np.random.seed(rep)
+    env.reset()
+    mean_rewards = 0
+    actions = np.random.binomial(1,0.5,env.nPatients)
+    done, _, rewards = env.step(actions)
+    gammas_used = []
+    rej_indicator = False
+    ht_list = []
+    for t in range(T):
+        if done:
+            break
+        else:
+            if t == ht_t:
+                ht_results = ht(gamma0, gamma1, env, T, epsilon, K, regr, B, N, alpha=alpha)
+                ht_list = np.append(ht_list, ht_results)
+                rej_indicator = ht_results["rej_indicator"] 
+                if rej_indicator:
+                    gamma = gamma1
+                else:
+                    ## if not reject, follow the baseline gamma0 at t
+                    gamma = gamma0
+            if rej_indicator:
+                gamma=gamma1
+            else:
+                gamma=gamma0
+                    
+            gammas_used = np.append(gammas_used, gamma)
+            ## eps-greedy policy:
+            epsilon_t = epsilon
+            if regr=="RF":
+                est_opt_actions = fitted_q_iteration_mHealth(env, gamma, K)
+            elif regr=="linear":
+                est_opt_actions = linear_rule(env, gamma, K)
+            actions_random = np.random.binomial(1,0.5,env.nPatients)
+            random_prob = np.random.rand(env.nPatients) 
+            est_opt_actions[random_prob < epsilon_t] = actions_random[random_prob < epsilon_t]
+            done,_,rewards = env.step(est_opt_actions)
+            mean_rewards += (rewards - mean_rewards) / (t+1)
+    return({"mean_rewards":mean_rewards, "gammas_used":gammas_used, "ht_list":ht_list})    
+          
                 
 if __name__ == "__main__":
     numCores = 96
     Rep=numCores
-    nPatients = 100
+    nPatients = 500
     env = Glucose(nPatients=nPatients)
     policy = "eps-greedy"
-    epsilon = 0.05; T=10; K=1; B=100; N=100
+    epsilon = 0.05; T=10; K=1; B=200; N=200
     regr = "RF" 
-    gamma0=0.0; gamma1=0.9
+    gamma0=0.0; gamma1=1.0
+    ht_type="once"
 #    results = ht_whole_traj(0, gamma0, gamma1, env, T, epsilon, K, regr, B=10, N=50, alpha=0.05)
     pl = Pool(numCores)
-    results = pl.map(partial(ht_whole_traj, gamma0=gamma0, gamma1=gamma1, env=env, T = T,
-                          epsilon=epsilon, K=K, regr=regr, B=B, N=N, alpha=0.05), range(Rep))
+    if ht_type=="once":
+        results = pl.map(partial(ht_once_traj, gamma0=gamma0, gamma1=gamma1, env=env, T = T,
+                          epsilon=epsilon, K=K, regr=regr, alpha=0.05,B=B, N=N), range(Rep))
+    else:
+        results = pl.map(partial(ht_whole_traj, gamma0=gamma0, gamma1=gamma1, env=env, T = T,
+                          epsilon=epsilon, K=K, regr=regr, alpha=0.05,B=B, N=N), range(Rep))
     pl.close()
     ## write results into txt
-    with open("Ashkan_HT_"+"gamma0_"+str(gamma0)+"_gamma1_"+str(gamma1)+"_regr_"+str(regr)+"_K_"+str(K)+"_T_"+str(T)+"_nPatients_"+str(env.nPatients)+".txt", "wb") as fp:
+    with open("Ashkan_HT_"+ht_type+"_gamma0_"+str(gamma0)+"_gamma1_"+str(gamma1)+"_regr_"+str(regr)+"_K_"+str(K)+"_T_"+str(T)+"_nPatients_"+str(env.nPatients)+".txt", "wb") as fp:
         pickle.dump(results, fp)
 
     t1_error=[]; t2_error=[]; total_t1_error = 0.0; total_num_ht = 0
