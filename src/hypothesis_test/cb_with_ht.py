@@ -45,7 +45,7 @@ def operating_chars_episode(label, policy_name, alpha_schedule, baseline_schedul
     mc_reps_for_ht = 5
   else:
     NUM_CANDIDATE_HYPOTHESES = 100  # Number of candidate null models to consider when conducting ht
-    mc_reps_for_ht = 500
+    mc_reps_for_ht = 100
 
   # Settings
   feature_function = lambda z: z
@@ -479,7 +479,7 @@ def operating_chars_run(label, contamination, T=50, replicates=36, test=False,
   else:
     pool = mp.Pool(processes=num_cpus)
     for batch in range(label*num_batches, (label+1)*num_batches):
-      results_for_batch = pool.map(episode_partial, range(batch*num_cpus, (batch+1)*num_cpus))
+      results_for_batch = pool.map(episode_partial, range(batch*num_reps_per_batch, (batch+1)*num_reps_per_batch))
       results += results_for_batch
 
   t1_errors = [d['type1'] for d in results]
@@ -529,10 +529,10 @@ if __name__ == "__main__":
   # BASELINE_SCHEDULE = [np.max((0.01, 0.5 / (t + 1))) for t in range(T)]
   BASELINE_SCHEDULE = [0.05 for t in range(T)]
   ALPHA_SCHEDULE = [float(0.5 / (T - t)) for t in range(T)]
-  for contamination in [0.5]:
-    operating_chars_run(2, contamination, T=T, replicates=96, test=False,
+  operating_chars_run(3, 0.99, T=T, replicates=96, test=False,
                       test_statistic_only=test_statistic_only, bias_only=bias_only,
                       list_of_reward_vars=list_of_reward_vars)
+
   # BASELINE_SCHEDULE = [0.1 for t in range(T)]
   # ALPHA_SCHEDULE = [float(1.0 / (T - t)) for t in range(T)]
   # for contamination in [0.0, 0.1, 0.5, 0.9, 0.99]:

@@ -25,24 +25,24 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
   :param empirical_dbn:
   :return:
   """
-  # min_, max_ = np.min(empirical_dbn), np.max(empirical_dbn)
-  # quantiles = np.percentile(empirical_dbn, [0.01, 0.99])
-  # bins = np.hstack(([min_], np.linspace(quantiles[0], quantiles[1], 15), [max_]))
-  # if 0 not in bins:
-  #   bins = np.concatenate((bins[np.where(bins < 0)], [0.0], bins[np.where(bins > 0)]))  # Insert 0
+  min_, max_ = np.min(empirical_dbn), np.max(empirical_dbn)
+  quantiles = np.percentile(empirical_dbn, [0.01, 0.99])
+  bins = np.hstack(([min_], np.linspace(quantiles[0], quantiles[1], 15), [max_]))
+  if 0 not in bins:
+    bins = np.concatenate((bins[np.where(bins < 0)], [0.0], bins[np.where(bins > 0)]))  # Insert 0
 
   # # Generate data from prior
   # prior_draws = np.random.normal(scale=1, size=len(empirical_dbn))
-  # # empirical_draws = np.random.normal(loc=np.mean(empirical_dbn), scale=2*np.std(empirical_dbn), size=len(empirical_dbn))
+  empirical_draws = np.random.normal(loc=np.mean(empirical_dbn), scale=2*np.std(empirical_dbn), size=len(empirical_dbn))
 
   # # Get histograms and combine
   # empirical_histogram = np.histogram(empirical_dbn, bins=bins, density=False)
-  # # empirical_histogram = np.histogram(empirical_draws, bins=bins, density=False)
+  empirical_histogram = np.histogram(empirical_draws, bins=bins, density=False)
   # prior_histogram = np.histogram(prior_draws, bins=bins, density=False)
   # # prior_histogram = [np.ones(len(bins)-1)]  # Uniform
 
   # # Get posterior odds ratio
-  # empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])
+  empirical_prob = empirical_histogram[0] / np.sum(empirical_histogram[0])
   # prior_prob = prior_histogram[0] / np.sum(prior_histogram[0])
   # posterior_density = empirical_prob * prior_prob
 
@@ -66,8 +66,9 @@ def approximate_posterior_h0_prob(empirical_dbn, epsilon=0.2, df=3):
     best_null_value = mu_empirical
     # best_null_value = np.max(empirical_prob[np.where(bins <= 0)])
     # best_alt_value = np.max(empirical_prob[np.where(bins[:-1] > 0)])
-    correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
-    # correction = 1 / (1 + (epsilon * best_alt_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass))
+    best_alt_value = mu_empirical
+    # correction = 1 + (epsilon * best_null_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass)
+    correction = 1 / (1 + (epsilon * best_alt_value) / ((1-epsilon)*(1-probability_less_than_0)*total_mass))
   else:
     correction = 1
 
