@@ -1,6 +1,6 @@
 cycler==0.10.0
 h5py==2.8.0
-joblib==0.12.5
+joblib==1.2.0
 kiwisolver==1.0.1
 llvmlite==0.25.0
 matplotlib==3.0.0
